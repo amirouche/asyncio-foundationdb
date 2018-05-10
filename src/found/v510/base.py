@@ -1,6 +1,4 @@
 #
-# base.py
-#
 # This source file was part of the FoundationDB open source project
 # it was forked to implement the Python asyncio bindings in found project.
 # see https://github.com/amirouche/found
