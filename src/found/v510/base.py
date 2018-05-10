@@ -493,3 +493,7 @@ async def open(cluster_file=None):
             db = _databases[(cluster_file, database_name)] = await cluster.open(database_name)
 
         return db
+
+
+def transactional(*args, **kwargs):
+    raise NotImplemented()
