@@ -1,6 +1,7 @@
 import faulthandler
 import pytest
-from found import v510 as fdb
+
+from found import v510 as found
 
 
 faulthandler.enable()
@@ -9,7 +10,7 @@ faulthandler.enable()
 @pytest.mark.asyncio
 async def test_smoke():
     async def wrapper():
-        db = await fdb.open()
+        db = await found.open()
         tx = db._create_transaction()
         tx.set(b'key', b'value')
         await tx.commit()
@@ -21,3 +22,8 @@ async def test_smoke():
 
     out = await wrapper()
     assert out[:] == b'value'
+
+
+def test_pack_unpack():
+    value = ((1, ('abc',)), ('d', 'e', 'f'))
+    assert found.unpack(found.pack(value)) == value
