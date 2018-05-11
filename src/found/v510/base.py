@@ -25,6 +25,7 @@ import six
 import struct
 import threading
 from enum import Enum
+from functools import wraps
 
 from async_generator import async_generator
 from async_generator import yield_
@@ -494,6 +495,24 @@ class Transaction(BaseTransaction):
         )
         await aio_future
 
+    async def _on_error(self, code):
+        fdb_future = lib.fdb_transaction_on_error(self._pointer, code)
+        aio_future = _loop.create_future()
+        handle = ffi.new_handle(aio_future)
+
+        @ffi.callback("void(FDBFuture *, void *)")
+        def callback(fdb_future, aio_future):
+            aio_future = ffi.from_handle(aio_future)
+            error = lib.fdb_future_get_error(fdb_future)
+            if error == 0:
+                _loop.call_soon_threadsafe(aio_future.set_result)
+            else:
+                _loop.call_soon_threadsafe(aio_future.set_exception, FoundError(error))
+            lib.fdb_future_destroy(fdb_future)
+
+        lib.fdb_future_set_callback(fdb_future, callback, handle)
+        await aio_future  # may raise an exception
+
 
 class Database(BaseFound):
 
@@ -604,5 +623,22 @@ async def open(cluster_file=None):
         return db
 
 
-def transactional(*args, **kwargs):
-    raise NotImplemented()
+def transactional(func):
+
+    @wraps(func)
+    async def wrapper(db_or_tx, *args, **kwargs):
+        if isinstance(db_or_tx, Transaction):
+            out = await func(db_or_tx, *args, **kwargs)
+            return out
+        else:
+            tx = db_or_tx._create_transaction()
+            while True:
+                try:
+                    out = await func(tx, *args, **kwargs)
+                    await tx.commit()
+                except FoundError as exc:
+                    await tx._on_error(exc.code)
+                else:
+                    return out
+
+    return wrapper
