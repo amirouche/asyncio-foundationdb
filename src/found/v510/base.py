@@ -306,6 +306,9 @@ def on_transaction_get_range(fdb_future, aio_future):
             out.append((key[:], value[:]))
 
         _loop.call_soon_threadsafe(aio_future.set_result, (out, count[0], more[0]))
+        # since we make copies of the fdb_future result we don't need
+        # to keep around
+        lib.fdb_future_destroy(fdb_future)
     else:
         _loop.call_soon_threadsafe(aio_future.set_exception, FoundError(error))
         lib.fdb_future_destroy(fdb_future)
