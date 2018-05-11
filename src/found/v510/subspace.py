@@ -24,7 +24,7 @@ from found.v510 import range
 from found.v510 import pack_with_versionstamp
 
 
-class Subspace (object):
+class Subspace:
 
     def __init__(self, prefix_tuple=tuple(), raw_prefix=b''):
         self.raw_prefix = pack(prefix_tuple, prefix=raw_prefix)
