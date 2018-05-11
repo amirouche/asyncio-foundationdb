@@ -366,10 +366,7 @@ fdb_error_t fdb_add_network_thread_completion_hook(void (*hook)(void*), void *ho
 
 #pragma pack(push, 4)
 typedef struct keyvalue {
-  const void* key;
-  int key_length;
-  const void* value;
-  int value_length;
+  ...;
 } FDBKeyValue;
 #pragma pack(pop)
 

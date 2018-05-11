@@ -22,6 +22,7 @@ import asyncio
 import atexit
 import logging
 import six
+import struct
 import threading
 from enum import Enum
 
@@ -277,21 +278,31 @@ def on_transaction_get_range_free(fdb_future, total):
 @ffi.callback("void(FDBFuture *, void *)")
 def on_transaction_get_range(fdb_future, aio_future):
     aio_future = ffi.from_handle(aio_future)
-    kvs = ffi.new('void **')
+    kvs = ffi.new('FDBKeyValue **')
     count = ffi.new('int *')
     more = ffi.new('fdb_bool_t *')
     error = lib.fdb_future_get_keyvalue_array(fdb_future, kvs, count, more)
     if error == 0:
         out = list()
-        # total count of buffers for this key-value array
-        total = count[0] * 2
+        # XXX: Because ffi.gc doens't work this time and because
+        # downstream the code expect a real bytes object; for the time
+        # being we do a copy
 
-        free = on_transaction_get_range_free(fdb_future, total)
+        # total count of buffers for this key-value array
+        # total = count[0] * 2
+        # free = on_transaction_get_range_free(fdb_future, total)
 
         for kv in kvs[0][0:count[0]]:
-            key = ffi.gc(ffi.buffer(kv.key, kv.key_length), free)
-            value = ffi.gc(ffi.buffer(kv.value, kv.value_length), free)
-            out.append((key, value))
+            # XXX: manual unpacking because cffi doesn't known about packing
+            # https://bitbucket.org/cffi/cffi/issues/364/make-packing-configureable
+            memory = ffi.buffer(ffi.addressof(kv), 24)
+            key_ptr, key_length, value_ptr, value_length = struct.unpack('=qiqi', memory)
+            key = ffi.buffer(ffi.cast('char *', key_ptr), key_length)
+            value = ffi.buffer(ffi.cast('char *', value_ptr), value_length)
+            # key = ffi.gc(key, free)
+            # value = ffi.gc(value, free)
+            # XXX: make a copy
+            out.append((key[:], value[:]))
 
         _loop.call_soon_threadsafe(aio_future.set_result, (out, count[0], more[0]))
     else:
@@ -305,7 +316,7 @@ def get_key(obj):
         key = obj.as_foundationdb_key()
     except AttributeError:
         key = obj
-    assert isinstance(key, bytes)
+    # assert isinstance(key, bytes)
     return key
 
 
@@ -436,9 +447,9 @@ class BaseTransaction(BaseFound):
                         return
                 # re-compute the range
                 if reverse:
-                    end = KeySelector.first_greater_or_equal(kvs[-1].key)
+                    end = KeySelector.first_greater_or_equal(kvs[-1][0])
                 else:
-                    begin = KeySelector.first_greater_than(kvs[-1].key)
+                    begin = KeySelector.first_greater_than(kvs[-1][0])
                 # loop!
 
         return iter_()

@@ -43,4 +43,6 @@ async def test_range():
         out.append(item)
     await tx.commit()
 
-    assert out == range(10)[1:-1]
+    for (key, value), index in zip(out, range(10)[1:-1]):
+        assert found.unpack(key)[0] == index
+        assert found.unpack(value)[0] == str(index)
