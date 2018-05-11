@@ -402,13 +402,14 @@ class BaseTransaction(BaseFound):
             reverse=False,
             mode=StreamingMode.ITERATOR):
 
-        def default(key):
-            return KeySelector.first_greater_or_equal(key)
-
         @async_generator
         async def iter_():
             nonlocal begin
             nonlocal end
+
+            def default(key):
+                return KeySelector.first_greater_or_equal(key)
+
             # begin and end can be None, anyway convert to a KeySelector
             begin = default(b'') if begin is None else begin if isinstance(begin, KeySelector) else default(begin)  # noqa
             end = default(b'\xff') if end is None else end if isinstance(end, KeySelector) else default(end)  # noqa
