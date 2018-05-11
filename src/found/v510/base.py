@@ -25,6 +25,9 @@ import six
 import threading
 from enum import Enum
 
+from async_generator import async_generator
+from async_generator import yield_
+
 import found
 from found._fdb_c import lib
 from found._fdb_c import ffi
@@ -147,7 +150,7 @@ def _stop_network():
 class KeySelector:
 
     def __init__(self, key, or_equal, offset):
-        self.key = key
+        self.key = get_key(key)
         self.or_equal = or_equal
         self.offset = offset
 
@@ -244,6 +247,7 @@ def on_transaction_get_key(fdb_future, aio_future):
         # TODO: what happens when there is no such key
         buffer = ffi.buffer(key[0], key_length[0])
 
+        # TODO: do something like on_transaction_get_range_free
         def free(_):
             # XXX: the destruction of the future is delayed until
             # there is no more references to the value. Hope it works!
@@ -251,6 +255,45 @@ def on_transaction_get_key(fdb_future, aio_future):
 
         out = ffi.gc(buffer, free)
         _loop.call_soon_threadsafe(aio_future.set_result, out)
+    else:
+        _loop.call_soon_threadsafe(aio_future.set_exception, FoundError(error))
+        lib.fdb_future_destroy(fdb_future)
+
+
+def on_transaction_get_range_free(fdb_future, total):
+    # XXX: factory function that should allow to keep around a
+    # lightweight closure around free function instead of the whole
+    # on_transaction_get_range bazaar. Hope it works!
+
+    def free(_):
+        nonlocal total
+        total -= 1
+        if total == 0:
+            lib.fdb_future_destroy(fdb_future)
+
+    return free
+
+
+@ffi.callback("void(FDBFuture *, void *)")
+def on_transaction_get_range(fdb_future, aio_future):
+    aio_future = ffi.from_handle(aio_future)
+    kvs = ffi.new('void **')
+    count = ffi.new('int *')
+    more = ffi.new('fdb_bool_t *')
+    error = lib.fdb_future_get_keyvalue_array(fdb_future, kvs, count, more)
+    if error == 0:
+        out = list()
+        # total count of buffers for this key-value array
+        total = count[0] * 2
+
+        free = on_transaction_get_range_free(fdb_future, total)
+
+        for kv in kvs[0][0:count[0]]:
+            key = ffi.gc(ffi.buffer(kv.key, kv.key_length), free)
+            value = ffi.gc(ffi.buffer(kv.value, kv.value_length), free)
+            out.append((key, value))
+
+        _loop.call_soon_threadsafe(aio_future.set_result, (out, count[0], more[0]))
     else:
         _loop.call_soon_threadsafe(aio_future.set_exception, FoundError(error))
         lib.fdb_future_destroy(fdb_future)
@@ -336,14 +379,69 @@ class BaseTransaction(BaseFound):
         out = await aio_future
         return out
 
-    async def get_range(
+    def get_range(
             self,
             begin,
             end,
             limit=0,
             reverse=False,
             mode=StreamingMode.ITERATOR):
-        raise NotImplemented()
+
+        def default(key):
+            return KeySelector.first_greater_or_equal(key)
+
+        @async_generator
+        async def iter_():
+            nonlocal begin
+            nonlocal end
+            # begin and end can be None, anyway convert to a KeySelector
+            begin = default(b'') if begin is None else begin if isinstance(begin, KeySelector) else default(begin)  # noqa
+            end = default(b'\xff') if end is None else end if isinstance(end, KeySelector) else default(end)  # noqa
+            iteration = 1  # Why one?!
+            seen = 0
+            snapshot = self._snapshot
+            while True:
+                fdb_future = lib.fdb_transaction_get_range(
+                    self._pointer,
+                    begin.key,
+                    len(begin.key),
+                    begin.or_equal,
+                    begin.offset,
+                    end.key,
+                    len(end.key),
+                    end.or_equal,
+                    end.offset,
+                    limit,
+                    0,
+                    mode.value,
+                    iteration,  # what's is its purpose?
+                    snapshot,
+                    reverse,
+                )
+                aio_future = _loop.create_future()
+                handle = ffi.new_handle(aio_future)
+                lib.fdb_future_set_callback(fdb_future, on_transaction_get_range, handle)
+                kvs, count, more = await aio_future
+
+                if count == 0:
+                    return
+
+                for kv in kvs:
+                    await yield_(kv)
+
+                    # it seems like fdb client can return more than what is
+                    # requested, so we count ourselves
+                    seen += 1
+                    if limit > 0 and seen == limit:
+                        return
+                # re-compute the range
+                if reverse:
+                    end = KeySelector.first_greater_or_equal(kvs[-1].key)
+                else:
+                    begin = KeySelector.first_greater_than(kvs[-1].key)
+                # loop!
+
+        return iter_()
 
     async def get_range_startswith(
             self,
