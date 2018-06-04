@@ -120,6 +120,7 @@ class HighContentionAllocator:
 
 
 class Directory(object):
+
     def __init__(self, directory_layer, path=(), layer=b''):
         self._directory_layer = directory_layer
         self._path = path
@@ -149,7 +150,11 @@ class Directory(object):
     def move(self, tr, old_path, new_path):
         old_path = self._tuplify_path(old_path)
         new_path = self._tuplify_path(new_path)
-        return self._directory_layer.move(tr, self._partition_subpath(old_path), self._partition_subpath(new_path))
+        return self._directory_layer.move(
+            tr,
+            self._partition_subpath(old_path),
+            self._partition_subpath(new_path)
+        )
 
     @transactional
     def move_to(self, tr, new_absolute_path):
@@ -160,7 +165,11 @@ class Directory(object):
         if partition_path != directory_layer._path:
             raise ValueError("Cannot move between partitions.")
 
-        return directory_layer.move(tr, self._path[partition_len:], new_absolute_path[partition_len:])
+        return directory_layer.move(
+            tr,
+            self._path[partition_len:],
+            new_absolute_path[partition_len:]
+        )
 
     @transactional
     def remove(self, tr, path=()):
@@ -466,7 +475,7 @@ class DirectoryLayer(Directory):
 
         if version[0] > self.VERSION[0]:
             msg = "Cannot load directory with version %d.%d.%d using directory layer %d.%d.%d"
-            msg = msg x% (version + self.VERSION)
+            msg = msg % (version + self.VERSION)
             raise Exception(msg)
 
         if version[1] > self.VERSION[1] and write_access:
