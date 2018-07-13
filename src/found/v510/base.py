@@ -321,7 +321,7 @@ def get_key(obj):
         key = obj.as_foundationdb_key()
     except AttributeError:
         key = obj
-    # assert isinstance(key, bytes)
+    assert isinstance(key, bytes)
     return key
 
 
