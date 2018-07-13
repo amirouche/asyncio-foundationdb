@@ -46,7 +46,7 @@ class BaseFound:
     pass
 
 
-class FoundException(Exception, BaseFound):
+class FoundException(Exception):
     """Base class for all found exceptions"""
     pass
 
