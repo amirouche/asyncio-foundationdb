@@ -55,6 +55,7 @@ class FoundError(FoundException):
     """Exception raised when FoundationDB API call returns an error"""
 
     def __init__(self, code):
+        super().__init__(code)
         self.code = code
 
     def __str__(self):
