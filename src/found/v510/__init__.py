@@ -33,5 +33,6 @@ __all__ = [
     pack_with_versionstamp,
     unpack,
     range,
-    Subspace
+    Subspace,
+    transactional,
 ]
