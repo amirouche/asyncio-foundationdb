@@ -1,0 +1,2 @@
+[run]
+omit = found/build_found.py

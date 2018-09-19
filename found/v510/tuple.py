@@ -464,33 +464,6 @@ def range(t):
     return slice(p + b"\x00", p + b"\xff")
 
 
-def _code_for(value):
-    if value == None:
-        return NULL_CODE
-    elif isinstance(value, bytes):
-        return BYTES_CODE
-    elif isinstance(value, six.text_type):
-        return STRING_CODE
-    elif (not hasattr(fdb, "_version") or fdb._version >= 500) and isinstance(
-        value, bool
-    ):
-        return FALSE_CODE
-    elif isinstance(value, six.integer_types):
-        return INT_ZERO_CODE
-    elif isinstance(value, ctypes.c_float) or isinstance(value, SingleFloat):
-        return FLOAT_CODE
-    elif isinstance(value, ctypes.c_double) or isinstance(value, float):
-        return DOUBLE_CODE
-    elif isinstance(value, uuid.UUID):
-        return UUID_CODE
-    elif isinstance(value, Versionstamp):
-        return VERSIONSTAMP_CODE
-    elif isinstance(value, tuple) or isinstance(value, list):
-        return NESTED_CODE
-    else:
-        raise ValueError("Unsupported data type: " + str(type(value)))
-
-
 def _compare_floats(f1, f2):
     sign1 = int(math.copysign(1, f1))
     sign2 = int(math.copysign(1, f2))
@@ -510,50 +483,3 @@ def _compare_floats(f1, f2):
     bytes1 = struct.pack(">d", f1)
     bytes2 = struct.pack(">d", f2)
     return sign1 * (-1 if bytes1 < bytes2 else 0 if bytes1 == bytes2 else 1)
-
-
-def _compare_values(value1, value2):
-    code1 = _code_for(value1)
-    code2 = _code_for(value2)
-
-    if code1 < code2:
-        return -1
-    elif code1 > code2:
-        return 1
-
-    # Compatible types.
-    if code1 == NULL_CODE:
-        return 0
-    elif code1 == STRING_CODE:
-        encoded1 = value1.encode("utf-8")
-        encoded2 = value2.encode("utf-8")
-        return -1 if encoded1 < encoded2 else 0 if encoded1 == encoded2 else 1
-    elif code1 == FLOAT_CODE:
-        f1 = value1 if isinstance(value1, SingleFloat) else SingleFloat(value1.value)
-        f2 = value2 if isinstance(value2, SingleFloat) else SingleFloat(value2.value)
-        return -1 if f1 < f2 else 0 if f1 == f2 else 1
-    elif code1 == DOUBLE_CODE:
-        d1 = value1.value if isinstance(value1, ctypes.c_double) else value1
-        d2 = value2.value if isinstance(value2, ctypes.c_double) else value2
-        return _compare_floats(d1, d2)
-    elif code1 == NESTED_CODE:
-        return compare(value1, value2)
-    else:
-        # Booleans, UUIDs, integers, and Versionstamps can just use standard comparison.
-        return -1 if value1 < value2 else 0 if value1 == value2 else 1
-
-
-# compare element by element and return -1 if t1 < t2 or 1 if t1 > t2 or 0 if t1 == t2
-def compare(t1, t2):
-    i = 0
-    while i < len(t1) and i < len(t2):
-        c = _compare_values(t1[i], t2[i])
-        if c != 0:
-            return c
-        i += 1
-    if i < len(t1):
-        return 1
-    elif i < len(t2):
-        return -1
-    else:
-        return 0

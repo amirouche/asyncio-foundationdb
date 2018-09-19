@@ -21,7 +21,7 @@ check: ## Run tests
 	@echo "\033[95m\n\nYou may now run 'make lint' or 'make coverage'.\n\033[0m"
 
 coverage: ## Code coverage
-	pipenv run py.test -vv --cov-config .coveragerc --cov-report term --cov-report html --cov-report xml --cov=found tests.py
+	pipenv run py.test -vv --cov-config .coveragerc --cov-report term --cov-report html --cov-report xml --cov=found/ tests.py
 	make database-clear
 
 help: ## This help.
