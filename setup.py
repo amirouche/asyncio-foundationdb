@@ -24,7 +24,7 @@ setup(
         "Programming Language :: Python :: 3",
     ],
     packages=find_packages(),
-    install_requires=["cffi>=1.0.0", "async_generator"],
+    install_requires=["cffi>=1.0.0"],
     setup_requires=["cffi>=1.0.0"],
     cffi_modules=["./found/build_found.py:ffi"],
 )

@@ -27,9 +27,6 @@ import threading
 from enum import Enum
 from functools import wraps
 
-from async_generator import async_generator
-from async_generator import yield_
-
 import found
 from found._fdb import lib
 from found._fdb import ffi
@@ -383,79 +380,74 @@ class BaseTransaction(BaseFound):
         out = await aio_future
         return out
 
-    def get_range(
+    async def get_range(
         self, begin, end, limit=0, reverse=False, mode=StreamingMode.ITERATOR
     ):
-        @async_generator
-        async def iter_():
-            nonlocal begin
-            nonlocal end
+        out = []
 
-            def default(key):
-                return KeySelector.first_greater_or_equal(key)
+        def default(key):
+            return KeySelector.first_greater_or_equal(key)
 
-            # begin and end can be None, anyway convert to a KeySelector
-            begin = (
-                default(b"")
-                if begin is None
-                else begin
-                if isinstance(begin, KeySelector)
-                else default(begin)
-            )  # noqa
-            end = (
-                default(b"\xff")
-                if end is None
-                else end
-                if isinstance(end, KeySelector)
-                else default(end)
-            )  # noqa
-            iteration = 1  # Why one?!
-            seen = 0
-            snapshot = self._snapshot
-            while True:
-                fdb_future = lib.fdb_transaction_get_range(
-                    self._pointer,
-                    begin.key,
-                    len(begin.key),
-                    begin.or_equal,
-                    begin.offset,
-                    end.key,
-                    len(end.key),
-                    end.or_equal,
-                    end.offset,
-                    limit,
-                    0,
-                    mode.value,
-                    iteration,  # what's is its purpose?
-                    snapshot,
-                    reverse,
-                )
-                aio_future = _loop.create_future()
-                handle = ffi.new_handle(aio_future)
-                lib.fdb_future_set_callback(
-                    fdb_future, on_transaction_get_range, handle
-                )
-                kvs, count, more = await aio_future
+        # begin and end can be None, anyway convert to a KeySelector
+        begin = (
+            default(b"")
+            if begin is None
+            else begin
+            if isinstance(begin, KeySelector)
+            else default(begin)
+        )  # noqa
+        end = (
+            default(b"\xff")
+            if end is None
+            else end
+            if isinstance(end, KeySelector)
+            else default(end)
+        )  # noqa
+        iteration = 1  # TODO: Why one?!
+        seen = 0
+        snapshot = self._snapshot
+        while True:
+            fdb_future = lib.fdb_transaction_get_range(
+                self._pointer,
+                begin.key,
+                len(begin.key),
+                begin.or_equal,
+                begin.offset,
+                end.key,
+                len(end.key),
+                end.or_equal,
+                end.offset,
+                limit,
+                0,
+                mode.value,
+                iteration,  # TODO: what's is its purpose?
+                snapshot,
+                reverse,
+            )
+            aio_future = _loop.create_future()
+            handle = ffi.new_handle(aio_future)
+            lib.fdb_future_set_callback(
+                fdb_future, on_transaction_get_range, handle
+            )
+            kvs, count, more = await aio_future
 
-                if count == 0:
+            if count == 0:
+                return out
+
+            for kv in kvs:
+                out.append(kv)
+
+                # XXX: it seems like fdb client can return more than
+                # what is requested, so we count ourselves
+                seen += 1
+                if limit > 0 and seen == limit:
                     return
-
-                for kv in kvs:
-                    await yield_(kv)
-
-                    # it seems like fdb client can return more than what is
-                    # requested, so we count ourselves
-                    seen += 1
-                    if limit > 0 and seen == limit:
-                        return
-                # re-compute the range
-                if reverse:
-                    end = KeySelector.first_greater_or_equal(kvs[-1][0])
-                else:
-                    begin = KeySelector.first_greater_than(kvs[-1][0])
-                # loop!
-
-        return iter_()
+            # re-compute the range
+            if reverse:
+                end = KeySelector.first_greater_or_equal(kvs[-1][0])
+            else:
+                begin = KeySelector.first_greater_than(kvs[-1][0])
+            # loop!
 
     async def get_range_startswith(
         self, prefix, limit=0, reverse=False, mode=StreamingMode.ITERATOR

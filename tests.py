@@ -53,8 +53,7 @@ async def test_range():
 
     tr = db._create_transaction()
     out = list()
-    async for item in tr.get_range(fdb.pack((1,)), fdb.pack((8,))):
-        out.append(item)
+    items = await tr.get_range(fdb.pack((1,)), fdb.pack((8,)))
     await tr.commit()
 
     # check
