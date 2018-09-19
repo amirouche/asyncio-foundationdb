@@ -1,9 +1,26 @@
 sudo: required
 language: python
 cache: pip
-python: 3.6
 install: make
-script: make check
+
+jobs:
+  include:
+    - stage: test
+      python: '3.5'
+      script:
+        - make check
+    - stage: test
+      python: '3.6'
+      script:
+        - make check
+    - stage: test
+      sudo: true
+      dist: xenial
+      python: '3.7'
+      script:
+        - make check
+
+
 after_success:
   - make coverage
   - codecov
