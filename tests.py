@@ -6,7 +6,7 @@ from found.v510 import base
 
 
 def test_pack_unpack():
-    value = ((1, ("abc",)), ("d", "e", "f"))
+    value = ((None, b'x42', 1, -1, 3.1415, -3.1415, ( "abc",)), ("d", "e", "f"), 2.718281828459045)
     assert fdb.unpack(fdb.pack(value)) == value
 
 
