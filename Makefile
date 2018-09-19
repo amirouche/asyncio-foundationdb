@@ -48,4 +48,4 @@ xxx: ## Things that require attention
 
 release: doc coverage ## Prepare a release
 	python setup.py sdist bdist_wheel
-	@echo "\033[95m\n\nBuild successful! You can now run 'python setup.py upload'.\n\033[0m"
+	@echo "\033[95m\n\nBuild successful! You can now run 'python setup.py sdist upload'.\n\033[0m"
