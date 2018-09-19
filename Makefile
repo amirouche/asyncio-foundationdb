@@ -32,7 +32,7 @@ lint: ## Lint the code
 
 doc: ## Build the documentation
 	cd doc && make html
-	@echo "\033[95m\n\nBuild successful! View the docs homepage at doc/_build/html/index.html.\n\033[0m"
+	@echo "\033[95m\n\nBuild successful! View the docs homepage at doc/build/html/index.html.\n\033[0m"
 
 clean: ## Clean up
 	git clean -fX
