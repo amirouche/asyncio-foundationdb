@@ -197,7 +197,7 @@ class Versionstamp(object):
 
 
 def _decode(v, pos):
-    code = six.indexbytes(v, pos)
+    code = v[pos]
     if code == NULL_CODE:
         return None, pos + 1
     elif code == BYTES_CODE:

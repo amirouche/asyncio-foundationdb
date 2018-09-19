@@ -102,7 +102,7 @@ def ensure_version():
     elif found.CURRENT_LOADED_VERSION != CLIENT_VERSION:
         msg = "found already loaded with for a different version "
         raise RuntimeError(msg)
-    log.info('found configured to use client API %s', CLIENT_VERSION)
+    log.debug('found configured to use client API %s', CLIENT_VERSION)
     return True
 
 
@@ -210,19 +210,14 @@ def on_transaction_get(fdb_future, aio_future):
     value_length = ffi.new('int *')
     error = lib.fdb_future_get_value(fdb_future, present, value, value_length)
     if error == 0:
-        if present == 0:
+        if present[0] == 0:
             _loop.call_soon_threadsafe(aio_future.set_result, None)
             lib.fdb_future_destroy(fdb_future)
         else:
-            # TODO: maybe wrap in a factory to keep the closure lightweight
-            def free(_):
-                # XXX: the destruction of the future is delayed until
-                # there is no more references to the value. Hope it works!
-                lib.fdb_future_destroy(fdb_future)
-
-            handle = ffi.gc(value[0], free)
-            out = ffi.buffer(handle, value_length[0])
+            # XXX: https://bitbucket.org/cffi/cffi/issues/380/ffibuffer-position-returns-a-buffer
+            out = bytes(ffi.buffer(value[0], value_length[0]))
             _loop.call_soon_threadsafe(aio_future.set_result, out)
+            lib.fdb_future_destroy(fdb_future)
     else:
         _loop.call_soon_threadsafe(aio_future.set_exception, FoundError(error))
         lib.fdb_future_destroy(fdb_future)
@@ -488,6 +483,24 @@ class Transaction(BaseTransaction):
         key = get_key(key)
         value = get_value(value)
         lib.fdb_transaction_set(self._pointer, key, len(key), value, len(value))
+
+    def clear(self, key):
+        if isinstance(key, KeySelector):
+            key = get_key(key)
+        lib.fdb_transaction_clear(self._pointer, key, len(key))
+
+    def clear_range(self, begin, end):
+        if isinstance(begin, KeySelector):
+            begin = get_key(begin)
+        if isinstance(end, KeySelector):
+            end = get_key(end)
+        lib.fdb_transaction_clear_range(
+            self._pointer,
+            begin,
+            len(begin),
+            end,
+            len(end)
+        )
 
     async def commit(self):
         fdb_future = lib.fdb_transaction_commit(self._pointer)
