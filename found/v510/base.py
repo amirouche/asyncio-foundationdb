@@ -239,29 +239,6 @@ def on_transaction_commit(fdb_future, aio_future):
         lib.fdb_future_destroy(fdb_future)
 
 
-@ffi.callback("void(FDBFuture *, void *)")
-def on_transaction_get_key(fdb_future, aio_future):
-    aio_future = ffi.from_handle(aio_future)
-    key = ffi.new("int8_t **")
-    key_length = ffi.new("int *")
-    error = lib.fdb_future_get_key(fdb_future, key, key_length)
-    if error == 0:
-        # TODO: what happens when there is no such key
-        buffer = ffi.buffer(key[0], key_length[0])
-
-        # TODO: do something like on_transaction_get_range_free
-        def free(_):
-            # XXX: the destruction of the future is delayed until
-            # there is no more references to the value. Hope it works!
-            lib.fdb_future_destroy(fdb_future)
-
-        out = ffi.gc(buffer, free)
-        _loop.call_soon_threadsafe(aio_future.set_result, out)
-    else:
-        _loop.call_soon_threadsafe(aio_future.set_exception, FoundError(error))
-        lib.fdb_future_destroy(fdb_future)
-
-
 def on_transaction_get_range_free(fdb_future, total):
     # XXX: factory function that should allow to keep around a
     # lightweight closure around free function instead of the whole
@@ -366,22 +343,6 @@ class BaseTransaction(BaseFound):
         aio_future = _loop.create_future()
         handle = ffi.new_handle(aio_future)
         lib.fdb_future_set_callback(fdb_future, on_transaction_get, handle)
-        out = await aio_future
-        return out
-
-    async def get_key(self, key_selector):
-        key = get_key(key_selector.key)
-        fdb_future = lib.fdb_transaction_get_key(
-            self._pointer,
-            key,
-            len(key),
-            key_selector.or_equal,
-            key_selector.offset,
-            self._snapshot,
-        )
-        aio_future = _loop.create_future()
-        handle = ffi.new_handle(aio_future)
-        lib.fdb_future_set_callback(fdb_future, on_transaction_get_key, handle)
         out = await aio_future
         return out
 
