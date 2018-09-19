@@ -86,3 +86,16 @@ async def test_strinc_range():
     everything = await tr.get_range(prefix_zero, fdb.strinc(prefix_zero))
     await tr.commit()
     assert len(everything) == 3
+
+@pytest.mark.asyncio
+async def test_read_version():
+    # prepare
+    db = await open()
+
+    # exec
+    tr = db._create_transaction()
+    out = await tr.read_version()
+    await tr.commit()
+
+    # check
+    assert out

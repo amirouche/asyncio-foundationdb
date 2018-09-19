@@ -197,7 +197,7 @@ class StreamingMode(Enum):
 @ffi.callback("void(FDBFuture *, void *)")
 def on_transaction_get_read_version(fdb_future, aio_future):
     aio_future = ffi.from_handle(aio_future)
-    pointer = ffi.new("int64 *")
+    pointer = ffi.new("int64_t *")
     error = lib.fdb_future_get_version(fdb_future, pointer)
     if error == 0:
         _loop.call_soon_threadsafe(aio_future.set_result, pointer[0])
