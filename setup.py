@@ -14,8 +14,6 @@ setup(
     name="python-found",
     version=VERSION,
     description="asyncio drivers for FoundationDB",
-    long_description=open("README.md", "rt").read(),
-    long_description_content_type="text/markdown",
     url="https://github.com/amirouche/found/",
     author="Amirouche BOUBEKKI",
     author_email="amirouche.boubekki@gmail.com",
