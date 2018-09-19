@@ -178,6 +178,11 @@ class KeySelector:
     def first_greater_or_equal(cls, key):
         return cls(key, False, 1)
 
+    def __repr__(self):
+        msg = "<KeySelector key=%r or_equal=%r offset=%r>"
+        msg = msg % (self.key, self.or_equal, self.offset)
+        return msg
+
 
 class StreamingMode(Enum):
     WANT_ALL = -2
