@@ -58,3 +58,31 @@ async def test_range():
     for (key, value), index in zip(out, range(10)[1:-1]):
         assert fdb.unpack(key)[0] == index
         assert fdb.unpack(value)[0] == str(index)
+
+
+@pytest.mark.asyncio
+async def test_strinc_range():
+    # prepare
+    db = await open()
+    tr = db._create_transaction()
+
+    # exec
+    prefix_zero = b'\x00'
+    tr.set(prefix_zero + b'\x01', fdb.pack((1,)))
+    tr.set(prefix_zero + b'\x02', fdb.pack((2,)))
+    tr.set(prefix_zero + b'\x03', fdb.pack((3,)))
+    prefix_one = b'\x01'
+    tr.set(prefix_one + b'\x42', fdb.pack((42,)))
+    await tr.commit()
+
+    # check
+    tr = db._create_transaction()
+    everything = await tr.get_range(None, None)
+    await tr.commit()
+    assert len(everything) == 4
+
+    # check
+    tr = db._create_transaction()
+    everything = await tr.get_range(prefix_zero, fdb.strinc(prefix_zero))
+    await tr.commit()
+    assert len(everything) == 3
