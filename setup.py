@@ -5,6 +5,7 @@ import sys
 
 from setuptools import setup, find_packages
 
+
 os.chdir(os.path.dirname(sys.argv[0]) or ".")
 
 from found import VERSION
@@ -14,6 +15,7 @@ setup(
     name="python-found",
     version=VERSION,
     description="asyncio drivers for FoundationDB",
+    long_description=open("README.rst", "rt").read(),
     url="https://github.com/amirouche/found/",
     author="Amirouche BOUBEKKI",
     author_email="amirouche.boubekki@gmail.com",
