@@ -419,7 +419,8 @@ class BaseTransaction(BaseFound):
         self, prefix, limit=0, reverse=False, mode=StreamingMode.ITERATOR
     ):
         prefix = get_key(prefix)
-        return self.get_range(prefix, strinc(prefix), limit, reverse, mode)
+        out = await self.get_range(prefix, strinc(prefix), limit, reverse, mode)
+        return out
 
 
 class Transaction(BaseTransaction):
