@@ -29,7 +29,6 @@ async def test_get():
     # preapre
     db = await open()
     tr = db._create_transaction()
-    tr.clear_range(b"\b00", b"\xff")
 
     #
     out = await tr.get(b"test")
@@ -44,7 +43,6 @@ async def test_range():
     # prepare
     db = await open()
     tr = db._create_transaction()
-    tr.clear_range(b"", b"\xff")
 
     # exec
     for number in range(10):
@@ -52,11 +50,11 @@ async def test_range():
     await tr.commit()
 
     tr = db._create_transaction()
-    out = list()
-    items = await tr.get_range(fdb.pack((1,)), fdb.pack((8,)))
+    out = await tr.get_range(fdb.pack((1,)), fdb.pack((8,)))
     await tr.commit()
 
     # check
+    assert out
     for (key, value), index in zip(out, range(10)[1:-1]):
         assert fdb.unpack(key)[0] == index
         assert fdb.unpack(value)[0] == str(index)
