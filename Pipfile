@@ -4,8 +4,16 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+pytest-cov = "*"
 
 [dev-packages]
+pre-commit = "*"
+pytest = "*"
+bandit = "*"
+pylint = "*"
+coverage = "*"
+pytest-asyncio = "*"
+cdiff = "*"
 
 [requires]
-python_version = "3.5"
+python_version = "3.6"

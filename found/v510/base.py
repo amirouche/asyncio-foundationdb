@@ -31,8 +31,8 @@ from async_generator import async_generator
 from async_generator import yield_
 
 import found
-from found._fdb_c import lib
-from found._fdb_c import ffi
+from found._fdb import lib
+from found._fdb import ffi
 
 
 log = logging.getLogger(__name__)
@@ -43,11 +43,13 @@ CLIENT_VERSION = 510
 
 class BaseFound:
     """Base class for all found classes"""
+
     pass
 
 
 class FoundException(Exception):
     """Base class for all found exceptions"""
+
     pass
 
 
@@ -59,17 +61,17 @@ class FoundError(FoundException):
         self.code = code
 
     def __str__(self):
-        description = ffi.string(lib.fdb_get_error(self.code)).decode('utf-8')
-        return '<FoundError {} ({})>'.format(description, self.code)
+        description = ffi.string(lib.fdb_get_error(self.code)).decode("utf-8")
+        return "<FoundError {} ({})>".format(description, self.code)
 
     __repr__ = __str__
 
 
 def strinc(key):
     # XXX: I am not sure what this function is doing.
-    key = key.rstrip(b'\xff')
+    key = key.rstrip(b"\xff")
     if len(key) == 0:
-        raise ValueError('Key must contain at least one byte not equal to 0xFF.')
+        raise ValueError("Key must contain at least one byte not equal to 0xFF.")
     return key[:-1] + six.int2byte(ord(key[-1:]) + 1)
 
 
@@ -82,7 +84,9 @@ def ensure_version():
     if found.CURRENT_LOADED_VERSION is None:
         # Configure the client API for the current CLIENT_VERSION
         code = lib.fdb_select_api_version_impl(CLIENT_VERSION, CLIENT_VERSION)
-        if code == 2203:  # api_version_not_supported, but that's not helpful to the user
+        if (
+            code == 2203
+        ):  # api_version_not_supported, but that's not helpful to the user
             max_supported_ver = lib.fdb_get_max_api_version()
             if CLIENT_VERSION > max_supported_ver:
                 msg = "This version of the FoundationDB Python binding is not supported by "
@@ -96,13 +100,13 @@ def ensure_version():
                 msg = msg % CLIENT_VERSION
                 raise RuntimeError(msg)
         elif code != 0:
-            raise RuntimeError('FoundationDB API error ({})'.format(code))
+            raise RuntimeError("FoundationDB API error ({})".format(code))
 
         found.CURRENT_LOADED_VERSION = CLIENT_VERSION
     elif found.CURRENT_LOADED_VERSION != CLIENT_VERSION:
         msg = "found already loaded with for a different version "
         raise RuntimeError(msg)
-    log.debug('found configured to use client API %s', CLIENT_VERSION)
+    log.debug("found configured to use client API %s", CLIENT_VERSION)
     return True
 
 
@@ -112,13 +116,12 @@ _loop = None
 
 
 class NetworkThread(threading.Thread):
-
     def run(self):
         check(lib.fdb_run_network())
 
 
 def init():
-    "Must be called after setting the event loop"""
+    """Must be called after setting the event loop"""
     try:
         with _network_thread_reentrant_lock:
             global _loop
@@ -151,7 +154,6 @@ def _stop_network():
 
 
 class KeySelector:
-
     def __init__(self, key, or_equal, offset):
         self.key = get_key(key)
         self.or_equal = or_equal
@@ -193,7 +195,7 @@ class StreamingMode(Enum):
 @ffi.callback("void(FDBFuture *, void *)")
 def on_transaction_get_read_version(fdb_future, aio_future):
     aio_future = ffi.from_handle(aio_future)
-    pointer = ffi.new('int64 *')
+    pointer = ffi.new("int64 *")
     error = lib.fdb_future_get_version(fdb_future, pointer)
     if error == 0:
         _loop.call_soon_threadsafe(aio_future.set_result, pointer[0])
@@ -205,9 +207,9 @@ def on_transaction_get_read_version(fdb_future, aio_future):
 @ffi.callback("void(FDBFuture *, void *)")
 def on_transaction_get(fdb_future, aio_future):
     aio_future = ffi.from_handle(aio_future)
-    present = ffi.new('fdb_bool_t *')
-    value = ffi.new('uint8_t **')
-    value_length = ffi.new('int *')
+    present = ffi.new("fdb_bool_t *")
+    value = ffi.new("uint8_t **")
+    value_length = ffi.new("int *")
     error = lib.fdb_future_get_value(fdb_future, present, value, value_length)
     if error == 0:
         if present[0] == 0:
@@ -238,8 +240,8 @@ def on_transaction_commit(fdb_future, aio_future):
 @ffi.callback("void(FDBFuture *, void *)")
 def on_transaction_get_key(fdb_future, aio_future):
     aio_future = ffi.from_handle(aio_future)
-    key = ffi.new('int8_t **')
-    key_length = ffi.new('int *')
+    key = ffi.new("int8_t **")
+    key_length = ffi.new("int *")
     error = lib.fdb_future_get_key(fdb_future, key, key_length)
     if error == 0:
         # TODO: what happens when there is no such key
@@ -275,9 +277,9 @@ def on_transaction_get_range_free(fdb_future, total):
 @ffi.callback("void(FDBFuture *, void *)")
 def on_transaction_get_range(fdb_future, aio_future):
     aio_future = ffi.from_handle(aio_future)
-    kvs = ffi.new('FDBKeyValue **')
-    count = ffi.new('int *')
-    more = ffi.new('fdb_bool_t *')
+    kvs = ffi.new("FDBKeyValue **")
+    count = ffi.new("int *")
+    more = ffi.new("fdb_bool_t *")
     error = lib.fdb_future_get_keyvalue_array(fdb_future, kvs, count, more)
     if error == 0:
         out = list()
@@ -289,13 +291,15 @@ def on_transaction_get_range(fdb_future, aio_future):
         # total = count[0] * 2
         # free = on_transaction_get_range_free(fdb_future, total)
 
-        for kv in kvs[0][0:count[0]]:
+        for kv in kvs[0][0 : count[0]]:
             # XXX: manual unpacking because cffi doesn't known about packing
             # https://bitbucket.org/cffi/cffi/issues/364/make-packing-configureable
             memory = ffi.buffer(ffi.addressof(kv), 24)
-            key_ptr, key_length, value_ptr, value_length = struct.unpack('=qiqi', memory)
-            key = ffi.buffer(ffi.cast('char *', key_ptr), key_length)
-            value = ffi.buffer(ffi.cast('char *', value_ptr), value_length)
+            key_ptr, key_length, value_ptr, value_length = struct.unpack(
+                "=qiqi", memory
+            )
+            key = ffi.buffer(ffi.cast("char *", key_ptr), key_length)
+            value = ffi.buffer(ffi.cast("char *", value_ptr), value_length)
             # key = ffi.gc(key, free)
             # value = ffi.gc(value, free)
             # XXX: make a copy
@@ -331,7 +335,6 @@ def get_value(obj):
 
 
 class BaseTransaction(BaseFound):
-
     def __init__(self, pointer, database, snapshot):
         self._pointer = pointer
         self._database = database
@@ -349,24 +352,18 @@ class BaseTransaction(BaseFound):
         fdb_future = lib.fdb_transaction_get_read_version(self._pointer)
         aio_future = _loop.create_future()
         handle = ffi.new_handle(aio_future)
-        lib.fdb_future_set_callback(
-            fdb_future,
-            on_transaction_get_read_version,
-            handle
-        )
+        lib.fdb_future_set_callback(fdb_future, on_transaction_get_read_version, handle)
         out = await aio_future
         return out
 
     async def get(self, key):
         key = get_key(key)
-        fdb_future = lib.fdb_transaction_get(self._pointer, key, len(key), self._snapshot)
+        fdb_future = lib.fdb_transaction_get(
+            self._pointer, key, len(key), self._snapshot
+        )
         aio_future = _loop.create_future()
         handle = ffi.new_handle(aio_future)
-        lib.fdb_future_set_callback(
-            fdb_future,
-            on_transaction_get,
-            handle
-        )
+        lib.fdb_future_set_callback(fdb_future, on_transaction_get, handle)
         out = await aio_future
         return out
 
@@ -378,26 +375,17 @@ class BaseTransaction(BaseFound):
             len(key),
             key_selector.or_equal,
             key_selector.offset,
-            self._snapshot
+            self._snapshot,
         )
         aio_future = _loop.create_future()
         handle = ffi.new_handle(aio_future)
-        lib.fdb_future_set_callback(
-            fdb_future,
-            on_transaction_get_key,
-            handle
-        )
+        lib.fdb_future_set_callback(fdb_future, on_transaction_get_key, handle)
         out = await aio_future
         return out
 
     def get_range(
-            self,
-            begin,
-            end,
-            limit=0,
-            reverse=False,
-            mode=StreamingMode.ITERATOR):
-
+        self, begin, end, limit=0, reverse=False, mode=StreamingMode.ITERATOR
+    ):
         @async_generator
         async def iter_():
             nonlocal begin
@@ -407,8 +395,20 @@ class BaseTransaction(BaseFound):
                 return KeySelector.first_greater_or_equal(key)
 
             # begin and end can be None, anyway convert to a KeySelector
-            begin = default(b'') if begin is None else begin if isinstance(begin, KeySelector) else default(begin)  # noqa
-            end = default(b'\xff') if end is None else end if isinstance(end, KeySelector) else default(end)  # noqa
+            begin = (
+                default(b"")
+                if begin is None
+                else begin
+                if isinstance(begin, KeySelector)
+                else default(begin)
+            )  # noqa
+            end = (
+                default(b"\xff")
+                if end is None
+                else end
+                if isinstance(end, KeySelector)
+                else default(end)
+            )  # noqa
             iteration = 1  # Why one?!
             seen = 0
             snapshot = self._snapshot
@@ -432,7 +432,9 @@ class BaseTransaction(BaseFound):
                 )
                 aio_future = _loop.create_future()
                 handle = ffi.new_handle(aio_future)
-                lib.fdb_future_set_callback(fdb_future, on_transaction_get_range, handle)
+                lib.fdb_future_set_callback(
+                    fdb_future, on_transaction_get_range, handle
+                )
                 kvs, count, more = await aio_future
 
                 if count == 0:
@@ -456,17 +458,13 @@ class BaseTransaction(BaseFound):
         return iter_()
 
     async def get_range_startswith(
-            self,
-            prefix,
-            limit=0,
-            reverse=False,
-            mode=StreamingMode.ITERATOR):
+        self, prefix, limit=0, reverse=False, mode=StreamingMode.ITERATOR
+    ):
         prefix = get_key(prefix)
         return self.get_range(prefix, strinc(prefix), limit, reverse, mode)
 
 
 class Transaction(BaseTransaction):
-
     def __init__(self, pointer, database):
         super().__init__(pointer, database, False)
         self.snapshot = BaseTransaction(pointer, database, True)
@@ -494,23 +492,13 @@ class Transaction(BaseTransaction):
             begin = get_key(begin)
         if isinstance(end, KeySelector):
             end = get_key(end)
-        lib.fdb_transaction_clear_range(
-            self._pointer,
-            begin,
-            len(begin),
-            end,
-            len(end)
-        )
+        lib.fdb_transaction_clear_range(self._pointer, begin, len(begin), end, len(end))
 
     async def commit(self):
         fdb_future = lib.fdb_transaction_commit(self._pointer)
         aio_future = _loop.create_future()
         handle = ffi.new_handle(aio_future)
-        lib.fdb_future_set_callback(
-            fdb_future,
-            on_transaction_commit,
-            handle
-        )
+        lib.fdb_future_set_callback(fdb_future, on_transaction_commit, handle)
         await aio_future
 
     async def _on_error(self, code):
@@ -533,7 +521,6 @@ class Transaction(BaseTransaction):
 
 
 class Database(BaseFound):
-
     def __init__(self, pointer):
         self._pointer = pointer
 
@@ -545,7 +532,7 @@ class Database(BaseFound):
         raise NotImplemented()  # TODO
 
     def _create_transaction(self):
-        pointer = ffi.new('FDBTransaction **')
+        pointer = ffi.new("FDBTransaction **")
         lib.fdb_database_create_transaction(self._pointer, pointer)
         return Transaction(pointer[0], self)
 
@@ -553,7 +540,7 @@ class Database(BaseFound):
 @ffi.callback("void(FDBFuture *, void *)")
 def on_create_database(fdb_future, aio_future):
     aio_future = ffi.from_handle(aio_future)
-    pointer = ffi.new('FDBDatabase **')
+    pointer = ffi.new("FDBDatabase **")
     error = lib.fdb_future_get_database(fdb_future, pointer)
     if error == 0:
         _loop.call_soon_threadsafe(aio_future.set_result, pointer[0])
@@ -563,7 +550,6 @@ def on_create_database(fdb_future, aio_future):
 
 
 class Cluster(BaseFound):
-
     def __init__(self, pointer):
         self._pointer = pointer
 
@@ -575,7 +561,7 @@ class Cluster(BaseFound):
         lib.fdb_cluster_destroy(self._pointer)
 
     async def open(self, name):
-        name = name.encode('utf-8')
+        name = name.encode("utf-8")
         fdb_future = lib.fdb_cluster_create_database(self._pointer, name, len(name))
         aio_future = _loop.create_future()
         handle = ffi.new_handle(aio_future)
@@ -587,7 +573,7 @@ class Cluster(BaseFound):
 @ffi.callback("void(FDBFuture *, void *)")
 def on_create_cluster(fdb_future, aio_future):
     aio_future = ffi.from_handle(aio_future)
-    pointer = ffi.new('FDBCluster **')
+    pointer = ffi.new("FDBCluster **")
     error = lib.fdb_future_get_cluster(fdb_future, pointer)
     if error == 0:
         _loop.call_soon_threadsafe(aio_future.set_result, pointer[0])
@@ -632,17 +618,18 @@ async def open(cluster_file=None):
         # databases in the same cluster but that is not supported by
         # the underlying client API. YAGNI for the time being. We hardcode
         # the database name and do not expose it in the public API
-        database_name = 'DB'
+        database_name = "DB"
         try:
             db = _databases[(cluster_file, database_name)]
         except KeyError:
-            db = _databases[(cluster_file, database_name)] = await cluster.open(database_name)
+            db = _databases[(cluster_file, database_name)] = await cluster.open(
+                database_name
+            )
 
         return db
 
 
 def transactional(func):
-
     @wraps(func)
     async def wrapper(db_or_tx, *args, **kwargs):
         if isinstance(db_or_tx, Transaction):
