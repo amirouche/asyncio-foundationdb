@@ -106,9 +106,9 @@ async def test_read_version():
 async def test_startswith():
     # prepare
     db = await open()
-    tr = db._create_transaction()
 
     # exec
+    tr = db._create_transaction()
     prefix_zero = b'\x00'
     tr.set(prefix_zero + b'\x01', fdb.pack((1,)))
     tr.set(prefix_zero + b'\x02', fdb.pack((2,)))
@@ -128,3 +128,25 @@ async def test_startswith():
     everything = await tr.get_range_startswith(prefix_zero)
     await tr.commit()
     assert len(everything) == 3
+
+
+@pytest.mark.asyncio
+async def test_transactional():
+
+    @fdb.transactional
+    async def deep(tr):
+        out = await tr.get(b'\x00')
+        return out
+
+    @fdb.transactional
+    async def txn(tr):
+        tr.set(b'\x00', b'\x00')
+        out = await deep(tr)
+        return out
+
+    # check
+    db = await open()
+    out = await txn(db)
+
+    # check
+    assert out == b'\x00'
