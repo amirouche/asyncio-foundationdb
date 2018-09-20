@@ -1,5 +1,6 @@
 import asyncio
 import pytest
+from uuid import uuid4
 
 import found.v510 as fdb
 from found.v510 import base
@@ -7,7 +8,7 @@ from found.v510 import base
 
 def test_pack_unpack():
     from found.v510.tuple import SingleFloat
-    value = ((None, SingleFloat(3.1415), b'x42', 1, -1, 3.1415, -3.1415, ("abc",)), ("d", "e", "f"), 2.718281828459045)  # noqa
+    value = ((uuid4(), None, SingleFloat(3.1415), b'x42', 1, -1, 3.1415, -3.1415, ("abc",)), ("d", "e", "f"), 2.718281828459045)  # noqa
     assert fdb.unpack(fdb.pack(value)) == value
 
 
