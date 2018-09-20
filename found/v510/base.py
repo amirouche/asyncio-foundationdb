@@ -18,6 +18,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import sys
 import asyncio
 import atexit
 import logging
@@ -65,7 +66,7 @@ class FoundError(FoundException):
 
 
 def strinc(key):
-    # XXX: I am not sure what this function is doing.
+    # TODO: I am not sure what this function is doing.
     key = key.rstrip(b"\xff")
     if len(key) == 0:
         raise ValueError("Key must contain at least one byte not equal to 0xFF.")
@@ -100,6 +101,10 @@ def ensure_version():
             raise RuntimeError("FoundationDB API error ({})".format(code))
 
         found.CURRENT_LOADED_VERSION = CLIENT_VERSION
+        # set found.fdb to the parent module to easily access from layers the
+        # currently loaded version of the API
+        parent_module = sys.modules['.'.join(__name__.split('.')[:-1]) or '__main__']
+        found.fdb = parent_module
     elif found.CURRENT_LOADED_VERSION != CLIENT_VERSION:
         msg = "found already loaded with for a different version "
         raise RuntimeError(msg)
