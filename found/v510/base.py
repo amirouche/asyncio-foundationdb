@@ -602,14 +602,16 @@ async def open(cluster_file=None):
 def transactional(func):
     spec = inspect.getfullargspec(func)
     try:
-        index = spec.args.index('tr')  # XXX: hardcode transaction name
+        # XXX: hardcode transaction name
+        # XXX: 'tr' can not be passed as a keyword
+        index = spec.args.index('tr')
     except ValueError:
         msg = "the decorator @transactional expect one of the argument to be name 'tr'"
         raise NameError(msg)
 
     @wraps(func)
     async def wrapper(*args, **kwargs):
-        db_or_tx = args[index]  # XXX: 'tr' can not be passed as a keyword
+        db_or_tx = args[index]
         if isinstance(db_or_tx, Transaction):
             out = await func(*args, **kwargs)
             return out
