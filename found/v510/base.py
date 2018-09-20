@@ -347,7 +347,7 @@ class BaseTransaction(BaseFound):
         return out
 
     async def get_range(
-        self, begin, end, limit=0, reverse=False, mode=StreamingMode.ITERATOR
+        self, begin, end, *, limit=0, reverse=False, mode=StreamingMode.ITERATOR
     ):
         out = []
 
@@ -415,11 +415,13 @@ class BaseTransaction(BaseFound):
                 begin = KeySelector.first_greater_than(kvs[-1][0])
             # loop!
 
+    range = get_range
+
     async def get_range_startswith(
         self, prefix, limit=0, reverse=False, mode=StreamingMode.ITERATOR
     ):
         prefix = get_key(prefix)
-        out = await self.get_range(prefix, strinc(prefix), limit, reverse, mode)
+        out = await self.get_range(prefix, strinc(prefix), limit=limit, reverse=reverse, mode=mode)
         return out
 
 
