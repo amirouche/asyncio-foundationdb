@@ -18,12 +18,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import sys
 import asyncio
 import atexit
 import logging
+import inspect
 import six
 import struct
+import sys
 import threading
 from enum import Enum
 from functools import wraps
@@ -599,17 +600,27 @@ async def open(cluster_file=None):
 
 
 def transactional(func):
+    spec = inspect.getfullargspec(func)
+    try:
+        index = spec.args.index('tr')  # XXX: hardcode transaction name
+    except ValueError:
+        msg = "the decorator @transactional expect one of the argument to be name 'tr'"
+        raise NameError(msg)
 
     @wraps(func)
-    async def wrapper(db_or_tx, *args, **kwargs):
+    async def wrapper(*args, **kwargs):
+        db_or_tx = args[index]  # XXX: 'tr' can not be passed as a keyword
         if isinstance(db_or_tx, Transaction):
-            out = await func(db_or_tx, *args, **kwargs)
+            out = await func(*args, **kwargs)
             return out
         else:
             tx = db_or_tx._create_transaction()
+            # replace db with tx *ahem* tr
+            args = list(args)
+            args[index] = tx
             while True:
                 try:
-                    out = await func(tx, *args, **kwargs)
+                    out = await func(*args, **kwargs)
                     await tx.commit()
                 except FoundError as exc:
                     await tx._on_error(exc.code)
