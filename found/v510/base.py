@@ -426,6 +426,7 @@ class BaseTransaction(BaseFound):
 
 
 class Transaction(BaseTransaction):
+
     def __init__(self, pointer, database):
         super().__init__(pointer, database, False)
         self.snapshot = BaseTransaction(pointer, database, True)
@@ -482,6 +483,7 @@ class Transaction(BaseTransaction):
 
 
 class Database(BaseFound):
+
     def __init__(self, pointer):
         self._pointer = pointer
 
@@ -511,6 +513,7 @@ def on_create_database(fdb_future, aio_future):
 
 
 class Cluster(BaseFound):
+
     def __init__(self, pointer):
         self._pointer = pointer
 
@@ -591,6 +594,7 @@ async def open(cluster_file=None):
 
 
 def transactional(func):
+
     @wraps(func)
     async def wrapper(db_or_tx, *args, **kwargs):
         if isinstance(db_or_tx, Transaction):
