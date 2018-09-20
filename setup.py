@@ -25,7 +25,7 @@ setup(
     ],
     packages=find_packages(),
     package_data={'found': ['*.h']},
-    install_requires=["cffi>=1.0.0"],
+    install_requires=["cffi>=1.0.0", "immutables"],
     setup_requires=["cffi>=1.0.0"],
     cffi_modules=["./found/build_found.py:ffi"],
 )
