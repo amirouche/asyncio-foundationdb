@@ -13,8 +13,19 @@ class SparkyException(Exception):
     pass
 
 
+class PatternException(SparkyException):
+    """Raised when the pattern can not be resolved by the query engine.
+
+    .. warning:: It might be a bug. Try to re-order the pattern in the
+                 query to make it work before reporting bug.
+
+    """
+    pass
+
+
 PREFIX_DATA = b"\x00"
 PREFIX_UUID = b"\x01"
+PREFIX_POS = b"\x02"
 
 
 class var:
@@ -28,25 +39,15 @@ class var:
         return "<var %r>" % self.name
 
 
-def bind(pattern, triple, binding):
-    for target, value in zip(pattern, triple):
-        if isinstance(target, var):
-            try:
-                bound = binding[target.name]
-            except KeyError:
-                binding = binding.set(target.name, value)
-                continue
-            else:
-                if bound == value:
-                    continue
-                else:
-                    return None
-        else:
-            if target == value:
-                continue
-            else:
-                return None
-    return binding
+def pattern_bind(pattern, binding):
+    subject, predicate, object = pattern
+    if isinstance(subject, var) and binding.get(subject.name) is not None:
+        subject = binding[subject.name]
+    if isinstance(predicate, var) and binding.get(predicate.name) is not None:
+        predicate = binding[predicate.name]
+    if isinstance(object, var) and binding.get(object.name) is not None:
+        object = binding[object.name]
+    return subject, predicate, object
 
 
 class Sparky:
@@ -85,33 +86,100 @@ class Sparky:
     async def add(self, tr, *triples):
         for triple in triples:
             subject, predicate, object = triple
+            # add in 'spo' aka. data
             key = fdb.pack((self._prefix, PREFIX_DATA, subject, predicate, object))
+            tr.set(key, b"")
+            # index in 'pos'
+            key = fdb.pack((self._prefix, PREFIX_POS, predicate, object, subject))
             tr.set(key, b"")
 
     @fdb.transactional
     async def remove(self, tr, *triples):
         for triple in triples:
-            key = fdb.pack((self._prefix, PREFIX_DATA, *triple))
+            subject, predicate, object = triple
+            # remove from data
+            key = fdb.pack((self._prefix, PREFIX_DATA, subject, predicate, object))
+            tr.clear(key)
+            # remove from index
+            key = fdb.pack((self._prefix, PREFIX_POS, predicate, object, subject))
             tr.clear(key)
 
     @fdb.transactional
+    async def _lookup_pos(self, tr, predicate, object):
+        start = fdb.pack((self._prefix, PREFIX_POS, predicate, object))
+        end = fdb.strinc(start)
+        items = await tr.range(start, end)
+        out = list()
+        for key, _ in items:
+            _, _, predicate, object, subject = fdb.unpack(key)
+            out.append(subject)
+        return out
+
+    @fdb.transactional
+    async def exists(self, tr, subject, predicate, object):
+        key = fdb.pack((self._prefix, PREFIX_DATA, subject, predicate, object))
+        value = await tr.get(key)
+        return value is not None
+
+    @fdb.transactional
     async def where(self, tr, pattern, *patterns):
-        seed = []
-        triples = await self.all(tr)
-        # poor man do-while
-        for triple in triples:
-            binding = bind(pattern, triple, Map())
-            if binding is not None:
-                seed.append(binding)
-        bindings = seed
-        # while
+        # seed bindings
+        vars = tuple((isinstance(item, var) for item in pattern))
+        if vars == (True, False, False):
+            subject, predicate, object = pattern
+            subjects = await self._lookup_pos(tr, predicate, object)
+            name = subject.name
+            bindings = [Map().set(name, subject) for subject in subjects]
+        elif vars == (False, True, True):
+            # TODO: extract to a method
+            subject = pattern[0]
+            start = fdb.pack((self._prefix, PREFIX_DATA, subject))
+            end = fdb.strinc(start)
+            items = await tr.range(start, end)
+            bindings = []
+            for key, _ in items:
+                _, _, _, predicate, object = fdb.unpack(key)
+                binding = Map()
+                binding = binding.set(pattern[1].name, predicate)
+                binding = binding.set(pattern[2].name, object)
+                bindings.append(binding)
+        else:
+            raise PatternException()
+        log.debug("seed bindings: %r", bindings)
+        # contine matching other patterns, if any.
         for pattern in patterns:  # one
+            log.debug("matching pattern: %r", pattern)
             next_bindings = []
             for binding in bindings:  # two
-                triples = await self.all(tr)
-                for triple in triples:  # three
-                    new = bind(pattern, triple, binding)
-                    if new is not None:
+                pattern = pattern_bind(pattern, binding)
+                log.debug("bound pattern: %r", pattern)
+                vars = tuple((isinstance(item, var) for item in pattern))
+                if vars == (False, False, False):
+                    ok = await self.exists(tr, *pattern)
+                    if ok:
+                        # this binding is valid against this pattern,
+                        # proceed with this binding and continue with
+                        # the next pattern.
+                        next_bindings.append(binding)
+                elif vars == (False, False, True):
+                    # TODO: extract to a method
+                    subject, predicate, object = pattern
+                    start = fdb.pack((self._prefix, PREFIX_DATA, subject, predicate))
+                    end = fdb.strinc(start)
+                    items = await tr.range(start, end)
+                    bindings = []
+                    for key, _ in items:
+                        _, _, _, _, value = fdb.unpack(key)
+                        binding = binding.set(object.name, value)
+                        next_bindings.append(binding)
+                elif vars == (True, False, False):
+                    subject, predicate, object = pattern
+                    subjects = await self._lookup_pos(tr, predicate, object)
+                    name = subject.name
+                    for subject in subjects:
+                        new = binding.set(name, subject)
                         next_bindings.append(new)
+                else:
+                    raise PatternException()
             bindings = next_bindings
         return bindings

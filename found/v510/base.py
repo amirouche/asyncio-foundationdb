@@ -106,10 +106,10 @@ def ensure_version():
         # currently loaded version of the API
         parent_module = sys.modules['.'.join(__name__.split('.')[:-1]) or '__main__']
         found.fdb = parent_module
+        log.debug("found configured to use client API %s", CLIENT_VERSION)
     elif found.CURRENT_LOADED_VERSION != CLIENT_VERSION:
         msg = "found already loaded with for a different version "
         raise RuntimeError(msg)
-    log.debug("found configured to use client API %s", CLIENT_VERSION)
     return True
 
 
