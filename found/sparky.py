@@ -59,7 +59,7 @@ class Sparky:
         self._prefix = prefix
 
     @fdb.transactional
-    async def _random_uid(self, tr):
+    async def uuid(self, tr):
         uid = uuid4()
         key = fdb.pack((self._prefix, PREFIX_UUID, uid))
         value = await tr.get(key)
