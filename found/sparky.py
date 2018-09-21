@@ -76,7 +76,7 @@ class Sparky:
         log.debug(msg, start, end)
         out = []
         items = await tr.range(start, end)
-        for key, _ in items:
+        for key, _ in items:  # value is always empty
             _, _, subject, predicate, object = fdb.unpack(key)
             out.append((subject, predicate, object))
         return out
