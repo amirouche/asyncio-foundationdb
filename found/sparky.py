@@ -13,19 +13,19 @@ class SparkyException(Exception):
     pass
 
 
-PREFIX_DATA = b'\x00'
-PREFIX_UUID = b'\x01'
+PREFIX_DATA = b"\x00"
+PREFIX_UUID = b"\x01"
 
 
 class var:
 
-    __slots__ = ('name',)
+    __slots__ = ("name",)
 
     def __init__(self, name):
         self.name = name
 
     def __repr__(self):
-        return '<var %r>' % self.name
+        return "<var %r>" % self.name
 
 
 def bind(pattern, triple, binding):
@@ -51,7 +51,9 @@ def bind(pattern, triple, binding):
 
 class Sparky:
 
-    __slots__ = ('_prefix',)
+    __slots__ = ("_prefix",)
+
+    var = var
 
     def __init__(self, prefix):
         self._prefix = prefix
@@ -62,9 +64,9 @@ class Sparky:
         key = fdb.pack((self._prefix, PREFIX_UUID, uid))
         value = await tr.get(key)
         if value is None:
-            tr.set(key, b'')
+            tr.set(key, b"")
             return uid
-        raise SparkyException('Unlikely Error!')
+        raise SparkyException("Unlikely Error!")
 
     @fdb.transactional
     async def all(self, tr):
@@ -84,7 +86,7 @@ class Sparky:
         for triple in triples:
             subject, predicate, object = triple
             key = fdb.pack((self._prefix, PREFIX_DATA, subject, predicate, object))
-            tr.set(key, b'')
+            tr.set(key, b"")
 
     @fdb.transactional
     async def remove(self, tr, *triples):
