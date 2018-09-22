@@ -29,10 +29,21 @@ Getting started
 
    pip install asyncio-foundationdb
 
-Differences with ``fdb``
-========================
+Documentation
+=============
 
-- support asyncio
+You must read the `official python api
+documentation <https://apple.github.io/foundationdb/api-python.html>`_
+it's awesome.
+
+In general, the asyncio bindings are the same except there is
+``async`` and ``await`` that must be added here and there.
+
+Here are differences with the synchronous bindings:
+
 - no shorthand syntax like: ``foo[b'bar']``
-- key and values are returned as python base types, that is you can do
-  ``value is None`` instead of ``value == None``
+- You can do ``value is None`` instead of ``value == None``
+- ``Transaction.get_range`` returns a list of ``(key, value)`` pairs
+
+If something is missing it's a bug, `please fill an
+issue <https://github.com/amirouche/asyncio-foundationdb/issues>`_.
