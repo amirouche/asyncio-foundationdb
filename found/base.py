@@ -475,6 +475,39 @@ class Transaction(BaseTransaction):
         self._atomic_operation(self, MutationType.set_versionstamped_value.value, key, param)
 
 
+def transactional(func):
+    spec = inspect.getfullargspec(func)
+    try:
+        # XXX: hardcode transaction name
+        # XXX: 'tr' can not be passed as a keyword
+        index = spec.args.index('tr')
+    except ValueError:
+        msg = "the decorator @transactional expect one of the argument to be name 'tr'"
+        raise NameError(msg)
+
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        db_or_tx = args[index]
+        if isinstance(db_or_tx, Transaction):
+            out = await func(*args, **kwargs)
+            return out
+        else:
+            tx = db_or_tx._create_transaction()
+            # replace db with tx *ahem* tr
+            args = list(args)
+            args[index] = tx
+            while True:
+                try:
+                    out = await func(*args, **kwargs)
+                    await tx.commit()
+                except FoundError as exc:
+                    await tx._on_error(exc.code)
+                else:
+                    return out
+
+    return wrapper
+
+
 class Database(BaseFound):
 
     def __init__(self, pointer):
@@ -491,6 +524,15 @@ class Database(BaseFound):
         pointer = ffi.new("FDBTransaction **")
         lib.fdb_database_create_transaction(self._pointer, pointer)
         return Transaction(pointer[0], self)
+
+    @transactional
+    async def set(tr, key, value):
+        tr.set(key, value)
+
+    @transactional
+    async def get(tr, key):
+        out = await tr.get(key)
+        return out
 
 
 @ffi.callback("void(FDBFuture *, void *)")
@@ -582,36 +624,3 @@ async def open(cluster_file=None):
             )
 
         return db
-
-
-def transactional(func):
-    spec = inspect.getfullargspec(func)
-    try:
-        # XXX: hardcode transaction name
-        # XXX: 'tr' can not be passed as a keyword
-        index = spec.args.index('tr')
-    except ValueError:
-        msg = "the decorator @transactional expect one of the argument to be name 'tr'"
-        raise NameError(msg)
-
-    @wraps(func)
-    async def wrapper(*args, **kwargs):
-        db_or_tx = args[index]
-        if isinstance(db_or_tx, Transaction):
-            out = await func(*args, **kwargs)
-            return out
-        else:
-            tx = db_or_tx._create_transaction()
-            # replace db with tx *ahem* tr
-            args = list(args)
-            args[index] = tx
-            while True:
-                try:
-                    out = await func(*args, **kwargs)
-                    await tx.commit()
-                except FoundError as exc:
-                    await tx._on_error(exc.code)
-                else:
-                    return out
-
-    return wrapper
