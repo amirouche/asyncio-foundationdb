@@ -1,7 +1,7 @@
 #
 # This source file was part of the FoundationDB open source project
 # it was forked to implement the Python asyncio bindings in found project.
-# see https://github.com/amirouche/found
+# see https://github.com/amirouche/asyncio-foundationdb
 #
 # Copyright 2013-2018 Apple Inc. and the FoundationDB project authors
 # Copyright 2018 Amirouche Boubekki <amirouche@hypermove.net>
