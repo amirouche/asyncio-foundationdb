@@ -361,6 +361,19 @@ class BaseTransaction(BaseFound):
         return out
 
 
+class MutationType(Enum):
+    add = 2
+    bit_and = 6
+    bit_or = 7
+    bit_xor = 8
+    max = 12
+    min = 13
+    set_versionstamped_key = 14
+    set_versionstamped_value = 15
+    byte_min = 16
+    byte_max = 17
+
+
 class Transaction(BaseTransaction):
 
     def __init__(self, pointer, database):
@@ -416,6 +429,50 @@ class Transaction(BaseTransaction):
 
         lib.fdb_future_set_callback(fdb_future, callback, handle)
         await aio_future  # may raise an exception
+
+    def _atomic_operation(self, opcode, key, param):
+        key_bytes = get_key(key)
+        key_length = len(key_bytes)
+        param_bytes = get_value(param)
+        param_length = len(param_bytes)
+        lib.fdb_transaction_atomic_op(
+            self._pointer,
+            key_bytes,
+            key_length,
+            param_bytes,
+            param_length,
+            opcode
+        )
+
+    def add(self, key, param):
+        self._atomic_operation(self, MutationType.add.value, key, param)
+
+    def bit_and(self, key, param):
+        self._atomic_operation(self, MutationType.bit_and.value, key, param)
+
+    def bit_or(self, key, param):
+        self._atomic_operation(self, MutationType.bit_or.value, key, param)
+
+    def bit_xor(self, key, param):
+        self._atomic_operation(self, MutationType.bit_xor.value, key, param)
+
+    def max(self, key, param):
+        self._atomic_operation(self, MutationType.max.value, key, param)
+
+    def byte_max(self, key, param):
+        self._atomic_operation(self, MutationType.byte_max.value, key, param)
+
+    def min(self, key, param):
+        self._atomic_operation(self, MutationType.min.value, key, param)
+
+    def byte_min(self, key, param):
+        self._atomic_operation(self, MutationType.byte_min.value, key, param)
+
+    def set_versionstamped_key(self, key, param):
+        self._atomic_operation(self, MutationType.set_versionstamped_key.value, key, param)
+
+    def set_versionstamped_value(self, key, param):
+        self._atomic_operation(self, MutationType.set_versionstamped_value.value, key, param)
 
 
 class Database(BaseFound):
