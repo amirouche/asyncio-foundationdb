@@ -46,6 +46,6 @@ todo: ## Things that should be done
 xxx: ## Things that require attention
 	@grep -nR --color=always --before-context=2  --after-context=2 XXX found/
 
-release: doc coverage ## Prepare a release
+release:  ## Prepare a release
 	python setup.py sdist bdist_wheel
 	@echo "\033[95m\n\nBuild successful! You can now run 'python setup.py sdist upload'.\n\033[0m"
