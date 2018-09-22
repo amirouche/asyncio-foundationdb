@@ -19,7 +19,7 @@ asyncio drivers for foundationdb tested with CPython 3.5+
     In [8]: loop.run_until_complete(tr.get(b'hello'))
     Out[8]: b'world'
 
-Also ``transactional`` is also supported.
+Also ``@transactional`` is also supported.
 
 Getting started
 ===============
@@ -27,3 +27,11 @@ Getting started
 ::
 
    pip install python-found
+
+Differences with ``fdb``
+========================
+
+- support asyncio
+- no shorthand syntax like: ``foo[b'bar']``
+- key and values are returned as python base types, that is you can do
+  ``value is None`` instead of ``value == None``
