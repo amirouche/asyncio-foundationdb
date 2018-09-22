@@ -33,8 +33,8 @@ Documentation
 =============
 
 You must read the `official python api
-documentation <https://apple.github.io/foundationdb/api-python.html>`_
-it's awesome.
+documentation <https://apple.github.io/foundationdb/api-python.html>`_,
+it is awesome.
 
 In general, the asyncio bindings are the same except there is
 ``async`` and ``await`` that must be added here and there.
