@@ -24,7 +24,6 @@ import logging
 import inspect
 import six
 import struct
-import sys
 import threading
 from enum import Enum
 from functools import wraps
