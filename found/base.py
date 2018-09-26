@@ -343,7 +343,7 @@ class BaseTransaction(BaseFound):
                 # what is requested, so we count ourselves
                 seen += 1
                 if limit > 0 and seen == limit:
-                    return
+                    return out
             # re-compute the range
             if reverse:
                 end = KeySelector.first_greater_or_equal(kvs[-1][0])
