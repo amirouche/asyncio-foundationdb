@@ -351,8 +351,6 @@ class BaseTransaction(BaseFound):
                 begin = KeySelector.first_greater_than(kvs[-1][0])
             # loop!
 
-    range = get_range
-
     async def get_range_startswith(
         self, prefix, limit=0, reverse=False, mode=StreamingMode.ITERATOR
     ):
