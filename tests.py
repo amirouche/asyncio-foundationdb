@@ -322,3 +322,28 @@ async def test_sparky_stuff():
         "78ad80d0cb7e4975acb1f222c960901d",
         "fe066559ce894d9caf2bca63c42d98a8",
     ]  # noqa
+
+
+@pytest.mark.asyncio
+async def test_multiple_seeds():
+    # prepare
+    db = await open()
+    from found.sparky import Sparky
+    from found.sparky import var
+
+    sparky = Sparky(b"test-sparky")
+    tuples = [
+        ("seed0", "name", "abki"),
+        ("seed1", "name", "abki"),
+        ("zero", "number", "seed0"),
+        ("one", "number", "seed1"),
+    ]
+    await sparky.add(db, *tuples)
+    # exec
+    patterns = (
+        (var('seed'), "name", "abki"),
+        (var('number'), "number", var("seed")),
+    )
+    out = await sparky.where(db, *patterns)
+    # check
+    assert ["zero", "one"] == [o["number"] for o in out]
