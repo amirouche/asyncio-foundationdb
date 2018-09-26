@@ -146,8 +146,21 @@ class Sparky:
                 binding = binding.set(pattern[1].name, predicate)
                 binding = binding.set(pattern[2].name, object)
                 bindings.append(binding)
+        elif vars == (False, False, True):
+            # TODO: extract to a method
+            subject = pattern[0]
+            predicate = pattern[1]
+            start = found.pack((self._prefix, PREFIX_DATA, subject, predicate))
+            end = found.strinc(start)
+            items = await tr.get_range(start, end)
+            bindings = []
+            for key, _ in items:
+                _, _, _, _, object = found.unpack(key)
+                binding = Map()
+                binding = binding.set(pattern[2].name, object)
+                bindings.append(binding)
         else:
-            raise PatternException()
+            raise PatternException(vars)
         log.debug("seed bindings: %r", bindings)
         # contine matching other patterns, if any.
         for pattern in patterns:  # one
@@ -183,6 +196,6 @@ class Sparky:
                         new = binding.set(name, subject)
                         next_bindings.append(new)
                 else:
-                    raise PatternException()
+                    raise PatternException(vars)
             bindings = next_bindings
         return bindings
