@@ -79,7 +79,7 @@ class Sparky:
         msg = "fetching everything between start=%r and end=%r"
         log.debug(msg, start, end)
         out = []
-        items = await tr.range(start, end)
+        items = await tr.get_range(start, end)
         for key, _ in items:  # value is always empty
             _, _, subject, predicate, object = found.unpack(key)
             out.append((subject, predicate, object))
@@ -111,7 +111,7 @@ class Sparky:
     async def _lookup_pos(self, tr, predicate, object):
         start = found.pack((self._prefix, PREFIX_POS, predicate, object))
         end = found.strinc(start)
-        items = await tr.range(start, end)
+        items = await tr.get_range(start, end)
         out = list()
         for key, _ in items:
             _, _, predicate, object, subject = found.unpack(key)
@@ -138,7 +138,7 @@ class Sparky:
             subject = pattern[0]
             start = found.pack((self._prefix, PREFIX_DATA, subject))
             end = found.strinc(start)
-            items = await tr.range(start, end)
+            items = await tr.get_range(start, end)
             bindings = []
             for key, _ in items:
                 _, _, _, predicate, object = found.unpack(key)
@@ -169,7 +169,7 @@ class Sparky:
                     subject, predicate, object = pattern
                     start = found.pack((self._prefix, PREFIX_DATA, subject, predicate))
                     end = found.strinc(start)
-                    items = await tr.range(start, end)
+                    items = await tr.get_range(start, end)
                     bindings = []
                     for key, _ in items:
                         _, _, _, _, value = found.unpack(key)
