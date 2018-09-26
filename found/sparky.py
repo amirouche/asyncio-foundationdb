@@ -24,8 +24,7 @@ class PatternException(SparkyException):
 
 
 PREFIX_DATA = b"\x00"
-PREFIX_UUID = b"\x01"
-PREFIX_POS = b"\x02"
+PREFIX_POS = b"\x01"
 
 
 class var:
@@ -62,10 +61,14 @@ class Sparky:
     @found.transactional
     async def uuid(self, tr):
         uid = uuid4()
-        key = found.pack((self._prefix, PREFIX_UUID, uid))
-        value = await tr.get(key)
-        if value is None:
-            tr.set(key, b"")
+        start = found.pack((self._prefix, PREFIX_DATA, uid))
+        end = b'\xFF'
+        items = await tr.get_range(start, end, limit=1)
+        if not items:
+            return uid
+        key, _ = items[0]
+        _, _, subject, _, _ = found.unpack(key)
+        if subject != uid:
             return uid
         raise SparkyException("Unlikely Error!")
 
