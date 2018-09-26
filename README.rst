@@ -1,7 +1,7 @@
 asyncio-foundationdb
 ####################
 
-.. image:: https://api.travis-ci.org/amirouche/found.svg?branch=master
+.. image:: https://api.travis-ci.com/amirouche/asyncio-foundationdb.svg?branch=master
 
 .. image:: https://codecov.io/gh/amirouche/found/branch/master/graph/badge.svg
 
