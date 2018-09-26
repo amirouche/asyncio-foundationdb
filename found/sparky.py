@@ -160,42 +160,44 @@ class Sparky:
                 binding = binding.set(pattern[2].name, object)
                 bindings.append(binding)
         else:
-            raise PatternException(vars)
+            raise PatternException(pattern)
         log.debug("seed bindings: %r", bindings)
         # contine matching other patterns, if any.
         for pattern in patterns:  # one
             log.debug("matching pattern: %r", pattern)
             next_bindings = []
             for binding in bindings:  # two
-                pattern = pattern_bind(pattern, binding)
-                log.debug("bound pattern: %r", pattern)
-                vars = tuple((isinstance(item, var) for item in pattern))
+                bound_pattern = pattern_bind(pattern, binding)
+                log.debug("bound pattern: %r", bound_pattern)
+                vars = tuple((isinstance(item, var) for item in bound_pattern))
                 if vars == (False, False, False):
-                    ok = await self.exists(tr, *pattern)
+                    log.debug('clause: False, False, False')
+                    ok = await self.exists(tr, *bound_pattern)
                     if ok:
-                        # this binding is valid against this pattern,
+                        # this binding is valid against this bound_pattern,
                         # proceed with this binding and continue with
                         # the next pattern.
                         next_bindings.append(binding)
                 elif vars == (False, False, True):
                     # TODO: extract to a method
-                    subject, predicate, object = pattern
+                    log.debug('clause: False, False, True')
+                    subject, predicate, object = bound_pattern
                     start = found.pack((self._prefix, PREFIX_DATA, subject, predicate))
                     end = found.strinc(start)
                     items = await tr.get_range(start, end)
-                    bindings = []
                     for key, _ in items:
                         _, _, _, _, value = found.unpack(key)
-                        binding = binding.set(object.name, value)
-                        next_bindings.append(binding)
+                        new = binding.set(object.name, value)
+                        next_bindings.append(new)
                 elif vars == (True, False, False):
-                    subject, predicate, object = pattern
+                    log.debug('clause: True, False, False')
+                    subject, predicate, object = bound_pattern
                     subjects = await self._lookup_pos(tr, predicate, object)
                     name = subject.name
                     for subject in subjects:
                         new = binding.set(name, subject)
                         next_bindings.append(new)
                 else:
-                    raise PatternException(vars)
+                    raise PatternException(pattern)
             bindings = next_bindings
         return bindings
