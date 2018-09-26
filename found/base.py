@@ -532,6 +532,11 @@ class Database(BaseFound):
         out = await tr.get(key)
         return out
 
+    @transactional
+    async def get_range(tr, begin, end, *, limit=0, reverse=False, mode=StreamingMode.ITERATOR):
+        out = await tr.get_range(begin, end, limit=limit, reverse=reverse, mode=mode)
+        return out
+
 
 @ffi.callback("void(FDBFuture *, void *)")
 def on_create_database(fdb_future, aio_future):
