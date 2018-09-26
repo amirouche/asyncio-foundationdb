@@ -32,8 +32,7 @@ from fdb.tuple import unpack  # noqa
 from fdb.subspace_impl import Subspace  # noqa
 
 
-__VERSION__ = (0, 3, 1)
-VERSION = "v" + ".".join([str(x) for x in __VERSION__])
+__VERSION__ = (0, 4, 0)
 
 
 def open(*args, **kwargs):
