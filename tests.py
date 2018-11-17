@@ -13,7 +13,7 @@ from found import base
 daiquiri.setup(logging.DEBUG, outputs=("stderr",))
 
 
-found.api_version(510)
+found.api_version(600)
 
 
 def test_pack_unpack():

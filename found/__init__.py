@@ -44,7 +44,7 @@ def transactional(*args, **kwargs):
 
 
 def api_version(version):
-    header_version = 510
+    header_version = 600
 
     current_module = globals()
 

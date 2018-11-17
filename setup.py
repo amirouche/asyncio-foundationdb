@@ -25,7 +25,7 @@ setup(
     package_data={'found': ['*.h']},
     install_requires=[
         "cffi>=1.0.0",
-        "foundationdb==5.1.5",
+        "foundationdb",
         "immutables==0.6",
         "six==1.11.0"
     ],

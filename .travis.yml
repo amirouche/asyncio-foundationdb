@@ -1,7 +1,7 @@
 sudo: required
 language: python
 cache: pip
-install: make
+install: make init
 
 jobs:
   include:
@@ -23,5 +23,5 @@ jobs:
 
 
 after_success:
-  - make coverage
+  - make check-coverage
   - codecov

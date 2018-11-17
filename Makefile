@@ -1,28 +1,29 @@
 .PHONY: help doc
 
 init: ## Prepare the host sytem for development
-	# install FoundationDB
-	wget https://www.foundationdb.org/downloads/5.2.5/ubuntu/installers/foundationdb-clients_5.2.5-1_amd64.deb
-	sudo dpkg -i foundationdb-clients_5.2.5-1_amd64.deb
-	wget https://www.foundationdb.org/downloads/5.2.5/ubuntu/installers/foundationdb-server_5.2.5-1_amd64.deb
-	sudo dpkg -i foundationdb-server_5.2.5-1_amd64.deb
+	# in stall FoundationDB
+	wget https://www.foundationdb.org/downloads/6.0.15/ubuntu/installers/foundationdb-clients_6.0.15-1_amd64.deb
+	sudo dpkg -i foundationdb-clients_6.0.15-1_amd64.deb
+	wget https://www.foundationdb.org/downloads/6.0.15/ubuntu/installers/foundationdb-server_6.0.15-1_amd64.deb
+	sudo dpkg -i foundationdb-server_6.0.15-1_amd64.deb
 	# Proceed with python dependencies
-	pip3 install pipenv --upgrade
+	pip3 install pipenv==2018.10.13
 	pipenv install --dev --skip-lock
 	pipenv run python setup.py develop
 	pipenv run pre-commit install
 	@echo "\033[95m\n\nYou may now run 'pipenv shell'.\n\033[0m"
 
 check: ## Run tests
-	pipenv run py.test -vv --capture=no tests.py
 	make database-clear
+	pipenv run py.test -vv --capture=no tests.py
 	pipenv check
 	bandit --skip=B101 -r src/
 	@echo "\033[95m\n\nYou may now run 'make lint' or 'make coverage'.\n\033[0m"
 
-coverage: ## Code coverage
-	pipenv run py.test -vv --cov-config .coveragerc --cov-report term --cov-report html --cov-report xml --cov=found/ tests.py
+check-coverage: ## Code coverage
 	make database-clear
+	pipenv run py.test -vv --cov-config .coveragerc --cov-report term --cov-report html --cov-report xml --cov=found/ tests.py
+
 
 help: ## This help.
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST) | sort
