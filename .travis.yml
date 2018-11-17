@@ -13,13 +13,12 @@ jobs:
       python: '3.6'
       script:
         - make check
-    # see https://travis-ci.org/amirouche/found/jobs/431912201
-    # - stage: test
-    #   sudo: true
-    #   dist: xenial
-    #   python: '3.7'
-    #   script:
-    #     - make check
+    - stage: test
+      sudo: true
+      dist: xenial
+      python: '3.7'
+      script:
+        - make check
 
 
 after_success:
