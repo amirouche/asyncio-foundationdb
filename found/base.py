@@ -443,34 +443,34 @@ class Transaction(BaseTransaction):
         )
 
     def add(self, key, param):
-        self._atomic_operation(self, MutationType.add.value, key, param)
+        self._atomic_operation(MutationType.add.value, key, param)
 
     def bit_and(self, key, param):
-        self._atomic_operation(self, MutationType.bit_and.value, key, param)
+        self._atomic_operation(MutationType.bit_and.value, key, param)
 
     def bit_or(self, key, param):
-        self._atomic_operation(self, MutationType.bit_or.value, key, param)
+        self._atomic_operation(MutationType.bit_or.value, key, param)
 
     def bit_xor(self, key, param):
-        self._atomic_operation(self, MutationType.bit_xor.value, key, param)
+        self._atomic_operation(MutationType.bit_xor.value, key, param)
 
     def max(self, key, param):
-        self._atomic_operation(self, MutationType.max.value, key, param)
+        self._atomic_operation(MutationType.max.value, key, param)
 
     def byte_max(self, key, param):
-        self._atomic_operation(self, MutationType.byte_max.value, key, param)
+        self._atomic_operation(MutationType.byte_max.value, key, param)
 
     def min(self, key, param):
-        self._atomic_operation(self, MutationType.min.value, key, param)
+        self._atomic_operation(MutationType.min.value, key, param)
 
     def byte_min(self, key, param):
-        self._atomic_operation(self, MutationType.byte_min.value, key, param)
+        self._atomic_operation(MutationType.byte_min.value, key, param)
 
     def set_versionstamped_key(self, key, param):
-        self._atomic_operation(self, MutationType.set_versionstamped_key.value, key, param)
+        self._atomic_operation(MutationType.set_versionstamped_key.value, key, param)
 
     def set_versionstamped_value(self, key, param):
-        self._atomic_operation(self, MutationType.set_versionstamped_value.value, key, param)
+        self._atomic_operation(MutationType.set_versionstamped_value.value, key, param)
 
 
 def transactional(func):
