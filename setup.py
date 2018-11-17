@@ -11,7 +11,7 @@ os.chdir(os.path.dirname(sys.argv[0]) or ".")
 
 setup(
     name="asyncio-foundationdb",
-    version='0.4.3',
+    version='0.5.0',
     description="asyncio drivers for FoundationDB",
     long_description=open("README.rst", "rt").read(),
     url="https://github.com/amirouche/asyncio-foundationdb/",
