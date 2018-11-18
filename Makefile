@@ -1,12 +1,10 @@
 .PHONY: help doc
 
 init: ## Prepare the host sytem for development
-	# in stall FoundationDB
 	wget https://www.foundationdb.org/downloads/6.0.15/ubuntu/installers/foundationdb-clients_6.0.15-1_amd64.deb
 	sudo dpkg -i foundationdb-clients_6.0.15-1_amd64.deb
 	wget https://www.foundationdb.org/downloads/6.0.15/ubuntu/installers/foundationdb-server_6.0.15-1_amd64.deb
 	sudo dpkg -i foundationdb-server_6.0.15-1_amd64.deb
-	# Proceed with python dependencies
 	pip3 install pipenv==2018.10.13
 	pipenv install --dev --skip-lock
 	pipenv run python setup.py develop
