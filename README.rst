@@ -11,7 +11,7 @@ asyncio drivers for foundationdb tested with CPython 3.5+
 
 	  In [1]: import found
 	  In [2]: import asyncio
-	  In [3]: found.api_version(510)
+	  In [3]: found.api_version(600)
 	  In [4]: loop = asyncio.get_event_loop()
 	  In [5]: db = loop.run_until_complete(found.open())
 	  In [6]: tr = db._create_transaction()
