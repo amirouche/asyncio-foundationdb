@@ -15,7 +15,7 @@ check: ## Run tests
 	make database-clear
 	pipenv run py.test -vv --capture=no tests.py
 	pipenv check
-	bandit --skip=B101 -r src/
+	pipenv run bandit --skip=B101 -r found/
 	@echo "\033[95m\n\nYou may now run 'make lint' or 'make coverage'.\n\033[0m"
 
 check-coverage: ## Code coverage
