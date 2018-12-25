@@ -38,11 +38,11 @@ __VERSION__ = (0, 4, 2)
 
 
 def open(*args, **kwargs):
-    raise RuntimeError('You must call api_version() before using any fdb methods')
+    raise RuntimeError("You must call api_version() before using any fdb methods")
 
 
 def transactional(*args, **kwargs):
-    raise RuntimeError('You must call api_version() before using fdb.transactional')
+    raise RuntimeError("You must call api_version() before using fdb.transactional")
 
 
 def api_version(version):
@@ -51,21 +51,23 @@ def api_version(version):
     current_module = globals()
 
     try:
-        _api_version = current_module['_api_version']
+        _api_version = current_module["_api_version"]
     except KeyError:
         pass
     else:
-        raise RuntimeError('FDB API already loaded at version %d' % _api_version)
+        raise RuntimeError("FDB API already loaded at version %d" % _api_version)
 
     if version > header_version:
-        raise RuntimeError('Latest known FDB API version is %d' % header_version)
+        raise RuntimeError("Latest known FDB API version is %d" % header_version)
 
     code = lib.fdb_select_api_version_impl(version, header_version)
     if code == 2203:
         max_supported_ver = lib.fdb_get_max_api_version()
         if header_version > max_supported_ver:
             msg = "This version of the FoundationDB Python binding is not supported by "
-            msg += "the installed FoundationDB C library. The binding requires a library "
+            msg += (
+                "the installed FoundationDB C library. The binding requires a library "
+            )
             msg += "that supports API version %d, but the installed library supports a "
             msg += "maximum version of %d."
             msg = msg % (header_version, max_supported_ver)
@@ -77,12 +79,13 @@ def api_version(version):
     elif code != 0:
         raise RuntimeError("FoundationDB API error ({})".format(code))
 
-    current_module['open'] = open_impl
-    current_module['transactional'] = transactional_impl
+    current_module["open"] = open_impl
+    current_module["transactional"] = transactional_impl
 
     # set fdb._version in fdb because we rely on it
     # because found use fdb.tuple
     import fdb
+
     fdb._version = version
 
-    current_module['_api_version'] = version
+    current_module["_api_version"] = version
