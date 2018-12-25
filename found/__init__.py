@@ -34,7 +34,7 @@ from fdb.tuple import has_incomplete_versionstamp  # noqa
 from fdb.subspace_impl import Subspace  # noqa
 
 
-__VERSION__ = (0, 4, 2)
+__VERSION__ = (0, 6, 0)
 
 
 def open(*args, **kwargs):
