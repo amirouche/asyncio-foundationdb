@@ -28,7 +28,9 @@ from found.base import FoundException  # noqa
 from found.base import StreamingMode  # noqa
 
 from fdb.tuple import pack  # noqa
+from fdb.tuple import pack_with_versionstamp  # noqa
 from fdb.tuple import unpack  # noqa
+from fdb.tuple import has_incomplete_versionstamp  # noqa
 from fdb.subspace_impl import Subspace  # noqa
 
 
