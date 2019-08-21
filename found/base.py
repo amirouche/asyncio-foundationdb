@@ -37,7 +37,7 @@ from found._fdb import ffi
 log = logging.getLogger(__name__)
 
 
-CLIENT_VERSION = 510
+CLIENT_VERSION = 600
 
 
 class BaseFound:
@@ -208,7 +208,7 @@ def on_transaction_get_range(fdb_future, aio_future):
         # total = count[0] * 2
         # free = on_transaction_get_range_free(fdb_future, total)
 
-        for kv in kvs[0][0:count[0]]:
+        for kv in kvs[0][0 : count[0]]:
             # XXX: manual unpacking because cffi doesn't known about packing
             # https://bitbucket.org/cffi/cffi/issues/364/make-packing-configureable
             memory = ffi.buffer(ffi.addressof(kv), 24)
@@ -328,9 +328,7 @@ class BaseTransaction(BaseFound):
             )
             aio_future = _loop.create_future()
             handle = ffi.new_handle(aio_future)
-            lib.fdb_future_set_callback(
-                fdb_future, on_transaction_get_range, handle
-            )
+            lib.fdb_future_set_callback(fdb_future, on_transaction_get_range, handle)
             kvs, count, more = await aio_future
 
             if count == 0:
@@ -355,7 +353,9 @@ class BaseTransaction(BaseFound):
         self, prefix, limit=0, reverse=False, mode=StreamingMode.ITERATOR
     ):
         prefix = get_key(prefix)
-        out = await self.get_range(prefix, strinc(prefix), limit=limit, reverse=reverse, mode=mode)
+        out = await self.get_range(
+            prefix, strinc(prefix), limit=limit, reverse=reverse, mode=mode
+        )
         return out
 
 
@@ -373,7 +373,6 @@ class MutationType(Enum):
 
 
 class Transaction(BaseTransaction):
-
     def __init__(self, pointer, database):
         super().__init__(pointer, database, False)
         self.snapshot = BaseTransaction(pointer, database, True)
@@ -434,12 +433,7 @@ class Transaction(BaseTransaction):
         param_bytes = get_value(param)
         param_length = len(param_bytes)
         lib.fdb_transaction_atomic_op(
-            self._pointer,
-            key_bytes,
-            key_length,
-            param_bytes,
-            param_length,
-            opcode
+            self._pointer, key_bytes, key_length, param_bytes, param_length, opcode
         )
 
     def add(self, key, param):
@@ -478,7 +472,7 @@ def transactional(func):
     try:
         # XXX: hardcode transaction name
         # XXX: 'tr' can not be passed as a keyword
-        index = spec.args.index('tr')
+        index = spec.args.index("tr")
     except ValueError:
         msg = "the decorator @transactional expect one of the argument to be name 'tr'"
         raise NameError(msg)
@@ -507,7 +501,6 @@ def transactional(func):
 
 
 class Database(BaseFound):
-
     def __init__(self, pointer):
         self._pointer = pointer
 
@@ -533,7 +526,9 @@ class Database(BaseFound):
         return out
 
     @transactional
-    async def get_range(tr, begin, end, *, limit=0, reverse=False, mode=StreamingMode.ITERATOR):
+    async def get_range(
+        tr, begin, end, *, limit=0, reverse=False, mode=StreamingMode.ITERATOR
+    ):
         out = await tr.get_range(begin, end, limit=limit, reverse=reverse, mode=mode)
         return out
 
@@ -551,7 +546,6 @@ def on_create_database(fdb_future, aio_future):
 
 
 class Cluster(BaseFound):
-
     def __init__(self, pointer):
         self._pointer = pointer
 
