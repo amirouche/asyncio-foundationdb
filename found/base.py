@@ -53,7 +53,7 @@ class FoundException(Exception):
 
 
 class FoundError(FoundException):
-    """Exception raised when FoundationDB API call returns an error"""
+    """Exception raised when FoundationDB returns an error"""
 
     def __init__(self, code):
         super().__init__(code)
@@ -260,7 +260,7 @@ class BaseTransaction(BaseFound):
 
     @property
     def options():
-        raise NotImplemented()  # TODO
+        raise NotImplementedError()  # TODO
 
     async def read_version(self):
         """Get the read version of the transaction"""
@@ -509,7 +509,7 @@ class Database(BaseFound):
 
     @property
     def options():
-        raise NotImplemented()  # TODO
+        raise NotImplementedError()  # TODO
 
     def _create_transaction(self):
         pointer = ffi.new("FDBTransaction **")
@@ -551,7 +551,7 @@ class Cluster(BaseFound):
 
     @property
     def options():
-        raise NotImplemented()  # TODO
+        raise NotImplementedError()  # TODO
 
     def __del__(self):
         lib.fdb_cluster_destroy(self._pointer)
