@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-"foundationdb" = {file = "https://www.foundationdb.org/downloads/6.0.15/bindings/python/foundationdb-6.0.15.tar.gz"}
+foundationdb = "*"
 
 [dev-packages]
 pre-commit = "*"
