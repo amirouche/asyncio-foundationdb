@@ -20,7 +20,7 @@ asyncio drivers for foundationdb tested with CPython 3.5+
 	  In [9]: loop.run_until_complete(tr.get(b'hello'))
 	  Out[9]: b'world'
 
-Also ``@transactional`` is also supported.
+Also ``@transactional`` is supported.
 
 Getting started
 ===============
