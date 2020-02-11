@@ -5,7 +5,7 @@ init: ## Prepare the host sytem for development
 	sudo dpkg -i foundationdb-clients_6.1.12-1_amd64.deb
 	wget https://www.foundationdb.org/downloads/6.1.12/ubuntu/installers/foundationdb-server_6.1.12-1_amd64.deb
 	sudo dpkg -i foundationdb-server_6.1.12-1_amd64.deb
-	pip3 install --user --upgrade pipenv
+	pip3 install --upgrade pipenv
 	pipenv install --dev --skip-lock
 	pipenv run python setup.py develop
 	pipenv run pre-commit install
@@ -16,7 +16,7 @@ check: ## Run tests
 	pipenv run py.test -vv --capture=no tests.py
 	pipenv check
 	pipenv run bandit --skip=B101 -r found/
-	@echo "\033[95m\n\nYou may now run 'make lint' or 'make coverage'.\n\033[0m"
+	@echo "\033[95m\n\nYou may now run 'make lint' or 'make check-coverage'.\n\033[0m"
 
 check-coverage: ## Code coverage
 	make database-clear
