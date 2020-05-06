@@ -127,10 +127,6 @@ class Variable(BaseFound):
 var = Variable
 
 
-def stringify(list):
-    return "".join(str(x) for x in list)
-
-
 def is_permutation_prefix(combination, index):
     index = stringify(index)
     out = any(
@@ -183,7 +179,7 @@ class NStore(BaseFound):
             if is_permutation_prefix(combination, index):
                 break
         else:
-            raise NStoreException("oops!")
+            raise NStoreException("Oops!")
         # `index` variable holds the permutation suitable for the
         # query. `subspace` is the "prefix" of that index.
         prefix = list(pattern[i] for i in index if not isinstance(pattern[i], Variable))
