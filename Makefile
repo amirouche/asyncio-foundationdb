@@ -44,5 +44,7 @@ xxx: ## Things that require attention
 	@grep -nR --color=always --before-context=2  --after-context=2 XXX found/
 
 release:  ## Prepare a release
-	python setup.py sdist bdist_wheel
-	@echo "\033[95m\n\nBuild successful! You can now run 'python setup.py sdist upload'.\n\033[0m"
+	python -m pip install --upgrade setuptools wheel
+	python setup.py sdist
+	python -m pip install --upgrade twine
+	python -m twine upload dist/*
