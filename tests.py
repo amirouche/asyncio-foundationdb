@@ -45,11 +45,15 @@ async def test_get():
     db = await open()
     tr = db._create_transaction()
 
-    #
+    # exec
     out = await tr.get(b"test")
+    # check
     assert out is None
+
+    # exec
     tr.set(b"test", b"test")
     out = await tr.get(b"test")
+    # check
     assert out == b"test"
 
 
