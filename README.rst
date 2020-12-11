@@ -55,4 +55,5 @@ v0.6.0 (wip)
 ------------
 
 - breaking change: replace ``get_rangefoo`` with ``rangefoo`` as async generator
+- new: add short syntax for querying `Nstore.query(tr, patterns)`
 - chore: remove pipenv, and pre-commit

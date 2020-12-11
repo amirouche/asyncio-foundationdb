@@ -160,6 +160,7 @@ class NStore(BaseFound):
             key = self._prefix + [subspace] + permutation
             tr.clear(found.pack(tuple(key)))
 
+    @found.transactional
     async def ask(self, tr, *items):
         """Return True if ITEMS is found in the associated database"""
         assert len(items) == len(self._items), "invalid item count"
@@ -220,3 +221,9 @@ class NStore(BaseFound):
             out = self.select(tr, *bound, seed=bindings)
             async for binding in out:
                 yield binding
+
+    def query(self, tr, pattern, *patterns):
+        out = self.select(tr, *pattern)
+        for pattern in patterns:
+            out = self.where(tr, out, *pattern)
+        return out

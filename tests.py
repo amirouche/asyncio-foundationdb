@@ -421,3 +421,40 @@ async def test_subject_variable():
     out = await query(db)
     out = sorted([x["title"] for x in out])
     assert out == ["hoply is awesome", "hoply triple store"]
+
+
+@pytest.mark.asyncio
+async def test_query():
+    db = await open()
+    from found.nstore import NStore
+    from found.nstore import var
+
+    triplestore = NStore("test-name", [42], ("subject", "predicate", "object"))
+
+    # prepare
+    hyperdev = uuid4()
+    await triplestore.add(db, hyperdev, "title", "hyper.dev")
+    await triplestore.add(db, hyperdev, "keyword", "scheme")
+    await triplestore.add(db, hyperdev, "keyword", "hacker")
+    post1 = uuid4()
+    await triplestore.add(db, post1, "blog", hyperdev)
+    await triplestore.add(db, post1, "title", "hoply is awesome")
+    post2 = uuid4()
+    await triplestore.add(db, post2, "blog", hyperdev)
+    await triplestore.add(db, post2, "title", "hoply triple store")
+
+    # exec, fetch all blog title from hyper.dev
+
+    @found.transactional
+    async def query(tr):
+        query = [
+            [var("blog"), "title", "hyper.dev"],
+            [var("post"), "blog", var("blog")],
+            [var("post"), "title", var("title")],
+        ]
+        out = await aiolist(triplestore.query(tr, *query))
+        return out
+
+    out = await query(db)
+    out = sorted([x["title"] for x in out])
+    assert out == ["hoply is awesome", "hoply triple store"]
