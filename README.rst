@@ -5,7 +5,7 @@ asyncio-foundationdb
 
 .. image:: https://codecov.io/gh/amirouche/found/branch/master/graph/badge.svg
 
-asyncio drivers for foundationdb tested with CPython 3.5+
+asyncio drivers for foundationdb tested with CPython 3.8+
 
 .. code:: python
 
