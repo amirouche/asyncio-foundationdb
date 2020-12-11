@@ -41,7 +41,7 @@ async def open():
 
 @pytest.mark.asyncio
 async def test_get():
-    # preapre
+    # prepare
     db = await open()
     tr = db._create_transaction()
 
