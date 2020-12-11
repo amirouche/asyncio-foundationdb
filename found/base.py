@@ -282,11 +282,9 @@ class BaseTransaction(BaseFound):
         out = await aio_future
         return out
 
-    async def get_range(
+    async def range(
         self, begin, end, *, limit=0, reverse=False, mode=StreamingMode.ITERATOR
     ):
-        out = []
-
         def default(key):
             return KeySelector.first_greater_or_equal(key)
 
@@ -332,28 +330,28 @@ class BaseTransaction(BaseFound):
             kvs, count, more = await aio_future
 
             if count == 0:
-                return out
+                return
 
             for kv in kvs:
-                out.append(kv)
+                yield kv
 
                 # XXX: it seems like fdb client can return more than
                 # what is requested, so we count ourselves
                 seen += 1
                 if limit > 0 and seen == limit:
-                    return out
+                    return
             # re-compute the range
             if reverse:
-                end = KeySelector.first_greater_or_equal(kvs[-1][0])
+                end = KeySelector.first_greater_or_equal(kv[0])
             else:
-                begin = KeySelector.first_greater_than(kvs[-1][0])
+                begin = KeySelector.first_greater_than(kv[0])
             # loop!
 
-    async def get_range_startswith(
+    def range_startswith(
         self, prefix, limit=0, reverse=False, mode=StreamingMode.ITERATOR
     ):
         prefix = get_key(prefix)
-        out = await self.get_range(
+        out = self.range(
             prefix, strinc(prefix), limit=limit, reverse=reverse, mode=mode
         )
         return out
@@ -519,7 +517,7 @@ class Database(BaseFound):
         return Transaction(pointer[0], self)
 
     @transactional
-    async def set(tr, key, value):
+    def set(tr, key, value):
         tr.set(key, value)
 
     @transactional
@@ -528,10 +526,12 @@ class Database(BaseFound):
         return out
 
     @transactional
-    async def get_range(
+    async def range(
         tr, begin, end, *, limit=0, reverse=False, mode=StreamingMode.ITERATOR
     ):
-        out = await tr.get_range(begin, end, limit=limit, reverse=reverse, mode=mode)
+        out = []
+        async for item in tr.range(begin, end, limit=limit, reverse=reverse, mode=mode):
+            out.append(item)
         return out
 
 

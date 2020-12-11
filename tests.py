@@ -57,6 +57,13 @@ async def test_get():
     assert out == b"test"
 
 
+async def aiolist(aiogenerator):
+    out = []
+    async for item in aiogenerator:
+        out.append(item)
+    return out
+
+
 @pytest.mark.asyncio
 async def test_range():
     # prepare
@@ -69,7 +76,8 @@ async def test_range():
     await tr.commit()
 
     tr = db._create_transaction()
-    out = await tr.get_range(found.pack((1,)), found.pack((8,)))
+    out = tr.range(found.pack((1,)), found.pack((8,)))
+    out = await aiolist(out)
     await tr.commit()
 
     # check
@@ -96,13 +104,15 @@ async def test_strinc_range():
 
     # check
     tr = db._create_transaction()
-    everything = await tr.get_range(None, None)
+    everything = tr.range(None, None)
+    everything = await aiolist(everything)
     await tr.commit()
     assert len(everything) == 4
 
     # check
     tr = db._create_transaction()
-    everything = await tr.get_range(prefix_zero, found.strinc(prefix_zero))
+    everything = tr.range(prefix_zero, found.strinc(prefix_zero))
+    everything = await aiolist(everything)
     await tr.commit()
     assert len(everything) == 3
 
@@ -138,13 +148,15 @@ async def test_startswith():
 
     # check
     tr = db._create_transaction()
-    everything = await tr.get_range(None, None)
+    everything = tr.range(None, None)
+    everything = await aiolist(everything)
     await tr.commit()
     assert len(everything) == 4
 
     # check
     tr = db._create_transaction()
-    everything = await tr.get_range_startswith(prefix_zero)
+    everything = tr.range_startswith(prefix_zero)
+    everything = await aiolist(everything)
     await tr.commit()
     assert len(everything) == 3
 
@@ -191,9 +203,13 @@ async def test_simple_single_item_db_subject_lookup():
 
     expected = uuid4()
     await triplestore.add(db, expected, "title", "hyper.dev")
-    out = []
-    async for item in triplestore.select(db, var("subject"), "title", "hyper.dev"):
-        out.append(item)
+
+    @found.transactional
+    async def query(tr):
+        out = await aiolist(triplestore.select(tr, var("subject"), "title", "hyper.dev"))
+        return out
+    out = await query(db)
+
     out = out[0]["subject"]
     assert out == expected
 
@@ -225,11 +241,15 @@ async def test_simple_multiple_items_db_subject_lookup():
 
     expected = uuid4()
     await triplestore.add(db, expected, "title", "hyper.dev")
-    await triplestore.add(db, uuid4(), "title", "blog.dolead.com")
+    await triplestore.add(db, uuid4(), "title", "blog.copernic.com")
     await triplestore.add(db, uuid4(), "title", "julien.danjou.info")
-    out = []
-    async for item in triplestore.select(db, var("subject"), "title", "hyper.dev"):
-        out.append(item)
+
+    @found.transactional
+    async def query(tr):
+        out = await aiolist(triplestore.select(tr, var("subject"), "title", "hyper.dev"))
+        return out
+
+    out = await query(db)
     out = out[0]["subject"]
     assert out == expected
 
@@ -246,20 +266,23 @@ async def test_complex():
     await triplestore.add(db, hyperdev, "title", "hyper.dev")
     await triplestore.add(db, hyperdev, "keyword", "scheme")
     await triplestore.add(db, hyperdev, "keyword", "hacker")
-    dolead = uuid4()
-    await triplestore.add(db, dolead, "title", "blog.dolead.com")
-    await triplestore.add(db, dolead, "keyword", "corporate")
+    copernic = uuid4()
+    await triplestore.add(db, copernic, "title", "blog.copernic.com")
+    await triplestore.add(db, copernic, "keyword", "corporate")
     julien = uuid4()
     await triplestore.add(db, julien, "title", "julien.danjou.info")
     await triplestore.add(db, julien, "keyword", "python")
     await triplestore.add(db, julien, "keyword", "hacker")
 
-    seed = triplestore.select(db, var("identifier"), "keyword", "hacker")
-    out = []
-    async for item in triplestore.where(
-        db, seed, var("identifier"), "title", var("blog")
-    ):
-        out.append(item)
+    @found.transactional
+    async def query(tr):
+        seed = triplestore.select(tr, var("identifier"), "keyword", "hacker")
+        out = await aiolist(triplestore.where(
+            tr, seed, var("identifier"), "title", var("blog")
+        ))
+        return out
+
+    out = await query(db)
     out = sorted([x["blog"] for x in out])
     assert out == ["hyper.dev", "julien.danjou.info"]
 
@@ -277,21 +300,24 @@ async def test_seed_subject_variable():
     await triplestore.add(db, hyperdev, "keyword", "scheme")
     await triplestore.add(db, hyperdev, "keyword", "hacker")
 
-    dolead = uuid4()
-    await triplestore.add(db, dolead, "title", "blog.dolead.com")
-    await triplestore.add(db, dolead, "keyword", "corporate")
+    copernic = uuid4()
+    await triplestore.add(db, copernic, "title", "copernic.space")
+    await triplestore.add(db, copernic, "keyword", "corporate")
 
-    julien = uuid4()
-    await triplestore.add(db, julien, "title", "julien.danjou.info")
-    await triplestore.add(db, julien, "keyword", "python")
-    await triplestore.add(db, julien, "keyword", "hacker")
+    hypersocial = uuid4()
+    await triplestore.add(db, hypersocial, "title", "hypersocial.space")
+    await triplestore.add(db, hypersocial, "keyword", "python")
+    await triplestore.add(db, hypersocial, "keyword", "hacker")
 
-    out = []
-    async for item in triplestore.select(db, var("subject"), "keyword", "corporate"):
-        out.append(item)
+    @found.transactional
+    async def query(tr):
+        out = await aiolist(triplestore.select(tr, var("subject"), "keyword", "corporate"))
+        return out
+
+    out = await query(db)
     out = out[0]["subject"]
 
-    assert out == dolead
+    assert out == copernic
 
 
 @pytest.mark.asyncio
@@ -307,23 +333,26 @@ async def test_seed_subject_lookup():
     await triplestore.add(db, hyperdev, "keyword", "scheme")
     await triplestore.add(db, hyperdev, "keyword", "hacker")
 
-    dolead = uuid4()
-    await triplestore.add(db, dolead, "title", "blog.dolead.com")
-    await triplestore.add(db, dolead, "keyword", "corporate")
+    copernic = uuid4()
+    await triplestore.add(db, copernic, "title", "blog.copernic.com")
+    await triplestore.add(db, copernic, "keyword", "corporate")
 
-    julien = uuid4()
-    await triplestore.add(db, julien, "title", "julien.danjou.info")
-    await triplestore.add(db, julien, "keyword", "python")
-    await triplestore.add(db, julien, "keyword", "hacker")
+    hypersocial = uuid4()
+    await triplestore.add(db, hypersocial, "title", "hypersocial.space")
+    await triplestore.add(db, hypersocial, "keyword", "python")
+    await triplestore.add(db, hypersocial, "keyword", "hacker")
 
-    out = []
-    async for item in triplestore.select(db, dolead, var("key"), var("value")):
-        out.append(item)
+    @found.transactional
+    async def query(tr):
+        out = await aiolist(triplestore.select(tr, copernic, var("key"), var("value")))
+        return out
+
+    out = await query(db)
     out = [dict(x) for x in out]
 
     expected = [
         {"key": "keyword", "value": "corporate"},
-        {"key": "title", "value": "blog.dolead.com"},
+        {"key": "title", "value": "blog.copernic.com"},
     ]
     assert out == expected
 
@@ -341,19 +370,21 @@ async def test_seed_object_variable():
     await triplestore.add(db, hyperdev, "keyword", "scheme")
     await triplestore.add(db, hyperdev, "keyword", "hacker")
 
-    dolead = uuid4()
-    await triplestore.add(db, dolead, "title", "blog.dolead.com")
-    await triplestore.add(db, dolead, "keyword", "corporate")
+    copernic = uuid4()
+    await triplestore.add(db, copernic, "title", "blog.copernic.com")
+    await triplestore.add(db, copernic, "keyword", "corporate")
 
-    julien = uuid4()
-    await triplestore.add(db, julien, "title", "julien.danjou.info")
-    await triplestore.add(db, julien, "keyword", "python")
-    await triplestore.add(db, julien, "keyword", "hacker")
+    hypersocial = uuid4()
+    await triplestore.add(db, hypersocial, "title", "hypersocial.space")
+    await triplestore.add(db, hypersocial, "keyword", "python")
+    await triplestore.add(db, hypersocial, "keyword", "hacker")
 
-    out = []
-    async for item in triplestore.select(db, hyperdev, "title", var("title")):
-        out.append(item)
+    @found.transactional
+    async def query(tr):
+        out = await aiolist(triplestore.select(tr, hyperdev, "title", var("title")))
+        return out
 
+    out = await query(db)
     out = out[0]["title"]
     assert out == "hyper.dev"
 
@@ -379,10 +410,14 @@ async def test_subject_variable():
     await triplestore.add(db, post2, "title", "hoply triple store")
 
     # exec, fetch all blog title from hyper.dev
-    query = triplestore.select(db, var("blog"), "title", "hyper.dev")
-    query = triplestore.where(db, query, var("post"), "blog", var("blog"))
-    out = []
-    async for item in triplestore.where(db, query, var("post"), "title", var("title")):
-        out.append(item)
+
+    @found.transactional
+    async def query(tr):
+        query = triplestore.select(tr, var("blog"), "title", "hyper.dev")
+        query = triplestore.where(tr, query, var("post"), "blog", var("blog"))
+        out = await aiolist(triplestore.where(tr, query, var("post"), "title", var("title")))
+        return out
+
+    out = await query(db)
     out = sorted([x["title"] for x in out])
     assert out == ["hoply is awesome", "hoply triple store"]

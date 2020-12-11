@@ -186,8 +186,7 @@ class NStore(BaseFound):
         prefix = self._prefix + [subspace] + prefix
         start = found.pack(tuple(prefix))
         end = found.strinc(start)
-        kvs = await tr.get_range(start, end)
-        for key, _ in kvs:
+        async for key, _ in tr.range(start, end):
             items = found.unpack(key)[len(self._prefix) + 1 :]
             # re-order the items
             items = tuple(items[index.index(i)] for i in range(len(self._items)))
