@@ -51,8 +51,8 @@ issue <https://github.com/amirouche/asyncio-foundationdb/issues>`_.
 ChangeLog
 =========
 
-v0.6.0 (wip)
-------------
+v0.8.0
+------
 
 - breaking change: replace ``get_rangefoo`` with ``rangefoo`` as async generator
 - new: add short syntax for querying `Nstore.query(tr, patterns)`
