@@ -47,3 +47,12 @@ Here are differences with the synchronous bindings:
 
 If something is missing it's a bug, `please fill an
 issue <https://github.com/amirouche/asyncio-foundationdb/issues>`_.
+
+ChangeLog
+=========
+
+v0.6.0 (wip)
+------------
+
+- breaking change: replace ``get_rangefoo`` with ``rangefoo`` as async generator
+- chore: remove pipenv, and pre-commit
