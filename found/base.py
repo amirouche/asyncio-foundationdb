@@ -250,7 +250,7 @@ def get_value(obj):
         value = obj.as_foundationdb_value()
     except AttributeError:
         value = obj
-    assert isinstance(obj, bytes)
+    assert isinstance(value, bytes)
     return value
 
 
