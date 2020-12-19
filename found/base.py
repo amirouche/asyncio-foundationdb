@@ -27,6 +27,7 @@ import struct
 import threading
 from enum import Enum
 from functools import wraps
+from collections import defaultdict
 
 from fdb.impl import KeySelector
 
@@ -44,6 +45,13 @@ class BaseFound:
     """Base class for all found classes"""
 
     pass
+
+
+class Hook(set):
+
+    async def run(self, tx):
+        for func in self:
+            func(tx)
 
 
 class FoundException(Exception):
@@ -374,6 +382,7 @@ class Transaction(BaseTransaction):
     def __init__(self, pointer, database):
         super().__init__(pointer, database, False)
         self.snapshot = BaseTransaction(pointer, database, True)
+        self.state = defaultdict(dict)
 
     def __del__(self):
         # because self.pointer is shared with self.snapshot, we
@@ -400,7 +409,7 @@ class Transaction(BaseTransaction):
             end = get_key(end)
         lib.fdb_transaction_clear_range(self._pointer, begin, len(begin), end, len(end))
 
-    async def commit(self):
+    async def _commit(self):
         fdb_future = lib.fdb_transaction_commit(self._pointer)
         aio_future = _loop.create_future()
         handle = ffi.new_handle(aio_future)
@@ -485,15 +494,18 @@ def transactional(func):
             return out
         else:
             tx = db_or_tx._create_transaction()
+            await db_or_tx.on_transaction_begin.run(tx)
             # replace db with tx *ahem* tr
             args = list(args)
             args[index] = tx
             while True:
                 try:
                     out = await func(*args, **kwargs)
-                    await tx.commit()
+                    await db_or_tx.on_transaction_commit.run(tx)
+                    await tx._commit()
                 except FoundError as exc:
                     await tx._on_error(exc.code)
+                    await db_or_tx.on_transaction_rollback.run(tx)
                 else:
                     return out
 
@@ -506,6 +518,10 @@ class Database(BaseFound):
         pointer = ffi.new("FDBDatabase **")
         lib.fdb_create_database(cluster_file or ffi.NULL, pointer)
         self._pointer = pointer[0]
+        self.on_transaction_begin = Hook()
+        self.on_transaction_commit = Hook()
+        self.on_transaction_rollback = Hook()
+        self.state = defaultdict(dict)
 
     def __del__(self):
         lib.fdb_database_destroy(self._pointer)
