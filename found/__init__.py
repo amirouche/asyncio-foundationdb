@@ -4,7 +4,7 @@
 # This source file is part of the FoundationDB open source project
 #
 # Copyright 2013-2018 Apple Inc. and the FoundationDB project authors
-# Copyright 2018 Amirouche Boubekki <amirouche@hypermove.net>
+# Copyright 2018-2020 Amirouche Boubekki <amirouche@hyper.dev>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ from fdb.tuple import Versionstamp  # noqa
 from fdb.subspace_impl import Subspace  # noqa
 
 
-__VERSION__ = (0, 6, 0)
+__VERSION__ = (0, 9, 0)
 
 
 def open(*args, **kwargs):
@@ -47,7 +47,7 @@ def transactional(*args, **kwargs):
 
 
 def api_version(version):
-    header_version = 600
+    header_version = 620
 
     current_module = globals()
 

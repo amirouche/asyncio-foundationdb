@@ -136,7 +136,7 @@ class StreamingMode(Enum):
 def on_transaction_get_read_version(fdb_future, aio_future):
     aio_future = ffi.from_handle(aio_future)
     pointer = ffi.new("int64_t *")
-    error = lib.fdb_future_get_version(fdb_future, pointer)
+    error = lib.fdb_future_get_int64(fdb_future, pointer)
     if error == 0:
         _loop.call_soon_threadsafe(aio_future.set_result, pointer[0])
     else:
@@ -501,8 +501,11 @@ def transactional(func):
 
 
 class Database(BaseFound):
-    def __init__(self, pointer):
-        self._pointer = pointer
+
+    def __init__(self, cluster_file=None):
+        pointer = ffi.new("FDBDatabase **")
+        lib.fdb_create_database(cluster_file or ffi.NULL, pointer)
+        self._pointer = pointer[0]
 
     def __del__(self):
         lib.fdb_database_destroy(self._pointer)
@@ -535,66 +538,6 @@ class Database(BaseFound):
         return out
 
 
-@ffi.callback("void(FDBFuture *, void *)")
-def on_create_database(fdb_future, aio_future):
-    aio_future = ffi.from_handle(aio_future)
-    pointer = ffi.new("FDBDatabase **")
-    error = lib.fdb_future_get_database(fdb_future, pointer)
-    if error == 0:
-        _loop.call_soon_threadsafe(aio_future.set_result, pointer[0])
-    else:
-        _loop.call_soon_threadsafe(aio_future.set_exception, FoundError(error))
-    lib.fdb_future_destroy(fdb_future)
-
-
-class Cluster(BaseFound):
-    def __init__(self, pointer):
-        self._pointer = pointer
-
-    @property
-    def options():
-        raise NotImplementedError()  # TODO
-
-    def __del__(self):
-        lib.fdb_cluster_destroy(self._pointer)
-
-    async def open(self, name):
-        name = name.encode("utf-8")
-        fdb_future = lib.fdb_cluster_create_database(self._pointer, name, len(name))
-        aio_future = _loop.create_future()
-        handle = ffi.new_handle(aio_future)
-        lib.fdb_future_set_callback(fdb_future, on_create_database, handle)
-        pointer = await aio_future
-        return Database(pointer)
-
-
-@ffi.callback("void(FDBFuture *, void *)")
-def on_create_cluster(fdb_future, aio_future):
-    aio_future = ffi.from_handle(aio_future)
-    pointer = ffi.new("FDBCluster **")
-    error = lib.fdb_future_get_cluster(fdb_future, pointer)
-    if error == 0:
-        _loop.call_soon_threadsafe(aio_future.set_result, pointer[0])
-    else:
-        _loop.call_soon_threadsafe(aio_future.set_exception, FoundError(error))
-    lib.fdb_future_destroy(fdb_future)
-
-
-async def create_cluster(cluster_file=None):
-    fdb_future = lib.fdb_create_cluster(cluster_file or ffi.NULL)
-    aio_future = _loop.create_future()
-    handle = ffi.new_handle(aio_future)
-    lib.fdb_future_set_callback(fdb_future, on_create_cluster, handle)
-    pointer = await aio_future
-    return Cluster(pointer)
-
-
-_clusters = dict()
-_databases = dict()
-
-cache_lock = threading.Lock()
-
-
 async def open(cluster_file=None):
     """Open the database specified by `cluster_file` or the default
     cluster indicated by the fdb.cluster file in a platform-specific
@@ -604,22 +547,6 @@ async def open(cluster_file=None):
         if _network_thread is None:
             init()
 
-    with cache_lock:
-        try:
-            cluster = _clusters[cluster_file]
-        except KeyError:
-            cluster = _clusters[cluster_file] = await create_cluster(cluster_file)
+    db = Database(cluster_file)
 
-        # in the 510 bindings, it is apparently possible to open different
-        # databases in the same cluster but that is not supported by
-        # the underlying client API. YAGNI for the time being. We hardcode
-        # the database name and do not expose it in the public API
-        database_name = "DB"
-        try:
-            db = _databases[(cluster_file, database_name)]
-        except KeyError:
-            db = _databases[(cluster_file, database_name)] = await cluster.open(
-                database_name
-            )
-
-        return db
+    return db

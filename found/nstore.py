@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2015-2020  Amirouche Boubekki <amirouche.boubekki@gmail.com>
+# Copyright (C) 2015-2020  Amirouche Boubekki <amirouche@hyper.dev>
 #
 # https://github.com/amirouche/found/
 #
