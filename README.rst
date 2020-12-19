@@ -51,6 +51,11 @@ issue <https://github.com/amirouche/asyncio-foundationdb/issues>`_.
 ChangeLog
 =========
 
+v0.9.0
+------
+
+- feature: bump to foundationdb 6.2.0 client API
+
 v0.8.0
 ------
 
