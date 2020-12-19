@@ -481,7 +481,7 @@ def transactional(func):
         # XXX: 'tr' can not be passed as a keyword
         index = spec.args.index("tr")
     except ValueError:
-        msg = "the decorator @transactional expect one of the positional argument to be name 'tr'"
+        msg = "Expected `tr` as one positional argument."
         raise NameError(msg)
 
     @wraps(func)
