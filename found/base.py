@@ -212,8 +212,9 @@ def on_transaction_get_range(fdb_future, aio_future):
         # total count of buffers for this key-value array
         # total = count[0] * 2
         # free = on_transaction_get_range_free(fdb_future, total)
+        copy = kvs[0][0:count[0]]
 
-        for kv in kvs[0][0:count[0]]:
+        for kv in copy:
             # XXX: manual unpacking because cffi doesn't known about packing
             # https://bitbucket.org/cffi/cffi/issues/364/make-packing-configureable
             memory = ffi.buffer(ffi.addressof(kv), 24)
