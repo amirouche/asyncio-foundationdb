@@ -55,6 +55,7 @@ v0.9.0
 ------
 
 - feature: bump to foundationdb 6.2.0 client API
+- feature: add hooks and states
 
 v0.8.0
 ------
