@@ -38,9 +38,6 @@ from found._fdb import ffi
 log = logging.getLogger(__name__)
 
 
-CLIENT_VERSION = 600
-
-
 class BaseFound:
     """Base class for all found classes"""
 
