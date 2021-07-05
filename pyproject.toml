@@ -1,13 +1,14 @@
 [tool.poetry]
 name = "asyncio-foundationdb"
-version = "0.9.1"
+version = "0.9.3"
 description = "asyncio drivers for FoundationDB"
 authors = ["Amirouche <amirouche@hyper.dev>"]
 license = "Apachev2"
+readme = "README.md"
 packages = [
     { include = "found" },
 ]
-include = ["build.py", "fdb_c2.h", "fdb_c.h"]
+include = ["build.py", "fdb_c2.h", "fdb_c.h", "found/*.so"]
 build = "build.py"
 
 [tool.poetry.dependencies]

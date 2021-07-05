@@ -2,7 +2,7 @@
 
 *early draft*
 
-asyncio drivers for foundationdb tested with CPython 3.8
+asyncio drivers for foundationdb tested with CPython 3.9
 
 ```
 pip install asyncio-foundationdb
@@ -10,22 +10,19 @@ pip install asyncio-foundationdb
 
 ```python
 > import found
-> import asyncio
-> found.api_version(620)
-> db = asyncio.run(found.open())
-> asyncio.run(db.get(b'hello'))
-> db.set(b'hello', b'world')
-> asyncio.run(tr.get(b'hello'))
+> found.api_version(630)
+> db = await found.open()
+> await db.get(b'hello')
+> await db.set(b'hello', b'world')
+> await tr.get(b'hello')
 b'world'
 ```
 
-## [Documentation](https://github.com/amirouche/asyncio-foundationdb/tree/master/doc)
-
 ## ChangeLog
 
-### v0.9.0
+### v0.9.x
 
-- feature: bump to foundationdb 6.2.0 client API
+- feature: bump to foundationdb 6.3.15 client API
 - feature: add hooks and states
 
 ### v0.8.0
