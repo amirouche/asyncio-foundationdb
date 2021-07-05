@@ -4,6 +4,9 @@ version = "0.9.0"
 description = "asyncio drivers for FoundationDB"
 authors = ["Amirouche <amirouche@hyper.dev>"]
 license = "Apachev2"
+packages = [
+    { include = "found" },
+]
 
 [tool.poetry.dependencies]
 python = "^3.9"
