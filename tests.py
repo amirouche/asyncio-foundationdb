@@ -3,17 +3,13 @@ import logging
 import pytest
 from uuid import uuid4
 
-import daiquiri
 from fdb.tuple import SingleFloat
 
 import found
 from found import base
 
 
-daiquiri.setup(logging.DEBUG, outputs=("stderr",))
-
-
-found.api_version(620)
+found.api_version(630)
 
 
 def test_pack_unpack():
@@ -34,7 +30,7 @@ async def open():
     # clean database
     tr = db._create_transaction()
     tr.clear_range(b"", b"\xff")
-    await tr.commit()
+    await tr._commit()
 
     return db
 
@@ -73,12 +69,12 @@ async def test_range():
     # exec
     for number in range(10):
         tr.set(found.pack((number,)), found.pack((str(number),)))
-    await tr.commit()
+    await tr._commit()
 
     tr = db._create_transaction()
     out = tr.range(found.pack((1,)), found.pack((8,)))
     out = await aiolist(out)
-    await tr.commit()
+    await tr._commit()
 
     # check
     assert out
@@ -100,20 +96,20 @@ async def test_strinc_range():
     tr.set(prefix_zero + b"\x03", found.pack((3,)))
     prefix_one = b"\x01"
     tr.set(prefix_one + b"\x42", found.pack((42,)))
-    await tr.commit()
+    await tr._commit()
 
     # check
     tr = db._create_transaction()
     everything = tr.range(None, None)
     everything = await aiolist(everything)
-    await tr.commit()
+    await tr._commit()
     assert len(everything) == 4
 
     # check
     tr = db._create_transaction()
     everything = tr.range(prefix_zero, found.strinc(prefix_zero))
     everything = await aiolist(everything)
-    await tr.commit()
+    await tr._commit()
     assert len(everything) == 3
 
 
@@ -125,7 +121,7 @@ async def test_read_version():
     # exec
     tr = db._create_transaction()
     out = await tr.read_version()
-    await tr.commit()
+    await tr._commit()
 
     # check
     assert out
@@ -144,20 +140,20 @@ async def test_startswith():
     tr.set(prefix_zero + b"\x03", found.pack((3,)))
     prefix_one = b"\x01"
     tr.set(prefix_one + b"\x42", found.pack((42,)))
-    await tr.commit()
+    await tr._commit()
 
     # check
     tr = db._create_transaction()
     everything = tr.range(None, None)
     everything = await aiolist(everything)
-    await tr.commit()
+    await tr._commit()
     assert len(everything) == 4
 
     # check
     tr = db._create_transaction()
     everything = tr.range_startswith(prefix_zero)
     everything = await aiolist(everything)
-    await tr.commit()
+    await tr._commit()
     assert len(everything) == 3
 
 

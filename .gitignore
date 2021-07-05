@@ -1,5 +1,5 @@
 conceptnet-assertions-5.6.0.csv.gz
-foundationdb-*
+*.deb
 *~
 *.c
 *.o

@@ -1,13 +1,14 @@
 .PHONY: help doc
 
+help: ## This help.
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST) | sort
+
 init: ## Prepare the host sytem for development
-	wget https://www.foundationdb.org/downloads/6.2.28/ubuntu/installers/foundationdb-clients_6.2.28-1_amd64.deb
-	sudo dpkg -i foundationdb-clients_6.2.28-1_amd64.deb
-	wget https://www.foundationdb.org/downloads/6.2.28/ubuntu/installers/foundationdb-server_6.2.28-1_amd64.deb
-	sudo dpkg -i foundationdb-server_6.2.28-1_amd64.deb
-	pip install --upgrade pip
-	pip install -r requirements-dev.txt
-	python setup.py develop
+	rm -rf fdb-clients.deb fdb-server.deb
+	wget https://www.foundationdb.org/downloads/6.3.15/ubuntu/installers/foundationdb-clients_6.3.15-1_amd64.deb -O fdb-clients.deb
+	sudo dpkg -i fdb-clients.deb
+	wget https://www.foundationdb.org/downloads/6.3.15/ubuntu/installers/foundationdb-server_6.3.15-1_amd64.deb -O fdb-server.deb
+	sudo dpkg -i fdb-server.deb
 	@echo "\033[95m\n\nYou may now run 'make check'.\n\033[0m"
 
 check: ## Run tests
@@ -21,11 +22,8 @@ check-coverage: ## Code coverage
 	py.test -vv --cov-config .coveragerc --cov-report term --cov-report html --cov-report xml --cov=found/ tests.py
 
 
-help: ## This help.
-	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST) | sort
-
 lint: ## Lint the code
-	pylint found/
+	pylama found/
 
 doc: ## Build the documentation
 	cd doc && make html
