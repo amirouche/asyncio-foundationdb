@@ -534,7 +534,7 @@ class Database(BaseFound):
         return Transaction(pointer[0], self)
 
     @transactional
-    def set(tr, key, value):
+    async def set(tr, key, value):
         tr.set(key, value)
 
     @transactional
