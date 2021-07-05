@@ -12,5 +12,5 @@ with open(os.path.join(os.path.dirname(__file__), "fdb_c2.h")) as f:
     ffi.cdef(f.read())
 
 
-if __name__ == "__main__":
+def build(*args, **kwargs):
     ffi.compile(verbose=True)

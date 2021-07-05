@@ -7,6 +7,8 @@ license = "Apachev2"
 packages = [
     { include = "found" },
 ]
+include = ["build.py", "fdb_c2.h", "fdb_c.h"]
+build = "build.py"
 
 [tool.poetry.dependencies]
 python = "^3.9"
@@ -20,8 +22,8 @@ pytest = "^6.2.4"
 pytest-asyncio = "^0.15.1"
 pytest-cov = "^2.12.1"
 bandit = "^1.7.0"
-pylama = {extras = ["all"], version = "^7.7.1"}
+pylama = "^7.7.1"
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
+requires = ["poetry-core>=1.0.0", "cffi>=1.14.5"]
 build-backend = "poetry.core.masonry.api"
