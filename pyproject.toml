@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "asyncio-foundationdb"
-version = "0.9.3"
+version = "0.9.6"
 description = "asyncio drivers for FoundationDB"
 authors = ["Amirouche <amirouche@hyper.dev>"]
 license = "Apachev2"
@@ -12,7 +12,7 @@ include = ["build.py", "fdb_c2.h", "fdb_c.h", "found/*.so"]
 build = "build.py"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.7"
 cffi = "^1.14.5"
 foundationdb = "^6.3.16"
 immutables = "^0.15"
