@@ -1,20 +1,16 @@
 #
-# Copyright (C) 2015-2020  Amirouche Boubekki <amirouche@hyper.dev>
+# Copyright (C) 2015-2021  Amirouche Boubekki <amirouche@hyper.dev>
 #
 # https://github.com/amirouche/found/
 #
-import logging
 import itertools
 from math import factorial
+from collections import namedtuple
 
 import found
-from found.base import BaseFound
 from found.base import FoundException
 
 from immutables import Map
-
-
-log = logging.getLogger(__name__)
 
 
 def pk(*args):
@@ -84,10 +80,6 @@ def _compute_indices(n):
         yield tuple(A + l + B)
 
 
-def compute_indices(n):
-    return list(_compute_indices(n))
-
-
 # helpers
 
 
@@ -107,24 +99,7 @@ class NStoreException(FoundException):
     pass
 
 
-class NotFound(NStoreException):
-    pass
-
-
-class Variable(BaseFound):
-
-    __slots__ = ("name",)
-
-    def __init__(self, name):
-        self.name = name
-
-    def __repr__(self):
-        return "<var %r>" % self.name
-
-
-# XXX: use 'var' only in 'select' and 'where' queries
-# please!
-var = Variable
+Variable = var = namedtuple('Variable', ('name',))
 
 
 def is_permutation_prefix(combination, index):
@@ -135,95 +110,94 @@ def is_permutation_prefix(combination, index):
     return out
 
 
-class NStore(BaseFound):
-    def __init__(self, name, prefix, items):
-        self.name = name
-        self._prefix = prefix
-        self._items = items
-        self._indices = compute_indices(len(items))
+_NStore = namedtuple('NStore', ('name', 'prefix', 'n', 'indices'))
 
-    @found.transactional
-    async def add(self, tr, *items):
-        """Add ITEMS to the associated database"""
-        assert len(items) == len(self._items), "invalid item count"
-        for subspace, index in enumerate(self._indices):
-            permutation = list(items[i] for i in index)
-            key = self._prefix + [subspace] + permutation
-            tr.set(found.pack(tuple(key)), b"")
 
-    @found.transactional
-    async def remove(self, tr, *items):
-        """Remove ITEMS from the associated database"""
-        assert len(items) == len(self._items), "invalid item count"
-        for subspace, index in enumerate(self._indices):
-            permutation = list(items[i] for i in index)
-            key = self._prefix + [subspace] + permutation
-            tr.clear(found.pack(tuple(key)))
+def make(name, prefix, n):
+    return _NStore(name, prefix, n, list(_compute_indices(n)))
 
-    @found.transactional
-    async def ask(self, tr, *items):
-        """Return True if ITEMS is found in the associated database"""
-        assert len(items) == len(self._items), "invalid item count"
-        subspace = 0
-        key = self._prefix + [subspace] + list(items)
-        out = await tr.get(found.pack(tuple(key)))
-        out = out is not None
-        return out
 
-    async def select(self, tr, *pattern, seed=Map()):  # seed is immutable
-        """Yields bindings that match PATTERN"""
-        assert len(pattern) == len(self._items), "invalid item count"
-        variable = tuple(isinstance(x, Variable) for x in pattern)
-        # find the first index suitable for the query
-        combination = tuple(x for x in range(len(self._items)) if not variable[x])
-        for subspace, index in enumerate(self._indices):
-            if is_permutation_prefix(combination, index):
-                break
-        else:
-            raise NStoreException("Oops!")
-        # `index` variable holds the permutation suitable for the
-        # query. `subspace` is the "prefix" of that index.
-        prefix = list(pattern[i] for i in index if not isinstance(pattern[i], Variable))
-        prefix = self._prefix + [subspace] + prefix
-        start = found.pack(tuple(prefix))
-        end = found.strinc(start)
-        async for key, _ in tr.range(start, end):
-            items = found.unpack(key)[len(self._prefix) + 1 :]
-            # re-order the items
-            items = tuple(items[index.index(i)] for i in range(len(self._items)))
-            bindings = seed
-            for i, item in enumerate(pattern):
-                if isinstance(item, Variable):
-                    bindings = bindings.set(item.name, items[i])
-            yield bindings
+def add(tx, nstore, *items, value=b''):
+    assert len(items) == nstore.n, "invalid item count"
+    for subspace, index in enumerate(nstore.indices):
+        permutation = list(items[i] for i in index)
+        key = nstore.prefix + [subspace] + permutation
+        found.set(tx, found.pack(tuple(key)), value)
 
-    async def where(self, tr, iterator, *pattern):
-        assert len(pattern) == len(self._items), "invalid item count"
 
-        async for bindings in iterator:
-            # bind PATTERN against BINDINGS
-            bound = []
-            for item in pattern:
-                # if ITEM is variable try to bind
-                if isinstance(item, Variable):
-                    try:
-                        value = bindings[item.name]
-                    except KeyError:
-                        # no bindings
-                        bound.append(item)
-                    else:
-                        # pick the value in bindings
-                        bound.append(value)
-                else:
-                    # otherwise keep item as is
+def remove(tx, nstore, *items):
+    assert len(items) == nstore.n, "invalid item count"
+    for subspace, index in enumerate(nstore.indices):
+        permutation = list(items[i] for i in index)
+        key = nstore.prefix + [subspace] + permutation
+        found.clear(tx, found.pack(tuple(key)))
+
+
+async def get(tx, nstore, *items):
+    assert len(items) == nstore.n, "invalid item count"
+    subspace = 0
+    key = nstore.prefix + [subspace] + list(items)
+    out = await found.get(tx, found.pack(tuple(key)))
+    out = None if out is None else out
+    return out
+
+
+async def select(tx, nstore, *pattern, seed=Map()):  # seed is immutable
+    """Yields bindings that match PATTERN"""
+    assert len(pattern) == nstore.n, "invalid item count"
+    variable = tuple(isinstance(x, Variable) for x in pattern)
+    # find the first index suitable for the query
+    combination = tuple(x for x in range(nstore.n) if not variable[x])
+    for subspace, index in enumerate(nstore.indices):
+        if is_permutation_prefix(combination, index):
+            break
+    else:
+        raise NStoreException("Oops!")
+    # `index` variable holds the permutation suitable for the
+    # query. `subspace` is the "prefix" of that index.
+    prefix = list(pattern[i] for i in index if not isinstance(pattern[i], Variable))
+    prefix = nstore.prefix + [subspace] + prefix
+    start = found.pack(tuple(prefix))
+    end = found.next_prefix(start)
+    async for key, _ in found.query(tx, start, end):
+        items = found.unpack(key)[len(nstore.prefix) + 1:]
+        # re-order the items
+        items = tuple(items[index.index(i)] for i in range(nstore.n))
+        bindings = seed
+        for i, item in enumerate(pattern):
+            if isinstance(item, Variable):
+                bindings = bindings.set(item.name, items[i])
+        yield bindings
+
+
+async def where(tx, nstore, iterator, *pattern):
+    assert len(pattern) == nstore.n, "invalid item count"
+
+    async for bindings in iterator:
+        # bind PATTERN against BINDINGS
+        bound = []
+        for item in pattern:
+            # if ITEM is variable try to bind
+            if isinstance(item, Variable):
+                try:
+                    value = bindings[item.name]
+                except KeyError:
+                    # no bindings
                     bound.append(item)
-            # hey!
-            out = self.select(tr, *bound, seed=bindings)
-            async for binding in out:
-                yield binding
+                else:
+                    # pick the value in bindings
+                    bound.append(value)
+            else:
+                # otherwise keep item as is
+                bound.append(item)
+        # hey!
+        out = select(tx, nstore, *bound, seed=bindings)
+        async for binding in out:
+            yield binding
 
-    def query(self, tr, pattern, *patterns):
-        out = self.select(tr, *pattern)
-        for pattern in patterns:
-            out = self.where(tr, out, *pattern)
-        return out
+
+def query(tx, nstore, pattern, *patterns):
+    out = select(tx, nstore, *pattern)
+    for pattern in patterns:
+        out = where(tx, nstore, out, *pattern)
+    return out

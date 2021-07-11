@@ -133,277 +133,281 @@ async def test_read_version():
 
 # Ntore tests
 
+from found import nstore
+from found.nstore import var
 
-# @pytest.mark.asyncio
-# async def test_nstore_empty():
-#     db = await open()
-#     from found.nstore import NStore
-
-#     nstore = NStore("test-name", [42], ("subject", "predicate", "object"))
-
-
-# @pytest.mark.asyncio
-# async def test_simple_single_item_db_subject_lookup():
-#     db = await open()
-#     from found.nstore import NStore
-#     from found.nstore import var
-
-#     foundiplestore = NStore("test-name", [42], ("subject", "predicate", "object"))
 
-#     expected = uuid4()
-#     await foundiplestore.add(db, expected, "title", "hyper.dev")
-
-#     @found.foundansactional
-#     async def query(found):
-#         out = await aiolist(foundiplestore.select(found, var("subject"), "title", "hyper.dev"))
-#         return out
-#     out = await query(db)
-
-#     out = out[0]["subject"]
-#     assert out == expected
-
-
-# @pytest.mark.asyncio
-# async def test_ask_rm_and_ask():
-#     db = await open()
-#     from found.nstore import NStore
-#     from found.nstore import var
+@pytest.mark.asyncio
+async def test_nstore_empty():
+    ntest = nstore.make("test-name", [42], 3)
+    assert ntest
 
-#     foundiplestore = NStore("test-name", [42], ("subject", "predicate", "object"))
 
-#     expected = uuid4()
-#     await foundiplestore.add(db, expected, "title", "hyper.dev")
-#     out = await foundiplestore.ask(db, expected, "title", "hyper.dev")
-#     assert out
-#     await foundiplestore.remove(db, expected, "title", "hyper.dev")
-#     out = await foundiplestore.ask(db, expected, "title", "hyper.dev")
-#     assert not out
+@pytest.mark.asyncio
+async def test_simple_single_item_db_subject_lookup():
+    db = await open()
+    ntest = nstore.make("test-name", [42], 3)
 
+    expected = uuid4()
 
-# @pytest.mark.asyncio
-# async def test_simple_multiple_items_db_subject_lookup():
-#     db = await open()
-#     from found.nstore import NStore
-#     from found.nstore import var
+    async def prepare(tx):
+        nstore.add(tx, ntest, expected, "title", "hyper.dev")
 
-#     foundiplestore = NStore("test-name", [42], ("subject", "predicate", "object"))
+    await found.transactional(db, prepare)
 
-#     expected = uuid4()
-#     await foundiplestore.add(db, expected, "title", "hyper.dev")
-#     await foundiplestore.add(db, uuid4(), "title", "blog.copernic.com")
-#     await foundiplestore.add(db, uuid4(), "title", "julien.danjou.info")
+    async def query(tx):
+        out = await aiolist(nstore.select(tx, ntest, var("subject"), "title", "hyper.dev"))
+        return out
 
-#     @found.foundansactional
-#     async def query(found):
-#         out = await aiolist(foundiplestore.select(found, var("subject"), "title", "hyper.dev"))
-#         return out
+    out = await found.transactional(db, query)
+    out = out[0]["subject"]
 
-#     out = await query(db)
-#     out = out[0]["subject"]
-#     assert out == expected
+    assert out == expected
 
-
-# @pytest.mark.asyncio
-# async def test_complex():
-#     db = await open()
-#     from found.nstore import NStore
-#     from found.nstore import var
 
-#     foundiplestore = NStore("test-name", [42], ("subject", "predicate", "object"))
-
-#     hyperdev = uuid4()
-#     await foundiplestore.add(db, hyperdev, "title", "hyper.dev")
-#     await foundiplestore.add(db, hyperdev, "keyword", "scheme")
-#     await foundiplestore.add(db, hyperdev, "keyword", "hacker")
-#     copernic = uuid4()
-#     await foundiplestore.add(db, copernic, "title", "blog.copernic.com")
-#     await foundiplestore.add(db, copernic, "keyword", "corporate")
-#     julien = uuid4()
-#     await foundiplestore.add(db, julien, "title", "julien.danjou.info")
-#     await foundiplestore.add(db, julien, "keyword", "python")
-#     await foundiplestore.add(db, julien, "keyword", "hacker")
-
-#     @found.foundansactional
-#     async def query(found):
-#         seed = foundiplestore.select(found, var("identifier"), "keyword", "hacker")
-#         out = await aiolist(foundiplestore.where(
-#             found, seed, var("identifier"), "title", var("blog")
-#         ))
-#         return out
-
-#     out = await query(db)
-#     out = sorted([x["blog"] for x in out])
-#     assert out == ["hyper.dev", "julien.danjou.info"]
+@pytest.mark.asyncio
+async def test_ask_rm_and_ask():
+    db = await open()
+    ntest = nstore.make("test-name", [42], 3)
 
+    expected = uuid4()
 
-# @pytest.mark.asyncio
-# async def test_seed_subject_variable():
-#     db = await open()
-#     from found.nstore import NStore
-#     from found.nstore import var
+    async def get(tx):
+        out = await nstore.get(tx, ntest, expected, "title", "hyper.dev")
+        return out
 
-#     foundiplestore = NStore("test-name", [42], ("subject", "predicate", "object"))
+    out = await found.transactional(db, get)
 
-#     hyperdev = uuid4()
-#     await foundiplestore.add(db, hyperdev, "title", "hyper.dev")
-#     await foundiplestore.add(db, hyperdev, "keyword", "scheme")
-#     await foundiplestore.add(db, hyperdev, "keyword", "hacker")
+    assert out is None
 
-#     copernic = uuid4()
-#     await foundiplestore.add(db, copernic, "title", "copernic.space")
-#     await foundiplestore.add(db, copernic, "keyword", "corporate")
+    async def add(tx):
+        nstore.add(tx, ntest, expected, "title", "hyper.dev")
 
-#     hypersocial = uuid4()
-#     await foundiplestore.add(db, hypersocial, "title", "hypersocial.space")
-#     await foundiplestore.add(db, hypersocial, "keyword", "python")
-#     await foundiplestore.add(db, hypersocial, "keyword", "hacker")
-
-#     @found.foundansactional
-#     async def query(found):
-#         out = await aiolist(foundiplestore.select(found, var("subject"), "keyword", "corporate"))
-#         return out
-
-#     out = await query(db)
-#     out = out[0]["subject"]
-
-#     assert out == copernic
-
-
-# @pytest.mark.asyncio
-# async def test_seed_subject_lookup():
-#     db = await open()
-#     from found.nstore import NStore
-#     from found.nstore import var
-
-#     foundiplestore = NStore("test-name", [42], ("subject", "predicate", "object"))
-
-#     hyperdev = uuid4()
-#     await foundiplestore.add(db, hyperdev, "title", "hyper.dev")
-#     await foundiplestore.add(db, hyperdev, "keyword", "scheme")
-#     await foundiplestore.add(db, hyperdev, "keyword", "hacker")
+    await found.transactional(db, add)
+    out = await found.transactional(db, get)
+    assert out == b''
 
-#     copernic = uuid4()
-#     await foundiplestore.add(db, copernic, "title", "blog.copernic.com")
-#     await foundiplestore.add(db, copernic, "keyword", "corporate")
-
-#     hypersocial = uuid4()
-#     await foundiplestore.add(db, hypersocial, "title", "hypersocial.space")
-#     await foundiplestore.add(db, hypersocial, "keyword", "python")
-#     await foundiplestore.add(db, hypersocial, "keyword", "hacker")
-
-#     @found.foundansactional
-#     async def query(found):
-#         out = await aiolist(foundiplestore.select(found, copernic, var("key"), var("value")))
-#         return out
-
-#     out = await query(db)
-#     out = [dict(x) for x in out]
-
-#     expected = [
-#         {"key": "keyword", "value": "corporate"},
-#         {"key": "title", "value": "blog.copernic.com"},
-#     ]
-#     assert out == expected
-
-
-# @pytest.mark.asyncio
-# async def test_seed_object_variable():
-#     db = await open()
-#     from found.nstore import NStore
-#     from found.nstore import var
-
-#     foundiplestore = NStore("test-name", [42], ("subject", "predicate", "object"))
-
-#     hyperdev = uuid4()
-#     await foundiplestore.add(db, hyperdev, "title", "hyper.dev")
-#     await foundiplestore.add(db, hyperdev, "keyword", "scheme")
-#     await foundiplestore.add(db, hyperdev, "keyword", "hacker")
-
-#     copernic = uuid4()
-#     await foundiplestore.add(db, copernic, "title", "blog.copernic.com")
-#     await foundiplestore.add(db, copernic, "keyword", "corporate")
-
-#     hypersocial = uuid4()
-#     await foundiplestore.add(db, hypersocial, "title", "hypersocial.space")
-#     await foundiplestore.add(db, hypersocial, "keyword", "python")
-#     await foundiplestore.add(db, hypersocial, "keyword", "hacker")
-
-#     @found.foundansactional
-#     async def query(found):
-#         out = await aiolist(foundiplestore.select(found, hyperdev, "title", var("title")))
-#         return out
-
-#     out = await query(db)
-#     out = out[0]["title"]
-#     assert out == "hyper.dev"
-
-
-# @pytest.mark.asyncio
-# async def test_subject_variable():
-#     db = await open()
-#     from found.nstore import NStore
-#     from found.nstore import var
-
-#     foundiplestore = NStore("test-name", [42], ("subject", "predicate", "object"))
-
-#     # prepare
-#     hyperdev = uuid4()
-#     await foundiplestore.add(db, hyperdev, "title", "hyper.dev")
-#     await foundiplestore.add(db, hyperdev, "keyword", "scheme")
-#     await foundiplestore.add(db, hyperdev, "keyword", "hacker")
-#     post1 = uuid4()
-#     await foundiplestore.add(db, post1, "blog", hyperdev)
-#     await foundiplestore.add(db, post1, "title", "hoply is awesome")
-#     post2 = uuid4()
-#     await foundiplestore.add(db, post2, "blog", hyperdev)
-#     await foundiplestore.add(db, post2, "title", "hoply foundiple store")
-
-#     # exec, fetch all blog title from hyper.dev
-
-#     @found.foundansactional
-#     async def query(found):
-#         query = foundiplestore.select(found, var("blog"), "title", "hyper.dev")
-#         query = foundiplestore.where(found, query, var("post"), "blog", var("blog"))
-#         out = await aiolist(foundiplestore.where(found, query, var("post"), "title", var("title")))
-#         return out
-
-#     out = await query(db)
-#     out = sorted([x["title"] for x in out])
-#     assert out == ["hoply is awesome", "hoply foundiple store"]
-
-
-# @pytest.mark.asyncio
-# async def test_query():
-#     db = await open()
-#     from found.nstore import NStore
-#     from found.nstore import var
-
-#     foundiplestore = NStore("test-name", [42], ("subject", "predicate", "object"))
-
-#     # prepare
-#     hyperdev = uuid4()
-#     await foundiplestore.add(db, hyperdev, "title", "hyper.dev")
-#     await foundiplestore.add(db, hyperdev, "keyword", "scheme")
-#     await foundiplestore.add(db, hyperdev, "keyword", "hacker")
-#     post1 = uuid4()
-#     await foundiplestore.add(db, post1, "blog", hyperdev)
-#     await foundiplestore.add(db, post1, "title", "hoply is awesome")
-#     post2 = uuid4()
-#     await foundiplestore.add(db, post2, "blog", hyperdev)
-#     await foundiplestore.add(db, post2, "title", "hoply foundiple store")
-
-#     # exec, fetch all blog title from hyper.dev
-
-#     @found.foundansactional
-#     async def query(found):
-#         query = [
-#             [var("blog"), "title", "hyper.dev"],
-#             [var("post"), "blog", var("blog")],
-#             [var("post"), "title", var("title")],
-#         ]
-#         out = await aiolist(foundiplestore.query(found, *query))
-#         return out
-
-#     out = await query(db)
-#     out = sorted([x["title"] for x in out])
-#     assert out == ["hoply is awesome", "hoply foundiple store"]
+    async def remove(tx):
+        nstore.remove(tx, ntest, expected, "title", "hyper.dev")
+
+    await found.transactional(db, remove)
+
+    out = await found.transactional(db, get)
+    assert out is None
+
+
+@pytest.mark.asyncio
+async def test_simple_multiple_items_db_subject_lookup():
+    db = await open()
+
+    ntest = nstore.make("test-name", [42], 3)
+
+    expected = uuid4()
+
+    async def prepare(tx):
+        nstore.add(tx, ntest, expected, "title", "hyper.dev")
+        nstore.add(tx, ntest, uuid4(), "title", "blog.copernic.com")
+
+    async def query(tx):
+        out = await aiolist(nstore.select(tx, ntest, var("subject"), "title", "hyper.dev"))
+        return out
+
+    await found.transactional(db, prepare)
+    out = await found.transactional(db, query)
+    out = out[0]["subject"]
+    assert out == expected
+
+
+@pytest.mark.asyncio
+async def test_complex():
+    db = await open()
+
+    ntest = nstore.make("test-name", [42], 3)
+
+    async def prepare(tx):
+        hyperdev = uuid4()
+        nstore.add(tx, ntest, hyperdev, "title", "hyper.dev")
+        nstore.add(tx, ntest, hyperdev, "keyword", "scheme")
+        nstore.add(tx, ntest, hyperdev, "keyword", "hacker")
+        copernic = uuid4()
+        nstore.add(tx, ntest, copernic, "title", "blog.copernic.com")
+        nstore.add(tx, ntest, copernic, "keyword", "corporate")
+
+    async def query(tx):
+        seed = nstore.select(tx, ntest, var("identifier"), "keyword", "hacker")
+        out = await aiolist(nstore.where(
+            tx, ntest, seed, var("identifier"), "title", var("blog")
+        ))
+        return out
+
+    await found.transactional(db, prepare)
+    out = await found.transactional(db, query)
+    out = sorted([x["blog"] for x in out])
+    assert out == ["hyper.dev"]
+
+
+@pytest.mark.asyncio
+async def test_seed_subject_variable():
+    db = await open()
+    ntest = nstore.make("test-name", [42], 3)
+
+    hyperdev = uuid4()
+    copernic = uuid4()
+    hypersocial = uuid4()
+
+    async def prepare(tx):
+        nstore.add(tx, ntest, hyperdev, "title", "hyper.dev")
+        nstore.add(tx, ntest, hyperdev, "keyword", "scheme")
+        nstore.add(tx, ntest, hyperdev, "keyword", "hacker")
+
+        nstore.add(tx, ntest, copernic, "title", "copernic.space")
+        nstore.add(tx, ntest, copernic, "keyword", "corporate")
+
+        nstore.add(tx, ntest, hypersocial, "title", "hypersocial.space")
+        nstore.add(tx, ntest, hypersocial, "keyword", "python")
+        nstore.add(tx, ntest, hypersocial, "keyword", "hacker")
+
+    async def query(tx):
+        out = await aiolist(nstore.select(tx, ntest, var("subject"), "keyword", "corporate"))
+        return out
+
+    await found.transactional(db, prepare)
+    out = await found.transactional(db, query)
+    out = out[0]["subject"]
+
+    assert out == copernic
+
+
+@pytest.mark.asyncio
+async def test_seed_subject_lookup():
+    db = await open()
+
+    ntest = nstore.make("test-name", [42], 3)
+
+    hyperdev = uuid4()
+    copernic = uuid4()
+    hypersocial = uuid4()
+
+    async def prepare(tx):
+        nstore.add(tx, ntest, hyperdev, "title", "hyper.dev")
+        nstore.add(tx, ntest, hyperdev, "keyword", "scheme")
+        nstore.add(tx, ntest, hyperdev, "keyword", "hacker")
+
+        nstore.add(tx, ntest, copernic, "title", "blog.copernic.com")
+        nstore.add(tx, ntest, copernic, "keyword", "corporate")
+
+        nstore.add(tx, ntest, hypersocial, "title", "hypersocial.space")
+        nstore.add(tx, ntest, hypersocial, "keyword", "python")
+        nstore.add(tx, ntest, hypersocial, "keyword", "hacker")
+
+    async def query(tx):
+        out = await aiolist(nstore.select(tx, ntest, copernic, var("key"), var("value")))
+        return out
+
+    await found.transactional(db, prepare)
+    out = await found.transactional(db, query)
+    out = [dict(x) for x in out]
+
+    expected = [
+        {"key": "keyword", "value": "corporate"},
+        {"key": "title", "value": "blog.copernic.com"},
+    ]
+    assert out == expected
+
+
+@pytest.mark.asyncio
+async def test_seed_object_variable():
+    db = await open()
+    ntest = nstore.make("test-name", [42], 3)
+
+    hyperdev = uuid4()
+    copernic = uuid4()
+    hypersocial = uuid4()
+
+    async def prepare(tx):
+        nstore.add(tx, ntest, hyperdev, "title", "hyper.dev")
+        nstore.add(tx, ntest, hyperdev, "keyword", "scheme")
+        nstore.add(tx, ntest, hyperdev, "keyword", "hacker")
+
+        nstore.add(tx, ntest, copernic, "title", "blog.copernic.com")
+        nstore.add(tx, ntest, copernic, "keyword", "corporate")
+
+        nstore.add(tx, ntest, hypersocial, "title", "hypersocial.space")
+        nstore.add(tx, ntest, hypersocial, "keyword", "python")
+        nstore.add(tx, ntest, hypersocial, "keyword", "hacker")
+
+    async def query(tx):
+        out = await aiolist(nstore.select(tx, ntest, hyperdev, "title", var("title")))
+        return out
+
+    await found.transactional(db, prepare)
+    out = await found.transactional(db, query)
+    out = out[0]["title"]
+    assert out == "hyper.dev"
+
+
+@pytest.mark.asyncio
+async def test_subject_variable():
+    db = await open()
+    ntest = nstore.make("test-name", [42], 3)
+    hyperdev = uuid4()
+    post1 = uuid4()
+    post2 = uuid4()
+
+    async def prepare(tx):
+        nstore.add(tx, ntest, hyperdev, "title", "hyper.dev")
+        nstore.add(tx, ntest, hyperdev, "keyword", "scheme")
+        nstore.add(tx, ntest, hyperdev, "keyword", "hacker")
+        nstore.add(tx, ntest, post1, "blog", hyperdev)
+        nstore.add(tx, ntest, post1, "title", "hoply is awesome")
+        nstore.add(tx, ntest, post2, "blog", hyperdev)
+        nstore.add(tx, ntest, post2, "title", "hoply foundiple store")
+
+    # exec, fetch all blog title from hyper.dev
+
+    async def query(tx):
+        query = nstore.select(tx, ntest, var("blog"), "title", "hyper.dev")
+        query = nstore.where(tx, ntest, query, var("post"), "blog", var("blog"))
+        out = await aiolist(nstore.where(tx, ntest, query, var("post"), "title", var("title")))
+        return out
+
+    await found.transactional(db, prepare)
+    out = await found.transactional(db, query)
+
+    out = sorted([x["title"] for x in out])
+    assert out == ["hoply foundiple store", "hoply is awesome"]
+
+
+@pytest.mark.asyncio
+async def test_query():
+    db = await open()
+
+    ntest = nstore.make("test-name", [42], 3)
+
+    async def prepare(tx):
+        hyperdev = uuid4()
+        post1 = uuid4()
+        post2 = uuid4()
+        nstore.add(tx, ntest, hyperdev, "title", "hyper.dev")
+        nstore.add(tx, ntest, hyperdev, "keyword", "scheme")
+        nstore.add(tx, ntest, hyperdev, "keyword", "hacker")
+        nstore.add(tx, ntest, post1, "blog", hyperdev)
+        nstore.add(tx, ntest, post1, "title", "hoply is awesome")
+        nstore.add(tx, ntest, post2, "blog", hyperdev)
+        nstore.add(tx, ntest, post2, "title", "hoply foundiple store")
+
+    # exec, fetch all blog title from hyper.dev
+
+    async def query(tx):
+        query = [
+            [var("blog"), "title", "hyper.dev"],
+            [var("post"), "blog", var("blog")],
+            [var("post"), "title", var("title")],
+        ]
+        out = await aiolist(nstore.query(tx, ntest, *query))
+        return out
+
+    await found.transactional(db, prepare)
+    out = await found.transactional(db, query)
+    out = sorted([x["title"] for x in out])
+    assert out == ["hoply foundiple store", "hoply is awesome"]

@@ -320,7 +320,7 @@ def set(tx, key, value):
 
 def clear(tx, key):
     assert isinstance(tx, Transaction)
-    lib.fdb_transaction_clear(tr.pointer, key, len(key))
+    lib.fdb_transaction_clear(tx.pointer, key, len(key))
 
 
 def clear_range(tx, begin, end):
