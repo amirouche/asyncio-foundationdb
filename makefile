@@ -9,6 +9,7 @@ init: ## Prepare the host sytem for development
 	sudo dpkg -i fdb-clients.deb
 	wget https://www.foundationdb.org/downloads/6.3.15/ubuntu/installers/foundationdb-server_6.3.15-1_amd64.deb -O fdb-server.deb
 	sudo dpkg -i fdb-server.deb
+	poetry install
 	@echo "\033[95m\n\nYou may now run 'make check'.\n\033[0m"
 
 check: ## Run tests
@@ -42,7 +43,4 @@ xxx: ## Things that require attention
 	@grep -nR --color=always --before-context=2  --after-context=2 XXX found/
 
 release:  ## Prepare a release
-	python -m pip install --upgrade setuptools wheel
-	python setup.py sdist
-	python -m pip install --upgrade twine
-	python -m twine upload dist/*
+	poetry publish --build
