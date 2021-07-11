@@ -35,18 +35,18 @@ HEADER_VERSION = VERSION = 630
 code = lib.fdb_select_api_version_impl(VERSION, HEADER_VERSION)
 if code == 2203:
     max_supported_ver = lib.fdb_get_max_api_version()
-    if header_version > max_supported_ver:
+    if HEADER_VERSION > max_supported_ver:
         msg = "This version of the FoundationDB Python binding is not supported by "
         msg += (
             "the installed FoundationDB C library. The binding requires a library "
         )
         msg += "that supports API version %d, but the installed library supports a "
         msg += "maximum version of %d."
-        msg = msg % (header_version, max_supported_ver)
+        msg = msg % (HEADER_VERSION, max_supported_ver)
         raise RuntimeError(msg)
     else:
         msg = "API version %d is not supported by the installed FoundationDB C library."
-        msg = msg % version
+        msg = msg % VERSION
         raise RuntimeError(msg)
 elif code != 0:
     raise RuntimeError("FoundationDB API error ({})".format(code))
