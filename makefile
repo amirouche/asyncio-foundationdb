@@ -14,9 +14,14 @@ init: ## Prepare the host sytem for development
 
 check: ## Run tests
 	make database-clear
-	py.test -vv --capture=no tests.py
+	py.test -vvv --capture=no tests.py
 	bandit --skip=B101 -r found/
 	@echo "\033[95m\n\nYou may now run 'make lint' or 'make check-coverage'.\n\033[0m"
+
+check-fast: ## Run tests, fail fast
+	make database-clear
+	py.test -x -vvv --capture=no tests.py
+
 
 check-coverage: ## Code coverage
 	make database-clear
