@@ -24,6 +24,11 @@ import fdb
 
 __VERSION__ = (0, 10, 0)
 
+TRANSACTION_MAX_SIZE = 10 ** 7
+KEY_MAX_SIZE = 10 ** 4
+VALUE_MAX_SIZE = 10 ** 5
+
+
 HEADER_VERSION = VERSION = 630
 
 
