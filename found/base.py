@@ -405,14 +405,6 @@ def _on_error_callback(fdb_future, aio_future):
     lib.fdb_future_destroy(fdb_future)
 
 
-async def _on_error(tx, code):
-    fdb_future = lib.fdb_transaction_on_error(tx.pointer, code)
-    aio_future = _loop.create_future()
-    handle = ffi.new_handle(aio_future)
-    lib.fdb_future_set_callback(fdb_future, _on_error_callback, handle)
-    await aio_future  # may raise an exception
-
-
 async def transactional(db, func, *args, snapshot=False, **kwargs):
     tx = _make_transaction(db, snapshot)
     while True:
@@ -420,7 +412,11 @@ async def transactional(db, func, *args, snapshot=False, **kwargs):
             out = await func(tx, *args, **kwargs)
             await _commit(tx)
         except FoundException as exc:
-            await _on_error(tx, exc.code)
+            fdb_future = lib.fdb_transaction_on_error(tx.pointer, exc.code)
+            aio_future = _loop.create_future()
+            handle = ffi.new_handle(aio_future)
+            lib.fdb_future_set_callback(fdb_future, _on_error_callback, handle)
+            await aio_future  # may raise an exception
         else:
             return out
 
