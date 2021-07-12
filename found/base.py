@@ -244,7 +244,6 @@ def gte(key, offset=1):
 async def query(tx, key, other, *, limit=0, mode=STREAMING_MODE_ITERATOR):
     key = key if isinstance(key, KeySelector) else gte(key)
     other = other if isinstance(other, KeySelector) else gte(other)
-    print(key, other)
     if key.key < other.key:
         begin = key
         end = other
@@ -259,7 +258,6 @@ async def query(tx, key, other, *, limit=0, mode=STREAMING_MODE_ITERATOR):
     seen = 0
     snapshot = tx.snapshot
     while True:
-        print('loop', iteration, begin)
         fdb_future = lib.fdb_transaction_get_range(
             tx.pointer,
             begin.key,
