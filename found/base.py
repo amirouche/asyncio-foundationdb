@@ -255,7 +255,6 @@ async def query(tx, key, other, *, limit=0, mode=STREAMING_MODE_ITERATOR):
 
     # the first read was fired off when the FDBRange was initialized
     iteration = 1
-    seen = 0
     snapshot = tx.snapshot
     while True:
         fdb_future = lib.fdb_transaction_get_range(
