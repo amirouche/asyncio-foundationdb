@@ -74,7 +74,6 @@ from found.base import query  # noqa
 from found.base import set_read_version  # noqa
 from found.base import set  # noqa
 from found.base import clear  # noqa
-from found.base import clear_range  # noqa
 from found.base import add  # noqa
 from found.base import bit_and  # noqa
 from found.base import bit_or  # noqa

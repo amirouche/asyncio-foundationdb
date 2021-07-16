@@ -25,7 +25,7 @@ async def open():
     db = await found.open()
 
     async def purge(tx):
-        found.clear_range(tx, b"", b"\xff")
+        found.clear(tx, b"", b"\xff")
 
     await found.transactional(db, purge)
 
