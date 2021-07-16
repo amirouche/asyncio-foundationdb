@@ -22,6 +22,7 @@
 from found._fdb import lib
 import fdb
 
+
 __VERSION__ = (0, 10, 0)
 
 TRANSACTION_MAX_SIZE = 10 ** 7
@@ -37,9 +38,7 @@ if code == 2203:
     max_supported_ver = lib.fdb_get_max_api_version()
     if HEADER_VERSION > max_supported_ver:
         msg = "This version of the FoundationDB Python binding is not supported by "
-        msg += (
-            "the installed FoundationDB C library. The binding requires a library "
-        )
+        msg += "the installed FoundationDB C library. The binding requires a library "
         msg += "that supports API version %d, but the installed library supports a "
         msg += "maximum version of %d."
         msg = msg % (HEADER_VERSION, max_supported_ver)
