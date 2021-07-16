@@ -28,7 +28,11 @@ from found._fdb import lib
 from found._fdb import ffi
 
 
-class FoundException(Exception):
+class BaseFoundException(Exception):
+    pass
+
+
+class FoundException(BaseFoundException):
     """Exception raised when FoundationDB returns an error"""
 
     def __init__(self, code):

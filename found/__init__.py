@@ -25,9 +25,9 @@ import fdb
 
 __VERSION__ = (0, 10, 0)
 
-TRANSACTION_MAX_SIZE = 10 ** 7
-KEY_MAX_SIZE = 10 ** 4
-VALUE_MAX_SIZE = 10 ** 5
+MAX_SIZE_TRANSACTION = 10 ** 7
+MAX_SIZE_KEY = 10 ** 4
+MAX_SIZE_VALUE = 10 ** 5
 
 
 HEADER_VERSION = VERSION = 630
@@ -54,6 +54,7 @@ elif code != 0:
 # Required to use fdb.tuple.pack and fdb.tuple.unpack
 fdb._version = VERSION
 
+from found.base import BaseFoundException  # noqa
 from found.base import FoundException  # noqa
 from found.base import next_prefix  # noqa
 from found.base import STREAMING_MODE_WANT_ALL  # noqa
