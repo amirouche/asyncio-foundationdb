@@ -319,16 +319,14 @@ def set(tx, key, value):
     lib.fdb_transaction_set(tx.pointer, key, len(key), value, len(value))
 
 
-def clear(tx, key):
+def clear(tx, key, other=None):
     assert isinstance(tx, Transaction)
-    lib.fdb_transaction_clear(tx.pointer, key, len(key))
-
-
-def clear_range(tx, begin, end):
-    assert isinstance(tx, Transaction)
-    assert isinstance(begin, bytes)
-    assert isinstance(end, bytes)
-    lib.fdb_transaction_clear_range(tx.pointer, begin, len(begin), end, len(end))
+    assert isinstance(key, bytes)
+    if other is None:
+        lib.fdb_transaction_clear(tx.pointer, key, len(key))
+    else:
+        assert isinstance(other, bytes)
+        lib.fdb_transaction_clear_range(tx.pointer, key, len(key), other, len(other))
 
 
 async def _commit(tx):

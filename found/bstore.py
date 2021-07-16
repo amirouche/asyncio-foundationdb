@@ -43,10 +43,10 @@ def init(prefix):
     return out
 
 
-def get_or_create(tx, bstore, blob):
+async def get_or_create(tx, bstore, blob):
     hash = blake3(blob).digest()
     key = found.pack((bstore.prefix_hash, hash))
-    maybe_uid = found.get(tx, key)
+    maybe_uid = await found.get(tx, key)
     if maybe_uid is not None:
         return UUID(bytes=maybe_uid)
     # Otherwise create the hash entry and store the blog with a new uid
@@ -59,10 +59,10 @@ def get_or_create(tx, bstore, blob):
     return uid
 
 
-def get(tx, bstore, uid):
+async def get(tx, bstore, uid):
     key = found.pack((bstore.prefix, uid))
     out = b''
-    for _, value in found.query(tx, key, found.next_prefix(key)):
+    async for _, value in found.query(tx, key, found.next_prefix(key)):
         out += value
     if out == b'':
         raise BStoreException('BLOB should be in database: uid={}'.format(uid))
