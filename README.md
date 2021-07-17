@@ -16,10 +16,10 @@ pip install asyncio-foundationdb
 import found
 
 
-def get(tx, key):
+async def get(tx, key):
     out = await found.get(tx, key)
 
-def set(tx, key, value):
+async def set(tx, key, value):
     found.set(tx, key, value)
 
 
@@ -42,24 +42,111 @@ assert out == b'world'
 - Add BLOB store ie. bstore
 - Add EAV store ie. eavstore
 
-### v0.9.x
+## `import found`
 
-- feature: bump to foundationdb 6.3.15 client API
-- feature: add hooks and states
+### `found.BaseFoundException`
 
-### v0.8.0
+All `found` exceptions inherit that class.
 
-- breaking change: replace ``get_rangefoo`` with ``rangefoo`` as async generator
-- new: add short syntax for querying `Nstore.query(tr, patterns)`
-- chore: remove pipenv, and pre-commit
+### `found.FoundException`
 
-## API reference
-
-### `BaseFoundException`
-
-All `found` exception inherit that class.
-
-### `FoundException`
-
-Exception raised when their is problem foundationdb client drivers
+Exception raised when there is a problem foundationdb client drivers
 side or foundationdb server side.
+
+### `async found.open(cluster_file=None)`
+
+Coroutine that will open a connection with the cluster specified in
+the file `cluster_file`. If `cluster_file` is not provided the default
+is `/etc/foundationdb/fdb.cluster`. Returns a database object.
+
+### `async found.transactional(db, func, *args, snapshot=False, **kwargs)`
+
+Coroutine that will manage a transaction against `db` for `func`
+that. If `snapshot=True` then the transaction is read-only. `func`
+will receive an appropriate transaction object as first argument, then
+`args`, then `kwargs`. Because of errors `transactional` might run
+`func` several times, hence `func` should be idempotent.
+
+### `async found.get(tx, key)`
+
+Coroutine that will fetch the value associated with `key` inside the
+database associated with `tx`. `key` must be `bytes`. In case of
+success, returns `bytes`. Otherwise, if there is no value associated
+with `key`, returns the object `None`.
+
+### `found.set(tx, key, value)`
+
+In the database associated with `tx`, associate `key` with
+`value`. Both `key` and `value` must be `bytes`.
+
+### `found.clear(tx, key, other=None)`
+
+In the database associated with `tx`, clear the specified `key` or
+range of keys.
+
+`key` and `other` if provided must be `bytes`.
+
+If `other=None`, then clear the association that might exists with
+`key`. Otherwise, if `other` is provided, `found.clear` will remove
+any association between `key` and `other` but not the association with
+`other` if any (that is `other` is excluded from the range).
+
+### `async found.query(tx, key, other, *, limit=0, mode=STREAMING_MODE_ITERATOR)`
+
+In the database associated with `tx`, generate at most `limit`
+key-value pairs inside the specified range, with the specified order.
+
+If `key < other` then `found.query` generates key-value pairs in
+lexicographic order. Otherwise, if `key > other` then `found.query`
+generates key-value pairs in reverse lexicographic order, that is
+starting at `other` until `key`.
+
+If `limit=0`, then `found.query` generates all key-value pairs in the
+specified bounds. Otherwise if `limit > 0` then, it generates at most
+`limit` pairs.
+
+The keyword `mode` can be one the following constant:
+
+- `found.STREAMING_MODE_WANT_ALL`
+- `found.STREAMING_MODE_ITERATOR`
+- `found.STREAMING_MODE_EXACT`
+- `found.STREAMING_MODE_SMALL`
+- `found.STREAMING_MODE_MEDIUM`
+- `found.STREAMING_MODE_LARGE`
+- `found.STREAMING_MODE_SERIAL`
+
+### `found.next_prefix(key)`
+
+Returns the immediatly next bytes sequence that is not prefix of `key`.
+
+### `found.lt(key, offset=0)`
+
+### `found.lte(key, offset=0)`
+
+### `found.gt(key, offset=0)`
+
+### `found.gte(key, offset=0)`
+
+### `async found.read_version(tx)`
+
+### `found.set_read_version(tx, version)`
+
+### `found.add(tx, key, param)`
+
+### `found.bit_and(tx, key, param)`
+
+### `found.bit_or(tx, key, param)`
+
+### `found.bit_xor(tx, key, param)`
+
+### `found.max(tx, key, param)`
+
+### `found.byte_max(tx, key, param)`
+
+### `found.min(tx, key, param)`
+
+### `found.byte_min(tx, key, param)`
+
+### `found.set_versionstamped_key(tx, key, param)`
+
+### `found.set_versionstamped_value(tx, key, param)`
