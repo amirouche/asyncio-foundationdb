@@ -13,6 +13,9 @@ asyncio drivers for foundationdb tested with CPython 3.9 and PyPy 3.7
 - [ChangeLog](#changelog)
     - [v0.10.x](#v010x)
 - [`import found`](#import-found)
+- [`from found import bstore`](#from-found-import-bstore)
+- [`from found import nstore`](#from-found-import-nstore)
+- [`from found import eavstore`](#from-found-import-eavstore)
 <!-- markdown-toc end -->
 
 ## Getting started
@@ -88,6 +91,14 @@ with `key`, returns the object `None`.
 In the database associated with `tx`, associate `key` with
 `value`. Both `key` and `value` must be `bytes`.
 
+### `found.pack(tuple)`
+
+### `found.pack_with_versionstamp(tuple)`
+
+### `found.unpack(bytes)`
+
+### `found.Versionstamp(...)`
+
 ### `found.clear(tx, key, other=None)`
 
 In the database associated with `tx`, clear the specified `key` or
@@ -159,3 +170,88 @@ Returns the immediatly next bytes sequence that is not prefix of `key`.
 ### `found.set_versionstamped_key(tx, key, param)`
 
 ### `found.set_versionstamped_value(tx, key, param)`
+
+## `from found import bstore`
+
+### `bstore.BStoreException`
+
+### `bstore.make(name, prefix)`
+
+### `async bstore.get_or_create(tx, bstore, blob)`
+
+### `bstore.get(tx, bstore, uid)`
+
+## `from found import nstore`
+
+### `nstore.NStoreException`
+
+Exception specific to `nstore` errors.
+
+### `nstore.make(name, prefix, n)`
+
+Create a handle over an nstore `name` with `prefix` and `n` columns.
+
+The argument `name` should be a string, it is really meant to ease
+debugging. `prefix` should be a tuple that can be packed with
+`found.pack`. Last but not least, `n` is the number of columns in the
+returned tuple store (or if you prefer the number of items in tuples).
+
+### `nstore.add(tx, nstore, *items, *, value=b'')`
+
+In the database associated with `tx`, as part of `nstore`, add
+`items` associated with `value`.
+
+### `nstore.remove(tx, nstore, *items)`
+
+In the database associated with `tx`, as part of `nstore`, remove
+`items` and the associated value.
+
+### `nstore.get(tx, nstore, *items)`
+
+In the database associated with `tx`, as part of `nstore`, get the
+value associated with `items`. If there is no such items in `nstore`,
+returns `None`.
+
+### `nstore.query(tx, nstore, pattern, *patterns)`
+
+In the database associated with `tx`, as part of `nstore`, generate
+mappings that match `pattern` and `patterns`.
+
+## `from found import eavstore`
+
+### `eavstore.make(name, prefix)`
+
+Create a handle over an nstore `name` with `prefix`.
+
+The argument `name` should be a string, it is really meant to ease
+debugging. `prefix` should be a tuple that can be packed with
+`found.pack`.
+
+### `eavstore.create(tx, eavstore, dict, uid=None)`
+
+In the database associated with `tx`, as part of `eavstore`, save
+`dict` and returns its unique identifier.
+
+If `uid` is not `None`, save `dict` with that unique identifier,
+possibly overriding existing values.
+
+### `async eavstore.get(tx, eavstore, uid)`
+
+In the database associated with `tx`, as part of `eavstore`, retrieve
+the dictionary associated with `uid`. If there is no such dictionary,
+returns an empty dictionary.
+
+### `eavstore.clear(tx, eavstore, uid)`
+
+In the database associated with `tx`, as part of `eavstore`, remove
+the dictionary associated with `uid`.
+
+### `eavstore.update(tx, eavstore, uid, dict)`
+
+In the database associated with `tx`, as part of `eavstore`, replace
+the dictionary associated with `uid` with `dict`.
+
+### `eavstore.query(tx, eavstore, key, value)`
+
+In the database associated with `tx`, as part of `eavstore`, generates
+unique identifier for dictionaries that have `key` equal to `value.

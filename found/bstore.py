@@ -34,12 +34,12 @@ class BStoreException(found.BaseFoundException):
 BSTORE_SUFFIX_HASH = [b'\x01']
 BSTORE_SUFFIX_BLOB = [b'\x02']
 
-BStore = namedtuple('BStore', ('prefix_hash', 'prefix_blob',))
+BStore = namedtuple('BStore', ('name', 'prefix_hash', 'prefix_blob',))
 
 
-def init(prefix):
+def make(name, prefix):
     prefix = list(prefix)
-    out = BStore(tuple(prefix + BSTORE_SUFFIX_HASH), tuple(prefix + BSTORE_SUFFIX_BLOB))
+    out = BStore(name, tuple(prefix + BSTORE_SUFFIX_HASH), tuple(prefix + BSTORE_SUFFIX_BLOB))
     return out
 
 
@@ -49,8 +49,8 @@ async def get_or_create(tx, bstore, blob):
     maybe_uid = await found.get(tx, key)
     if maybe_uid is not None:
         return UUID(bytes=maybe_uid)
-    # Otherwise create the hash entry and store the blog with a new uid
-    # TODO: Use a counter and implement a garbage collector, and implemented
+    # Otherwise create the hash entry and store the blob with a new uid
+    # TODO: Use a counter and implement a garbage collector, and implement
     # bstore.delete
     uid = uuid4()
     found.set(tx, key, uid.bytes)

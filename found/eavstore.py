@@ -18,19 +18,21 @@
 # limitations under the License.
 #
 from collections import namedtuple
+from uuid import UUID
 from uuid import uuid4
 
 import found
 
 
-EAVStore = namedtuple('EAVStore', ('prefix_data', 'prefix_index'))
+EAVStore = namedtuple('EAVStore', ('name', 'prefix_data', 'prefix_index'))
 
 EAVSTORE_SUFFIX_DATA = [b'\x01']
 EAVSTORE_SUFFIX_INDEX = [b'\x02']
 
 
-def init(prefix):
+def make(name, prefix):
     out = EAVStore(
+        name,
         tuple(list(prefix) + EAVSTORE_SUFFIX_DATA),
         tuple(list(prefix) + EAVSTORE_SUFFIX_INDEX),
     )
@@ -59,7 +61,7 @@ async def get(tx, eavstore, uid):
     return out
 
 
-def clear(tx, eavstore, uid):
+def remove(tx, eavstore, uid):
     dict = get(tx, eavstore, uid)
     for key, value in dict.items():
         key = tuple((eavstore.prefix_index, key))
@@ -69,5 +71,12 @@ def clear(tx, eavstore, uid):
 
 
 def update(tx, eavstore, uid, dict):
-    clear(tx, eavstore, uid)
+    remove(tx, eavstore, uid)
     create(tx, eavstore, dict, uid)
+
+
+async def query(tx, eavstore, key, value):
+    key = found.pack((eavstore.prefix_index, key, value))
+    async for _, uid in found.query(tx, key, found.next_prefix(key)):
+        uid = UUID(bytes=uid)
+        yield uid
