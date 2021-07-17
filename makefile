@@ -25,7 +25,7 @@ check-fast: ## Run tests, fail fast
 
 check-coverage: ## Code coverage
 	make database-clear
-	pytest --quiet --cov-report=annotate --cov-report=html --cov=found/ tests.py
+	pytest --quiet --cov-report=term --cov-report=html --cov=found/ tests.py
 
 
 lint: ## Lint the code
