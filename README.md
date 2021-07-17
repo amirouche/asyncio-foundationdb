@@ -254,4 +254,4 @@ the dictionary associated with `uid` with `dict`.
 ### `eavstore.query(tx, eavstore, key, value)`
 
 In the database associated with `tx`, as part of `eavstore`, generates
-unique identifier for dictionaries that have `key` equal to `value.
+unique identifier for dictionaries that have `key` equal to `value`.
