@@ -6,6 +6,10 @@ from fdb.tuple import SingleFloat
 
 import found
 import found.base
+from found import nstore
+from found.nstore import var
+from found import bstore
+from found import eavstore
 
 
 def test_pack_unpack():
@@ -131,11 +135,7 @@ async def test_read_version():
     await found.transactional(db, read_version)
 
 
-# Ntore tests
-
-from found import nstore
-from found.nstore import var
-
+# nstore tests
 
 @pytest.mark.asyncio
 async def test_nstore_empty():
@@ -411,3 +411,103 @@ async def test_query():
     out = await found.transactional(db, query)
     out = sorted([x["title"] for x in out])
     assert out == ["hoply foundiple store", "hoply is awesome"]
+
+
+# bstore tests
+
+@pytest.mark.asyncio
+async def test_bstore_small():
+    db = await open()
+
+    store = bstore.make('bstore-test', (42,))
+
+    expected = b'\xBE\xEF'
+
+    uid = await found.transactional(db, bstore.get_or_create, store, expected)
+    out = await found.transactional(db, bstore.get, store, uid)
+
+    assert out == expected
+
+
+@pytest.mark.asyncio
+async def test_bstore_large():
+    db = await open()
+
+    store = bstore.make('bstore-test', (42,))
+
+    expected = b'\xBE\xEF' * found.MAX_SIZE_VALUE
+
+    uid = await found.transactional(db, bstore.get_or_create, store, expected)
+    out = await found.transactional(db, bstore.get, store, uid)
+
+    assert out == expected
+
+@pytest.mark.asyncio
+async def test_bstore_idempotent():
+    db = await open()
+
+    store = bstore.make('bstore-test', (42,))
+
+    blob = b'\xBE\xEF' * found.MAX_SIZE_VALUE
+
+    expected = await found.transactional(db, bstore.get_or_create, store, blob)
+    out = await found.transactional(db, bstore.get_or_create, store, blob)
+
+    assert out == expected
+
+# eavstore tests
+
+@pytest.mark.asyncio
+async def test_eavstore_crud():
+    db = await open()
+
+    store = eavstore.make('eavstore-test', (42,))
+
+    expected = dict(hello="world")
+
+    uid = await found.transactional(db, found.co(eavstore.create), store, expected)
+    out = await found.transactional(db, eavstore.get, store, uid)
+    assert out == expected
+
+    other = dict(hello="world", who="me")
+    await found.transactional(db, found.co(eavstore.update), store, other)
+    out = await found.transactional(db, eavstore.get, store, uid)
+    assert out == other
+
+    await found.transactional(db, found.co(eavstore.remove), uid)
+    out = await found.transactional(db, eavstore.get, store, uid)
+    assert not out
+
+
+@pytest.mark.asyncio
+async def test_eavstore_crud():
+    db = await open()
+
+    store = eavstore.make('eavstore-test', (42,))
+
+    expected = set()
+    mydict = dict(key=42)
+    for _ in range(10):
+        uid = await found.transactional(db, found.co(eavstore.create), store, mydict)
+        expected.add(uid)
+
+    # add some unwanted dictionaries, with key != 42
+    # before 42
+    for value in range(42):
+        mydict = dict(key=value)
+        uid = await found.transactional(db, found.co(eavstore.create), store, mydict)
+    # and after 42
+    for value in range(43, 84):
+        mydict = dict(key=value)
+        uid = await found.transactional(db, found.co(eavstore.create), store, mydict)
+
+    # query
+    async def query(tx, store, key, value):
+        out = set()
+        async for uid in eavstore.query(tx, store, key, value):
+            out.add(uid)
+        return out
+
+    out = await found.transactional(db, query, store, 'key', 42)
+
+    assert out == expected

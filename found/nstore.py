@@ -117,7 +117,7 @@ def make(name, prefix, n):
     return _NStore(name, prefix, n, list(_compute_indices(n)))
 
 
-def add(tx, nstore, *items, *, value=b''):
+def add(tx, nstore, *items, value=b''):
     assert len(items) == nstore.n, "invalid item count"
     for subspace, index in enumerate(nstore.indices):
         permutation = list(items[i] for i in index)

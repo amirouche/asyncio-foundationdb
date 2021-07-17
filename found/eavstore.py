@@ -43,11 +43,11 @@ def create(tx, eavstore, dict, uid=None):
     uid = uuid4() if uid is None else uid
     for key, value in dict.items():
         key = found.pack((eavstore.prefix_data, uid, key))
-        found.set(tx, key, found.pack(value))
+        found.set(tx, key, found.pack((value,)))
 
     for key, value in dict.items():
-        key = found.pack((eavstore.prefix_index, key, value))
-        found.set(tx, key, uid.bytes)
+        key = found.pack((eavstore.prefix_index, key, value, uid))
+        found.set(tx, key, b'')
 
     return uid
 
@@ -57,7 +57,7 @@ async def get(tx, eavstore, uid):
     key = found.pack((eavstore.prefix_data, uid))
     async for key, value in found.query(tx, key, found.next_prefix(key)):
         prefix, _, key = found.unpack(key)
-        out[key] = found.unpack(value)
+        out[key] = found.unpack(value)[0]
     return out
 
 
@@ -77,6 +77,6 @@ def update(tx, eavstore, uid, dict):
 
 async def query(tx, eavstore, key, value):
     key = found.pack((eavstore.prefix_index, key, value))
-    async for _, uid in found.query(tx, key, found.next_prefix(key)):
-        uid = UUID(bytes=uid)
+    async for key, _ in found.query(tx, key, found.next_prefix(key)):
+        _, _, _, uid = found.unpack(key)
         yield uid

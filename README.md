@@ -212,6 +212,8 @@ In the database associated with `tx`, as part of `nstore`, get the
 value associated with `items`. If there is no such items in `nstore`,
 returns `None`.
 
+### `nstore.var(name)`
+
 ### `nstore.query(tx, nstore, pattern, *patterns)`
 
 In the database associated with `tx`, as part of `nstore`, generate
@@ -221,7 +223,7 @@ mappings that match `pattern` and `patterns`.
 
 ### `eavstore.make(name, prefix)`
 
-Create a handle over an nstore `name` with `prefix`.
+Create a handle over an eavstore `name` with `prefix`.
 
 The argument `name` should be a string, it is really meant to ease
 debugging. `prefix` should be a tuple that can be packed with

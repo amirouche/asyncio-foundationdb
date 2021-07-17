@@ -94,3 +94,9 @@ from fdb.tuple import has_incomplete_versionstamp  # noqa
 from fdb.tuple import Versionstamp  # noqa
 
 # TODO: from fdb.subspace_impl import Subspace  # noqa
+
+
+def co(func):
+    async def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+    return wrapper

@@ -21,7 +21,7 @@ from uuid import uuid4
 from uuid import UUID
 from collections import namedtuple
 
-from blake3 import blake3
+from hashlib import blake2b as hasher
 from more_itertools import sliced
 
 import found
@@ -44,7 +44,7 @@ def make(name, prefix):
 
 
 async def get_or_create(tx, bstore, blob):
-    hash = blake3(blob).digest()
+    hash = hasher(blob).digest()
     key = found.pack((bstore.prefix_hash, hash))
     maybe_uid = await found.get(tx, key)
     if maybe_uid is not None:
@@ -55,12 +55,12 @@ async def get_or_create(tx, bstore, blob):
     uid = uuid4()
     found.set(tx, key, uid.bytes)
     for index, slice in enumerate(sliced(blob, found.MAX_SIZE_VALUE)):
-        found.set(tx, found.pack((bstore.prefix, uid, index)), b''.join(slice))
+        found.set(tx, found.pack((bstore.prefix_blob, uid, index)), bytes(slice))
     return uid
 
 
 async def get(tx, bstore, uid):
-    key = found.pack((bstore.prefix, uid))
+    key = found.pack((bstore.prefix_blob, uid))
     out = b''
     async for _, value in found.query(tx, key, found.next_prefix(key)):
         out += value
