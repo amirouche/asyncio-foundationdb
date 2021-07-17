@@ -50,9 +50,9 @@ assert out == b'world'
 
 - Almost full rewrite
 - Remove hooks for the time being
-- Port nstore extensions
-- Add BLOB store ie. bstore
-- Add EAV store ie. eavstore
+- Port Generic Tuple Store ie. `nstore`
+- Add blob store ie. `bstore`
+- Add Entity-Attribute-Value store ie. `eavstore`
 
 ## `import found`
 
