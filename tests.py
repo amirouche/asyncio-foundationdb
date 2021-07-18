@@ -144,7 +144,7 @@ async def test_nstore_empty():
 
 
 @pytest.mark.asyncio
-async def test_simple_single_item_db_subject_lookup():
+async def test_nstore_simple_single_item_db_subject_lookup():
     db = await open()
     ntest = nstore.make("test-name", [42], 3)
 
@@ -166,7 +166,7 @@ async def test_simple_single_item_db_subject_lookup():
 
 
 @pytest.mark.asyncio
-async def test_ask_rm_and_ask():
+async def test_nstore_ask_rm_and_ask():
     db = await open()
     ntest = nstore.make("test-name", [42], 3)
 
@@ -197,7 +197,7 @@ async def test_ask_rm_and_ask():
 
 
 @pytest.mark.asyncio
-async def test_simple_multiple_items_db_subject_lookup():
+async def test_nstore_simple_multiple_items_db_subject_lookup():
     db = await open()
 
     ntest = nstore.make("test-name", [42], 3)
@@ -219,7 +219,7 @@ async def test_simple_multiple_items_db_subject_lookup():
 
 
 @pytest.mark.asyncio
-async def test_complex():
+async def test_nstore_complex():
     db = await open()
 
     ntest = nstore.make("test-name", [42], 3)
@@ -247,7 +247,7 @@ async def test_complex():
 
 
 @pytest.mark.asyncio
-async def test_seed_subject_variable():
+async def test_nstore_seed_subject_variable():
     db = await open()
     ntest = nstore.make("test-name", [42], 3)
 
@@ -279,7 +279,7 @@ async def test_seed_subject_variable():
 
 
 @pytest.mark.asyncio
-async def test_seed_subject_lookup():
+async def test_nstore_seed_subject_lookup():
     db = await open()
 
     ntest = nstore.make("test-name", [42], 3)
@@ -316,7 +316,7 @@ async def test_seed_subject_lookup():
 
 
 @pytest.mark.asyncio
-async def test_seed_object_variable():
+async def test_nstore_seed_object_variable():
     db = await open()
     ntest = nstore.make("test-name", [42], 3)
 
@@ -347,7 +347,7 @@ async def test_seed_object_variable():
 
 
 @pytest.mark.asyncio
-async def test_subject_variable():
+async def test_nstore_subject_variable():
     db = await open()
     ntest = nstore.make("test-name", [42], 3)
     hyperdev = uuid4()
@@ -379,7 +379,7 @@ async def test_subject_variable():
 
 
 @pytest.mark.asyncio
-async def test_query():
+async def test_nstore_query():
     db = await open()
 
     ntest = nstore.make("test-name", [42], 3)

@@ -16,12 +16,10 @@ check: ## Run tests
 	make database-clear
 	pytest -vvv --capture=no tests.py
 	bandit --skip=B101 -r found/
-	@echo "\033[95m\n\nYou may now run 'make lint' or 'make check-coverage'.\n\033[0m"
 
 check-fast: ## Run tests, fail fast
 	make database-clear
 	pytest -x -vvv --capture=no tests.py
-
 
 check-coverage: ## Code coverage
 	make database-clear
@@ -42,7 +40,7 @@ database-clear:  ## Remove all data from the database
 	fdbcli --exec "writemode on; clearrange \x00 \xFF;"
 
 todo: ## Things that should be done
-	@grep -nR --color=always TODO found/
+	@grep -nR --color=always  --before-context=2  --after-context=2 TODO found/
 
 xxx: ## Things that require attention
 	@grep -nR --color=always --before-context=2  --after-context=2 XXX found/

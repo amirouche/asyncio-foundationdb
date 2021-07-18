@@ -18,6 +18,7 @@ foundationdb = "^6.3.16"
 immutables = "^0.15"
 six = "^1.16.0"
 more-itertools = "^8.8.0"
+zstandard = "^0.15.2"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.4"
