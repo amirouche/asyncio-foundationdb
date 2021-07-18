@@ -582,6 +582,13 @@ fdb_transaction_add_conflict_range(FDBTransaction *tr,
                                    int end_key_name_length,
                                    FDBConflictRangeType type);
 
+FDBFuture*
+fdb_transaction_get_estimated_range_size_bytes(FDBTransaction* tr,
+                                               uint8_t const* begin_key_name,
+                                               int begin_key_name_length,
+                                               uint8_t const* end_key_name,
+                                               int end_key_name_length);
+
 fdb_error_t
 fdb_select_api_version_impl( int runtime_version, int header_version );
 

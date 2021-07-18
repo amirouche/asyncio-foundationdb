@@ -135,6 +135,34 @@ async def test_read_version():
     await found.transactional(db, read_version)
 
 
+@pytest.mark.asyncio
+async def test_estimated_size_bytes():
+    # prepare
+    db = await open()
+
+    # initial check
+
+    out = await found.transactional(db, found.estimated_size_bytes, b'\x00', b'\xFF')
+    assert out == 0
+
+    # populate with a small key and check
+
+    for i in range(10):
+        await found.transactional(db, found.co(found.set), bytes((i,)), b'\xFF' * found.MAX_SIZE_VALUE)
+
+    out = await found.transactional(db, found.estimated_size_bytes, b'\x00', b'\xFF')
+    # below 3 MB the estimated size is less accurate
+    assert 0 < out
+
+    # populate with a large key and check
+    for i in range(100):
+        await found.transactional(db, found.co(found.set), bytes((i,)), b'\xFF' * found.MAX_SIZE_VALUE)
+
+    out = await found.transactional(db, found.estimated_size_bytes, b'\x00', b'\xFF')
+    # estimated size hence approximate check
+    assert abs(out - (found.MAX_SIZE_VALUE * 100)) < found.MAX_SIZE_VALUE
+
+
 # nstore tests
 
 @pytest.mark.asyncio

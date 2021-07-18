@@ -305,6 +305,34 @@ async def query(tx, key, other, *, limit=0, mode=STREAMING_MODE_ITERATOR):
         # loop!
 
 
+@ffi.callback("void(FDBFuture *, void *)")
+def _estimated_size_bytes_callback(fdb_future, aio_future):
+    aio_future = ffi.from_handle(aio_future)
+    pointer = ffi.new("int64_t *")
+    error = lib.fdb_future_get_int64(fdb_future, pointer)
+    if error == 0:
+        _loop.call_soon_threadsafe(aio_future.set_result, pointer[0])
+        lib.fdb_future_destroy(fdb_future)
+    else:
+        _loop.call_soon_threadsafe(aio_future.set_exception, FoundException(error))
+        lib.fdb_future_destroy(fdb_future)
+
+
+async def estimated_size_bytes(tx, begin, end):
+    fdb_future = lib.fdb_transaction_get_estimated_range_size_bytes(
+        tx.pointer,
+        begin,
+        len(begin),
+        end,
+        len(end)
+    )
+    aio_future = _loop.create_future()
+    handle = ffi.new_handle(aio_future)
+    lib.fdb_future_set_callback(fdb_future, _estimated_size_bytes_callback, handle)
+    size = await aio_future
+    return size
+
+
 def set_read_version(tx, version):
     assert not tx.snapshot
     lib.fdb_transaction_set_read_version(tx.pointer, version)

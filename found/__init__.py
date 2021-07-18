@@ -71,6 +71,7 @@ from found.base import lte  # noqa
 from found.base import gt  # noqa
 from found.base import gte  # noqa
 from found.base import query  # noqa
+from found.base import estimated_size_bytes  # noqa
 from found.base import set_read_version  # noqa
 from found.base import set  # noqa
 from found.base import clear  # noqa
