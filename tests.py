@@ -145,16 +145,16 @@ async def test_estimated_size_bytes():
     out = await found.transactional(db, found.estimated_size_bytes, b'\x00', b'\xFF')
     assert out == 0
 
-    # populate with a small key and check
+    # populate with a small set of keys and check
 
     for i in range(10):
         await found.transactional(db, found.co(found.set), bytes((i,)), b'\xFF' * found.MAX_SIZE_VALUE)
 
     out = await found.transactional(db, found.estimated_size_bytes, b'\x00', b'\xFF')
-    # below 3 MB the estimated size is less accurate
+    # below 3 MB the estimated size is less accurate, only check it is positive
     assert 0 < out
 
-    # populate with a large key and check
+    # populate with a large set of keys and check
     for i in range(100):
         await found.transactional(db, found.co(found.set), bytes((i,)), b'\xFF' * found.MAX_SIZE_VALUE)
 
