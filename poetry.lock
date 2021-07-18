@@ -1,4 +1,12 @@
 [[package]]
+name = "aiostream"
+version = "0.4.3"
+description = "Generator-based operators for asynchronous iteration"
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "atomicwrites"
 version = "1.4.0"
 description = "Atomic file writes."
@@ -390,9 +398,12 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7"
-content-hash = "531f0655b65f35dc9a088de9d20c8603c9310cd7260758497e783ea2d1dc6c60"
+content-hash = "2c25a1d0dedf0f57d925793066dae42457d6b649f2ae2bc99ef981ca01907110"
 
 [metadata.files]
+aiostream = [
+    {file = "aiostream-0.4.3.tar.gz", hash = "sha256:36345ef1d21bedffe0878210a9123234ca8d29d8f33f0f073bea1271735f63cc"},
+]
 atomicwrites = [
     {file = "atomicwrites-1.4.0-py2.py3-none-any.whl", hash = "sha256:6d1784dea7c0c8d4a5172b6c620f40b6e4cbfdf96d783691f2e1302a7b88e197"},
     {file = "atomicwrites-1.4.0.tar.gz", hash = "sha256:ae70396ad1a434f9c7046fd2dd196fc04b12f9e91ffb859164193be8b6168a7a"},

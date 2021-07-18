@@ -121,7 +121,7 @@ def add(tx, nstore, *items, value=b''):
     assert len(items) == nstore.n, "invalid item count"
     for subspace, index in enumerate(nstore.indices):
         permutation = list(items[i] for i in index)
-        key = nstore.prefix + [subspace] + permutation
+        key = list(nstore.prefix) + [subspace] + permutation
         found.set(tx, found.pack(tuple(key)), value)
 
 
@@ -156,7 +156,7 @@ async def select(tx, nstore, *pattern, seed=Map()):  # seed is immutable
     # `index` variable holds the permutation suitable for the
     # query. `subspace` is the "prefix" of that index.
     prefix = list(pattern[i] for i in index if not isinstance(pattern[i], Variable))
-    prefix = nstore.prefix + [subspace] + prefix
+    prefix = list(nstore.prefix) + [subspace] + prefix
     start = found.pack(tuple(prefix))
     end = found.next_prefix(start)
     async for key, _ in found.query(tx, start, end):

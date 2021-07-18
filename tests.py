@@ -539,3 +539,43 @@ async def test_eavstore_crud():
     out = await found.transactional(db, query, store, 'key', 42)
 
     assert out == expected
+
+
+@pytest.mark.asyncio
+async def test_peace_search_store():
+    import multiprocessing
+    from found import pstore
+    from concurrent import futures
+
+    db = await open()
+
+    with futures.ProcessPoolExecutor(max_workers=multiprocessing.cpu_count()) as pool:
+        store = pstore.make('test-pstore', (42,), pool)
+
+        DOC0 = dict(
+            foundationdb=1,
+            okvs=2,
+            database=42,
+        )
+        DOC1 = dict(
+            sqlite=1,
+            sql=2,
+            database=3
+        )
+        DOC2 = dict(
+            spam=42,
+        )
+        for uid, doc in enumerate((DOC0, DOC1, DOC2)):
+            await found.transactional(db, pstore.index, store, uid, doc)
+
+        expected = [(0, 1)]
+        out = await found.transactional(db, pstore.search, store, ["foundationdb"], 10)
+        assert out == expected
+
+        expected = [(2, 42)]
+        out = await found.transactional(db, pstore.search, store, ["spam"], 10)
+        assert out == expected
+
+        expected = [(0, 42), (1, 3)]
+        out = await found.transactional(db, pstore.search, store, ["database"], 10)
+        assert out == expected
