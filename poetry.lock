@@ -321,7 +321,7 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*"
 name = "six"
 version = "1.16.0"
 description = "Python 2 and 3 compatibility utilities"
-category = "main"
+category = "dev"
 optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*"
 
@@ -398,7 +398,7 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7"
-content-hash = "2c25a1d0dedf0f57d925793066dae42457d6b649f2ae2bc99ef981ca01907110"
+content-hash = "033732ca0edbce23ff9aa4f74ebb22b0c2039567eb87616dd7bda9fd71f6b9b4"
 
 [metadata.files]
 aiostream = [
