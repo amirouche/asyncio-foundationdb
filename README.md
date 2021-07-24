@@ -62,7 +62,7 @@ All `found` exceptions inherit that class.
 
 ### `found.FoundException`
 
-Exception raised when there is a problem foundationdb client drivers
+Exception raised when there is a problem foundationdb client driver
 side or foundationdb server side.
 
 ### `async found.open(cluster_file=None)`
@@ -73,7 +73,7 @@ is `/etc/foundationdb/fdb.cluster`. Returns a database object.
 
 ### `async found.transactional(db, func, *args, snapshot=False, **kwargs)`
 
-Coroutine that will manage a transaction against `db` for `func`
+Coroutine that will operate a transaction against `db` for `func`
 that. If `snapshot=True` then the transaction is read-only. `func`
 will receive an appropriate transaction object as first argument, then
 `args`, then `kwargs`. Because of errors `transactional` might run
