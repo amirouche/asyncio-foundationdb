@@ -25,7 +25,6 @@ check-coverage: ## Code coverage
 	make database-clear
 	pytest --quiet --cov-report=term --cov-report=html --cov=found/ tests.py
 
-
 lint: ## Lint the code
 	pylama found/
 
