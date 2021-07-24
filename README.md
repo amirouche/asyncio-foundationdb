@@ -185,7 +185,7 @@ Returns the immediatly next bytes sequence that is not prefix of `key`.
 
 ### `nstore.NStoreException`
 
-Exception specific to `nstore` errors.
+Exception specific to `nstore`.
 
 ### `nstore.make(name, prefix, n)`
 
