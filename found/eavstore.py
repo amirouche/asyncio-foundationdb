@@ -18,7 +18,6 @@
 # limitations under the License.
 #
 from collections import namedtuple
-from uuid import UUID
 from uuid import uuid4
 
 import found
