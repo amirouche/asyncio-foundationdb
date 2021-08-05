@@ -33,7 +33,7 @@ async def get(tx, key):
     out = await found.get(tx, key)
 
 async def set(tx, key, value):
-    found.set(tx, key, value)
+    return found.set(tx, key, value)
 
 
 db = await found.open()
