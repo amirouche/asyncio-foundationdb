@@ -51,10 +51,10 @@ assert out == b'world'
 
 - Almost full rewrite
 - Remove hooks for the time being
-- Port Generic Tuple Store ie. `nstore`
-- Add blob store ie. `bstore`
-- Add Entity-Attribute-Value store ie. `eavstore`
-- Add inverted index store ie. `pstore`
+- Port Generic Tuple Store aka. `nstore`
+- Add blob store aka. `bstore`
+- Add Entity-Attribute-Value store aka. `eavstore`
+- Add inverted index store aka. `pstore`
 
 ## `import found`
 
