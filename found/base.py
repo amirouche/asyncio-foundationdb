@@ -426,7 +426,7 @@ def _on_error_callback(fdb_future, aio_future):
     aio_future = ffi.from_handle(aio_future)
     error = lib.fdb_future_get_error(fdb_future)
     if error == 0:
-        _loop.call_soon_threadsafe(aio_future.set_result)
+        _loop.call_soon_threadsafe(aio_future.set_result, None)
     else:
         _loop.call_soon_threadsafe(aio_future.set_exception, FoundException(error))
     lib.fdb_future_destroy(fdb_future)
