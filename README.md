@@ -54,6 +54,7 @@ assert out == b'world'
 - Port Generic Tuple Store ie. `nstore`
 - Add blob store ie. `bstore`
 - Add Entity-Attribute-Value store ie. `eavstore`
+- Add inverted index store ie. `pstore`
 
 ## `import found`
 
