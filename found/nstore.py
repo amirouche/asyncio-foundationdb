@@ -121,22 +121,22 @@ def add(tx, nstore, *items, value=b''):
     assert len(items) == nstore.n, "invalid item count"
     for subspace, index in enumerate(nstore.indices):
         permutation = list(items[i] for i in index)
-        key = list(nstore.prefix) + [subspace] + permutation
-        found.set(tx, found.pack(tuple(key)), value)
+        key = tuple(nstore.prefix) + (subspace,) + tuple(permutation)
+        found.set(tx, found.pack(key), value)
 
 
 def remove(tx, nstore, *items):
     assert len(items) == nstore.n, "invalid item count"
     for subspace, index in enumerate(nstore.indices):
         permutation = list(items[i] for i in index)
-        key = nstore.prefix + [subspace] + permutation
+        key = nstore.prefix + (subspace,) + tuple(permutation)
         found.clear(tx, found.pack(tuple(key)))
 
 
 async def get(tx, nstore, *items):
     assert len(items) == nstore.n, "invalid item count"
     subspace = 0
-    key = nstore.prefix + [subspace] + list(items)
+    key = nstore.prefix + (subspace,) + tuple(items)
     out = await found.get(tx, found.pack(tuple(key)))
     out = None if out is None else out
     return out
