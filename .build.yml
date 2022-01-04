@@ -1,0 +1,54 @@
+image: ubuntu/lts
+packages:
+  # Dependencies to compile cpython
+  - build-essential
+  - curl
+  - libreadline-dev
+  - libbz2-dev 
+  - libffi-dev
+  - liblzma-dev
+  - libncursesw5-dev
+  - libsqlite3-dev
+  - libssl-dev
+  - libxml2-dev
+  - libxmlsec1-dev
+  - make
+  - wget
+  - xz-utils
+  - zlib1g-dev
+  
+secrets:
+  - 98889dd3-6e0f-4b6d-ae3c-78d13f59fb7e
+
+sources:
+  - https://git.sr.ht/~amirouche/asyncio-foundationdb
+
+tasks:
+  - foundationdb: cd asyncio-foundationdb && sudo make init-foundationdb
+  - pypy-37: |
+      wget -q https://downloads.python.org/pypy/pypy3.7-v7.3.7-linux64.tar.bz2
+      tar xf pypy3.7-v7.3.7-linux64.tar.bz2
+      cd asyncio-foundationdb
+      PATH=$(pwd)/../pypy3.7-v7.3.7-linux64/bin/:$PATH ./ci.sh 3.7
+  - pypy-38: |
+      wget -q https://downloads.python.org/pypy/pypy3.8-v7.3.7-linux64.tar.bz2
+      tar xf pypy3.8-v7.3.7-linux64.tar.bz2
+      cd asyncio-foundationdb
+      PATH=$(pwd)/../pypy3.8-v7.3.7-linux64/bin/:$PATH ./ci.sh 3.8     
+  - cpython-37: |
+      cd asyncio-foundationdb
+      ./python-compile.sh 3.7 > /dev/null
+      PATH=$HOME/.local/bin:$PATH ./ci.sh 3.7
+  - cpython-38: |
+      cd asyncio-foundationdb
+      ./python-compile.sh 3.8 > /dev/null
+      PATH=$HOME/.local/bin:$PATH ./ci.sh 3.8
+  - cpython-39: |
+      cd asyncio-foundationdb
+      ./python-compile.sh 3.9 > /dev/null
+      PATH=$HOME/.local/bin:$PATH
+      ./ci.sh 3.9
+  - cpython-310: |
+      cd asyncio-foundationdb
+      ./python-compile.sh 3.10 > /dev/null
+      PATH=$HOME/.local/bin:$PATH ./ci.sh 3.10

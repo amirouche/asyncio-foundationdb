@@ -1,15 +1,20 @@
 .PHONY: help doc
 
+FDB_CLIENT="https://github.com/apple/foundationdb/releases/download/6.3.22/foundationdb-clients_6.3.22-1_amd64.deb"
+FDB_SERVER="https://github.com/apple/foundationdb/releases/download/6.3.22/foundationdb-server_6.3.22-1_amd64.deb"
+
 help: ## This help.
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST) | sort
 
-init: ## Prepare the host sytem for development
+init-foundationdb: ## Install foundationdb, requires sudo
 	rm -rf fdb-clients.deb fdb-server.deb
-	wget https://www.foundationdb.org/downloads/6.3.15/ubuntu/installers/foundationdb-clients_6.3.15-1_amd64.deb -O fdb-clients.deb
-	sudo dpkg -i fdb-clients.deb
-	wget https://www.foundationdb.org/downloads/6.3.15/ubuntu/installers/foundationdb-server_6.3.15-1_amd64.deb -O fdb-server.deb
-	sudo dpkg -i fdb-server.deb
-	poetry install
+	wget -q $(FDB_CLIENT) -O fdb-clients.deb
+	dpkg -i fdb-clients.deb
+	wget -q $(FDB_SERVER) -O fdb-server.deb
+	dpkg -i fdb-server.deb
+
+init: ## Prepare the host sytem for development
+	poetry install --quiet
 	@echo "\033[95m\n\nYou may now run 'make check'.\n\033[0m"
 
 check: ## Run tests
