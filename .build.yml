@@ -3,7 +3,7 @@ packages:
   # Dependencies to compile cpython
   - build-essential
   - curl
-  - ibreadline-dev
+  - libreadline-dev
   - libbz2-dev 
   - libffi-dev
   - liblzma-dev
