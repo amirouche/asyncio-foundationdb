@@ -27,10 +27,12 @@ tasks:
   - helper: |
       # see https://github.com/JulienPalard/compile-python#readme
       wget https://raw.githubusercontent.com/JulienPalard/compile-python/main/compile-python.sh
-  - cpython-36: |
+  - cpython-37: |
+      export PATH=$HOME/.local/bin:$PATH
       source compile-python.sh
-      compile-python 3.6.15
-      venv 3.6.15
+      compile-python 3.7.12
+      venv 3.7
+      pip install --upgrade pip
       cd asyncio-foundationdb
       make init
       make check
