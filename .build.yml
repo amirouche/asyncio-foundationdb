@@ -28,7 +28,7 @@ tasks:
       cd asyncio-foundationdb
       rm -rf .venv
       ./python.sh 3.7
-      echo "exit()" | sh venv python.3.7
+      echo "exit()" | sh venv python3.7
       ./venv make init
       ./venv make check
       
