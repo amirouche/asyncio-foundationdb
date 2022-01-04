@@ -29,6 +29,7 @@ tasks:
       rm -rf .venv
       ./python.sh 3.7
       echo "exit()" | sh venv python3.7
+      ./venv pip install poetry
       ./venv make init
       ./venv make check
       
