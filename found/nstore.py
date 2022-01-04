@@ -114,7 +114,7 @@ _NStore = namedtuple('NStore', ('name', 'prefix', 'n', 'indices'))
 
 
 def make(name, prefix, n):
-    return _NStore(name, prefix, n, list(_compute_indices(n)))
+    return _NStore(name, tuple(prefix), n, list(_compute_indices(n)))
 
 
 def add(tx, nstore, *items, value=b''):
