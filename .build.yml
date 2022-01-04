@@ -27,7 +27,7 @@ tasks:
   - helper: |
       # see https://github.com/JulienPalard/compile-python#readme
       wget https://raw.githubusercontent.com/JulienPalard/compile-python/main/compile-python.sh
-  - 3.6: |
+  - cpython-3.6: |
       source compile-python.sh
       compile-python 3.6.15
       venv 3.6.15
