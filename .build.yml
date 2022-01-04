@@ -14,16 +14,16 @@ packages:
   - libxmlsec1-dev
   - llvm
   - make
-  - tk-dev
   - wget
   - xz-utils
   - zlib1g-dev
+  
 sources:
   - https://git.sr.ht/~amirouche/asyncio-foundationdb
 tasks:
-  - foundationdb: |
-      cd asyncio-foundationdb
-      sudo make init-foundationdb
+  # - foundationdb: |
+  #     cd asyncio-foundationdb
+  #     sudo make init-foundationdb
   - helper: |
       # see https://github.com/JulienPalard/compile-python#readme
       wget https://raw.githubusercontent.com/JulienPalard/compile-python/main/compile-python.sh
