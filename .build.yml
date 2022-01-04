@@ -1,0 +1,43 @@
+image: ubuntu
+packages:
+  # Dependencies to compile cpython
+  - build-essential
+  - curl
+  - ibreadline-dev
+  - libbz2-dev 
+  - libffi-dev
+  - liblzma-dev
+  - libncursesw5-dev
+  - libsqlite3-dev
+  - libssl-dev
+  - libxml2-dev
+  - libxmlsec1-dev
+  - llvm
+  - make
+  - tk-dev
+  - wget
+  - xz-utils
+  - zlib1g-dev
+sources:
+  - https://git.sr.ht/~amirouche/asyncio-foundationdb
+tasks:
+  - foundationdb: |
+      cd asyncio-foundationdb
+      sudo make init-foundationdb
+  - helper: |
+      # see https://github.com/JulienPalard/compile-python#readme
+      wget https://raw.githubusercontent.com/JulienPalard/compile-python/main/compile-python.sh
+  - 3.6: |
+      source compile-python.sh
+      compile-python 3.6.15
+      venv 3.6.15
+      cd asyncio-foundationdb
+      make init
+      make check
+      
+  #     compile-python 3.7.12
+  #     compile-python 3.8.12
+  #     compile-python 3.9.9
+  #     compile-python 3.10.1
+  #     compile-python 3.11.0 a3
+  # - 
