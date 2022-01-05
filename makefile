@@ -5,9 +5,9 @@ help: ## This help.
 
 init-foundationdb: ## Install foundationdb, requires sudo
 	rm -rf fdb-clients.deb fdb-server.deb
-	wget https://www.foundationdb.org/downloads/6.3.15/ubuntu/installers/foundationdb-clients_6.3.15-1_amd64.deb -O fdb-clients.deb
+	wget https://www.foundationdb.org/downloads/6.3.22/ubuntu/installers/foundationdb-clients_6.3.22-1_amd64.deb -O fdb-clients.deb
 	dpkg -i fdb-clients.deb
-	wget https://www.foundationdb.org/downloads/6.3.15/ubuntu/installers/foundationdb-server_6.3.15-1_amd64.deb -O fdb-server.deb
+	wget https://www.foundationdb.org/downloads/6.3.22/ubuntu/installers/foundationdb-server_6.3.22-1_amd64.deb -O fdb-server.deb
 	dpkg -i fdb-server.deb
 
 init: ## Prepare the host sytem for development
