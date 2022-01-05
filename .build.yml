@@ -42,12 +42,12 @@ tasks:
       cd asyncio-foundationdb
       ./python-compile.sh 3.10 > /dev/null
       PATH=$HOME/.local/bin:$PATH ./ci.sh 3.10
-  - pypy37: |
+  - pypy-37: |
       wget -q https://downloads.python.org/pypy/pypy3.7-v7.3.7-linux64.tar.bz2
       tar xf pypy3.7-v7.3.7-linux64.tar.bz2
       cd asyncio-foundationdb
       PATH=$(pwd)/../pypy3.7-v7.3.7-linux64/bin/:$PATH ./ci.sh 3.7
-  - pypy38: |
+  - pypy-38: |
       wget -q https://downloads.python.org/pypy/pypy3.8-v7.3.7-linux64.tar.bz2
       tar xf pypy3.8-v7.3.7-linux64.tar.bz2
       cd asyncio-foundationdb
