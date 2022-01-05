@@ -18,7 +18,7 @@ packages:
   - zlib1g-dev
   
 secrets:
-  - 95173f5c-7f7b-426a-89d4-4e5ad1cae34d
+  - 98889dd3-6e0f-4b6d-ae3c-78d13f59fb7e
 
 sources:
   - https://git.sr.ht/~amirouche/asyncio-foundationdb
@@ -36,9 +36,11 @@ tasks:
       ./venv pip install poetry
       ./venv make init
       ./venv make check
-      poetry config http-basic.pypi __token__ $(cat ~/.pypi-token)
-      poetry build
-      poetry publish
+      set +x
+      ./venv poetry config http-basic.pypi __token__ $(cat ~/.pypi-token)
+      set -x
+      ./venv poetry build
+      ./venv poetry publish
       
   #     compile-python 3.8.12
   #     compile-python 3.9.9
