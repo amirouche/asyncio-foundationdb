@@ -20,9 +20,9 @@ packages:
 sources:
   - https://git.sr.ht/~amirouche/asyncio-foundationdb
 tasks:
-  # - foundationdb: |
-  #     cd asyncio-foundationdb
-  #     sudo make init-foundationdb
+  - foundationdb: |
+      cd asyncio-foundationdb
+      sudo make init-foundationdb
   - cpython-37: |
       export PATH=$HOME/.local/bin:$PATH
       cd asyncio-foundationdb
