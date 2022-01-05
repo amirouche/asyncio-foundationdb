@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "asyncio-foundationdb"
-version = "0.10.3"
+version = "0.10.4-dev"
 description = "asyncio drivers for FoundationDB"
 authors = ["Amirouche <amirouche@hyper.dev>"]
 license = "Apachev2"

@@ -36,11 +36,12 @@ tasks:
       ./venv pip install poetry
       ./venv make init
       ./venv make check
+      # Publish if there is tag on the current commit
       set +x
-      ./venv poetry config http-basic.pypi __token__ $(cat ~/.pypi-token)
+      git describe --tags HEAD && ./venv poetry config http-basic.pypi __token__ $(cat ~/.pypi-token) || true
       set -x
-      ./venv poetry build
-      ./venv poetry publish
+      git describe --tags HEAD && ./venv poetry build || true
+      git describe --tags HEAD && ./venv poetry publish || true
       
   #     compile-python 3.8.12
   #     compile-python 3.9.9
