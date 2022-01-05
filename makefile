@@ -14,7 +14,7 @@ init-foundationdb: ## Install foundationdb, requires sudo
 	dpkg -i fdb-server.deb
 
 init: ## Prepare the host sytem for development
-	poetry install
+	poetry install --quiet
 	@echo "\033[95m\n\nYou may now run 'make check'.\n\033[0m"
 
 check: ## Run tests
