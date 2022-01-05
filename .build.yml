@@ -24,9 +24,8 @@ sources:
   - https://git.sr.ht/~amirouche/asyncio-foundationdb
 
 tasks:
-  - change-directory: cd asyncio-foundationdb
-  - foundationdb: sudo make init-foundationdb
-  - cpython-37: ./ci.sh 3.7
-  - cpython-38: ./ci.sh 3.8
-  - cpython-39: ./ci.sh 3.9
-  - cpython-310: ./ci.sh 3.10
+  - foundationdb: cd asyncio-foundationdb && sudo make init-foundationdb
+  - cpython-37: cd asyncio-foundationdb && ./ci.sh 3.7
+  - cpython-38: cd asyncio-foundationdb && ./ci.sh 3.8
+  - cpython-39: cd asyncio-foundationdb && ./ci.sh 3.9
+  - cpython-310: cd asyncio-foundationdb && ./ci.sh 3.10
