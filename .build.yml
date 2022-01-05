@@ -24,27 +24,9 @@ sources:
   - https://git.sr.ht/~amirouche/asyncio-foundationdb
 
 tasks:
-  - foundationdb: |
-      cd asyncio-foundationdb
-      sudo make init-foundationdb
-  - cpython-37: |
-      export PATH=$HOME/.local/bin:$PATH
-      cd asyncio-foundationdb
-      rm -rf .venv
-      ./python.sh 3.7
-      echo "exit()" | sh venv python3.7
-      ./venv pip install poetry
-      ./venv make init
-      ./venv make check
-      # Publish if there is tag on the current commit
-      set +x
-      git tag -l --points-at $(git show -q --format=%H) | grep v && ./venv poetry config http-basic.pypi __token__ $(cat ~/.pypi-token) || true
-      set -x
-      git tag -l --points-at $(git show -q --format=%H) | grep v && ./venv poetry build || true
-      git tag -l --points-at $(git show -q --format=%H) | grep v && ./venv poetry publish || true
-      
-  #     compile-python 3.8.12
-  #     compile-python 3.9.9
-  #     compile-python 3.10.1
-  #     compile-python 3.11.0 a3
-  # - 
+  - change-directory: cd asyncio-foundationdb
+  - foundationdb: sudo make init-foundationdb
+  - cpython-37: ./ci.sh 3.7
+  - cpython-38: ./ci.sh 3.8
+  - cpython-39: ./ci.sh 3.9
+  - cpython-310: ./ci.sh 3.10
