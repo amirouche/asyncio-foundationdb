@@ -1,6 +1,6 @@
 PYTHON_MAJOR_MINOR=$1
 export PATH=$HOME/.local/bin:$PATH
-./python-compile.sh $PYTHON_MAJOR_MINOR
+./python-compile.sh $PYTHON_MAJOR_MINOR > /dev/null
 rm -rf .venv
 echo "exit()" | sh venv python$PYTHON_MAJOR_MINOR
 ./venv pip install poetry
