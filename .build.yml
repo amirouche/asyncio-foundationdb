@@ -38,10 +38,10 @@ tasks:
       ./venv make check
       # Publish if there is tag on the current commit
       set +x
-      git describe --tags HEAD && ./venv poetry config http-basic.pypi __token__ $(cat ~/.pypi-token) || true
+      git tag -l --points-at $(git show -q --format=%H) | grep v && ./venv poetry config http-basic.pypi __token__ $(cat ~/.pypi-token) || true
       set -x
-      git describe --tags HEAD && ./venv poetry build || true
-      git describe --tags HEAD && ./venv poetry publish || true
+      git tag -l --points-at $(git show -q --format=%H) | grep v && ./venv poetry build || true
+      git tag -l --points-at $(git show -q --format=%H) | grep v && ./venv poetry publish || true
       
   #     compile-python 3.8.12
   #     compile-python 3.9.9
