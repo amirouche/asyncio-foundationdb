@@ -1,4 +1,5 @@
 rm -rf .venv
+PYTHON_MAJOR_MINOR=$1
 echo "exit()" | sh venv python$PYTHON_MAJOR_MINOR
 ./venv pip install poetry
 ./venv make init
