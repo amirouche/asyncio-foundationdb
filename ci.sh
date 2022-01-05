@@ -1,9 +1,8 @@
 PYTHON_MAJOR_MINOR=$1
 export PATH=$HOME/.local/bin:$PATH
 rm -rf .venv
-./python.sh $PYTHON_MAJOR_MINOR
-echo "exit()" | sh venv
-./venv pip install poetry python$PYTHON_MAJOR_MINOR
+echo "exit()" | sh venv python$PYTHON_MAJOR_MINOR
+./venv pip install poetry
 ./venv make init
 ./venv make check
 # Publish if there is tag on the current commit
