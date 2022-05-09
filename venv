@@ -43,8 +43,9 @@ else
     curl -sSL https://bootstrap.pypa.io/get-pip.py -o get-pip.py
     ./venv python get-pip.py
     rm -r get-pip.py
+    ./venv pip install --quiet poetry
+    ./venv poetry install --quiet
     echo VENV_PATH=$(pwd) > .venv/bin/rc.sh
-    cat venv-extra.sh >> .venv/bin/rc.sh
     cat .venv/bin/activate >> .venv/bin/rc.sh
     ./venv "$@"
 fi
