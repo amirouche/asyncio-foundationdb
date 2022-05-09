@@ -1,6 +1,6 @@
 # [asyncio-foundationdb](https://github.com/amirouche/asyncio-foundationdb/)
 
-*early draft*
+[![builds.sr.ht status](https://builds.sr.ht/~amirouche/asyncio-foundationdb/commits/main/.build.yml.svg)](https://builds.sr.ht/~amirouche/asyncio-foundationdb/commits/main/.build.yml?)
 
 asyncio drivers for foundationdb tested with CPython 3.9 and PyPy 3.7
 
