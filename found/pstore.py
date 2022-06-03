@@ -17,6 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import os
 import random
 import asyncio
 from operator import itemgetter
@@ -32,6 +33,12 @@ import zstandard as zstd
 
 class PStoreException(found.BaseFoundException):
     pass
+
+
+try:
+    FOUND_PSTORE_SAMPLE_COUNT = int(os.environ['FOUND_PSTORE_SAMPLE_COUNT'])
+except (KeyError, ValueError):
+    FOUND_PSTORE_SAMPLE_COUNT = 1337
 
 
 PSTORE_SUFFIX_TOKENS = [b'\x01']
@@ -175,8 +182,8 @@ async def search(tx, store, keywords, limit=13):
 
     # XXX: 500 was empirically discovered, to make it so that the
     #      search takes less than 1 second or so.
-    if len(candidates) > 500:
-        candidates = random.sample(candidates, 500)
+    if len(candidates) >= FOUND_PSTORE_SAMPLE_COUNT:
+        candidates = random.sample(candidates, FOUND_PSTORE_SAMPLE_COUNT)
 
     # score, filter and construct hits aka. massage
     hits = Counter()
