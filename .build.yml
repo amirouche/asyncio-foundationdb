@@ -26,15 +26,15 @@ sources:
 tasks:
   - foundationdb: cd asyncio-foundationdb && sudo make init-foundationdb
   - pypy-37: |
-      wget -q https://downloads.python.org/pypy/pypy3.7-v3.7.9-linux64.tar.bz2
-      tar xf pypy3.7-v3.7.9-linux64.tar.bz2
+      wget -q https://downloads.python.org/pypy/pypy3.7-v7.3.9-linux64.tar.bz2
+      tar xf pypy3.7-v7.3.9-linux64.tar.bz2
       cd asyncio-foundationdb
-      PATH=$(pwd)/../pypy3.7-v3.7.9-linux64/bin/:$PATH ./ci.sh 3.7
+      PATH=$(pwd)/../pypy3.7-v7.3.9-linux64/bin/:$PATH ./ci.sh 3.7
   - pypy-38: |
-      wget -q https://downloads.python.org/pypy/pypy3.8-v3.7.9-linux64.tar.bz2
-      tar xf pypy3.8-v3.7.9-linux64.tar.bz2
+      wget -q https://downloads.python.org/pypy/pypy3.8-v7.3.9-linux64.tar.bz2
+      tar xf pypy3.8-v7.3.9-linux64.tar.bz2
       cd asyncio-foundationdb
-      PATH=$(pwd)/../pypy3.8-v3.7.9-linux64/bin/:$PATH ./ci.sh 3.8
+      PATH=$(pwd)/../pypy3.8-v7.3.9-linux64/bin/:$PATH ./ci.sh 3.8
   - cpython-37: |
       cd asyncio-foundationdb
       ./python-compile.sh 3.7 > /dev/null
