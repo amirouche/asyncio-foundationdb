@@ -2,7 +2,7 @@
 
 [![builds.sr.ht status](https://builds.sr.ht/~amirouche/asyncio-foundationdb/commits/main/.build.yml.svg)](https://builds.sr.ht/~amirouche/asyncio-foundationdb/commits/main/.build.yml?)
 
-asyncio drivers for foundationdb tested with CPython 3.9 and PyPy 3.7
+asyncio drivers for foundationdb tested with CPython 3.7-3.10 and PyPy 3.7, and PyPy 3.8
 
 [![Library Database](https://images.unsplash.com/photo-1544383835-bda2bc66a55d?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1021&q=80)](https://unsplash.com/photos/lRoX0shwjUQ)
 
