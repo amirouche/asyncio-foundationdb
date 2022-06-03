@@ -1,7 +1,7 @@
 #
-# Copyright (C) 2015-2021  Amirouche Boubekki <amirouche@hyper.dev>
+# Copyright (C) 2015-2022  Amirouche Boubekki <amirouche@hyper.dev>
 #
-# https://github.com/amirouche/found/
+# https://git.sr.ht/~amirouche/asyncio-foundationdb
 #
 import itertools
 from math import factorial
