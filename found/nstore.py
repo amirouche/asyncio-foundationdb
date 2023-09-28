@@ -4,13 +4,13 @@
 # https://git.sr.ht/~amirouche/asyncio-foundationdb
 #
 import itertools
-from math import factorial
 from collections import namedtuple
+from math import factorial
+
+from immutables import Map
 
 import found
 from found.base import FoundException
-
-from immutables import Map
 
 
 def pk(*args):
@@ -99,7 +99,7 @@ class NStoreException(FoundException):
     pass
 
 
-Variable = var = namedtuple('Variable', ('name',))
+Variable = var = v = namedtuple("Variable", ("name",))
 
 
 def is_permutation_prefix(combination, index):
@@ -110,27 +110,33 @@ def is_permutation_prefix(combination, index):
     return out
 
 
-_NStore = namedtuple('NStore', ('name', 'prefix', 'n', 'indices'))
+_NStore = namedtuple("NStore", ("name", "prefix", "n", "indices"))
 
 
 def make(name, prefix, n):
     return _NStore(name, tuple(prefix), n, list(_compute_indices(n)))
 
 
-def add(tx, nstore, *items, value=b''):
+async def add(tx, nstore, *items, value=b""):
     assert len(items) == nstore.n, "invalid item count"
+    pack = (
+        found.pack_with_versionstamp
+        if any(isinstance(x, found.Versionstamp) for x in items)
+        else found.pack
+    )
     for subspace, index in enumerate(nstore.indices):
         permutation = list(items[i] for i in index)
         key = tuple(nstore.prefix) + (subspace,) + tuple(permutation)
-        found.set(tx, found.pack(key), value)
+        key = pack(key)
+        await found.set(tx, key, value)
 
 
-def remove(tx, nstore, *items):
+async def remove(tx, nstore, *items):
     assert len(items) == nstore.n, "invalid item count"
     for subspace, index in enumerate(nstore.indices):
         permutation = list(items[i] for i in index)
         key = nstore.prefix + (subspace,) + tuple(permutation)
-        found.clear(tx, found.pack(tuple(key)))
+        await found.clear(tx, found.pack(tuple(key)))
 
 
 async def get(tx, nstore, *items):
@@ -160,7 +166,7 @@ async def select(tx, nstore, *pattern, seed=Map()):  # seed is immutable
     start = found.pack(tuple(prefix))
     end = found.next_prefix(start)
     async for key, _ in found.query(tx, start, end):
-        items = found.unpack(key)[len(nstore.prefix) + 1:]
+        items = found.unpack(key)[len(nstore.prefix) + 1 :]
         # re-order the items
         items = tuple(items[index.index(i)] for i in range(nstore.n))
         bindings = seed

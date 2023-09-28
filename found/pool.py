@@ -15,8 +15,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from aiostream import pipe, stream
 import asyncio
+
+from aiostream import pipe, stream
 
 
 async def pool_for_each_par_map(loop, pool, f, p, iterator):

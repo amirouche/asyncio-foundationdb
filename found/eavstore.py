@@ -22,11 +22,10 @@ from uuid import uuid4
 
 import found
 
+EAVStore = namedtuple("EAVStore", ("name", "prefix_data", "prefix_index"))
 
-EAVStore = namedtuple('EAVStore', ('name', 'prefix_data', 'prefix_index'))
-
-EAVSTORE_SUFFIX_DATA = [b'\x01']
-EAVSTORE_SUFFIX_INDEX = [b'\x02']
+EAVSTORE_SUFFIX_DATA = [b"\x01"]
+EAVSTORE_SUFFIX_INDEX = [b"\x02"]
 
 
 def make(name, prefix):
@@ -38,15 +37,15 @@ def make(name, prefix):
     return out
 
 
-def create(tx, eavstore, dict, uid=None):
+async def create(tx, eavstore, dict, uid=None):
     uid = uuid4() if uid is None else uid
     for key, value in dict.items():
         key = found.pack((eavstore.prefix_data, uid, key))
-        found.set(tx, key, found.pack((value,)))
+        await found.set(tx, key, found.pack((value,)))
 
     for key, value in dict.items():
         key = found.pack((eavstore.prefix_index, key, value, uid))
-        found.set(tx, key, b'')
+        await found.set(tx, key, b"")
 
     return uid
 
@@ -60,18 +59,18 @@ async def get(tx, eavstore, uid):
     return out
 
 
-def remove(tx, eavstore, uid):
-    dict = get(tx, eavstore, uid)
+async def remove(tx, eavstore, uid):
+    dict = await get(tx, eavstore, uid)
     for key, value in dict.items():
-        key = tuple((eavstore.prefix_index, key))
-        found.clear(tx, key)
+        key = found.pack(tuple((eavstore.prefix_index, key)))
+        await found.clear(tx, key)
     key = found.pack((eavstore.prefix_data, uid))
-    found.clear(tx, key, found.next_prefix(key))
+    await found.clear(tx, key, found.next_prefix(key))
 
 
-def update(tx, eavstore, uid, dict):
-    remove(tx, eavstore, uid)
-    create(tx, eavstore, dict, uid)
+async def update(tx, eavstore, uid, dict):
+    await remove(tx, eavstore, uid)
+    await create(tx, eavstore, dict, uid)
 
 
 async def query(tx, eavstore, key, value):

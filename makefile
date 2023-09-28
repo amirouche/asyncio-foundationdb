@@ -1,12 +1,14 @@
 .PHONY: help doc
 
-FDB_CLIENT="https://github.com/apple/foundationdb/releases/download/6.3.22/foundationdb-clients_6.3.22-1_amd64.deb"
-FDB_SERVER="https://github.com/apple/foundationdb/releases/download/6.3.22/foundationdb-server_6.3.22-1_amd64.deb"
+MAIN=$(shell basename $(PWD))
 
 help: ## This help.
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST) | sort
 
-init-foundationdb: ## Install foundationdb, requires sudo
+FDB_CLIENT="https://github.com/apple/foundationdb/releases/download/7.1.43/foundationdb-clients_7.1.43-1_amd64.deb"
+FDB_SERVER="https://github.com/apple/foundationdb/releases/download/7.1.43/foundationdb-server_7.1.43-1_amd64.deb"
+
+debian: ## Install foundationdb, requires sudo
 	rm -rf fdb-clients.deb fdb-server.deb
 	wget -q $(FDB_CLIENT) -O fdb-clients.deb
 	dpkg -i fdb-clients.deb
@@ -14,40 +16,55 @@ init-foundationdb: ## Install foundationdb, requires sudo
 	dpkg -i fdb-server.deb
 
 init: ## Prepare the host sytem for development
-	poetry install --quiet
+	pip install -r requirements.txt -r requirements.dev.txt
+	python build.py
 	@echo "\033[95m\n\nYou may now run 'make check'.\n\033[0m"
 
+database-clear:
+	fdbcli --exec "writemode on; clearrange \x00 \xFF;"
+
 check: ## Run tests
-	make database-clear
-	pytest -vvv --capture=no tests.py
-	bandit --skip=B101 -r found/
+	pytest -vvv --exitfirst --capture=no $(MAIN)/*.py
+	bandit --skip=B101 -r $(MAIN)
 
 check-fast: ## Run tests, fail fast
-	make database-clear
-	pytest -x -vvv --capture=no tests.py
+	pytest -x -vvv --capture=no $(MAIN)
 
 check-coverage: ## Code coverage
-	make database-clear
-	pytest --quiet --cov-report=term --cov-report=html --cov=found/ tests.py
+	pytest --quiet --cov-report=term --cov-report=html --cov=. $(MAIN)
 
 lint: ## Lint the code
-	pylama found/
+	pylama $(MAIN)
 
 doc: ## Build the documentation
 	cd doc && make html
-	@echo "\033[95m\n\nBuild successful! View the docs homepage at doc/build/html/index.html.\n\033[0m"
+	@echo "\033[95m\n\nBuild successful! View the docs homepage at doc/build/html/index.html.\n\032[0m"
 
 clean: ## Clean up
 	git clean -fX
 
-database-clear:  ## Remove all data from the database
-	fdbcli --exec "writemode on; clearrange \x00 \xFF;"
-
 todo: ## Things that should be done
-	@grep -nR --color=always  --before-context=2  --after-context=2 TODO found/
+	@grep -nR --color=always --before-context=2 --after-context=2 TODO $(MAIN)
 
 xxx: ## Things that require attention
-	@grep -nR --color=always --before-context=2  --after-context=2 XXX found/
+	@grep -nR --color=always --before-context=2 --after-context=2 XXX $(MAIN)
 
-release:  ## Prepare a release
-	poetry publish --build
+serve: ## Run the server
+	uvicorn --lifespan on --log-level warning --reload $(MAIN):uvicorn
+
+lock: ## Lock dependencies
+	pip-compile -o requirements.txt requirements.source.txt
+
+wip: ## clean up code, and commit wip
+	black $(MAIN)
+	isort --profile black $(MAIN)
+	git add .
+	git commit -m "wip"
+
+release: ## Release package on pypi
+	rm -rf dist
+	make lock
+	make init
+	make check
+	python3 -m build
+	python3 -m twine upload dist/*

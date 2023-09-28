@@ -1,0 +1,10 @@
+bandit
+black
+build
+isort
+pip-tools
+pylama
+pytest
+pytest-asyncio
+pytest-cov
+twine
