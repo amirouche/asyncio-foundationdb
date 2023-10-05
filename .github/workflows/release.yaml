@@ -12,8 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: gh repo clone amirouche/asyncio-foundationdb -- --branch $BRANCH --depth 1
-      - run: cd cli && git fetch --tags
-      - run: cd cli && gh release create --draft $(git tag --points-at HEAD)
+      - run: cd asyncio-foundationdb && git fetch --tags
+      - run: cd asyncio-foundationdb && gh release create --draft $(git tag --points-at HEAD)
 
   check-build-release:
     strategy:
@@ -40,11 +40,9 @@ jobs:
            python-version: ${{ matrix.python-version }}
            architecture: x64
       - run: python --version
-      - run: sudo make init-foundationdb
-      - run: pip install --upgrade pip
-      - run: pip install poetry
-      - run: ./venv python
-      - run: ./venv make init
-      - run: ./venv make check
-      - run: ./venv poetry config pypi-token.pypi ${{ secrets.PYPI_ASYNCIO_FOUNDATIONDB }}
-      - run: ./venv poetry release --build
+      - run: cd asyncio-foundationdb && sudo make init-foundationdb
+      - run: cd asyncio-foundationdb && ./venv python
+      - run: cd asyncio-foundationdb && ./venv make init
+      - run: cd asyncio-foundationdb && ./venv make check
+      - run: cd asyncio-foundationdb && ./venv poetry config pypi-token.pypi ${{ secrets.PYPI_ASYNCIO_FOUNDATIONDB }}
+      - run: cd asyncio-foundationdb && ./venv poetry release --build
