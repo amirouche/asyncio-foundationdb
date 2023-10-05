@@ -47,6 +47,10 @@ assert out == b'world'
 
 ## ChangeLog
 
+### v0.12.0-a1
+
+Release done for the sole purpose of testing github actions integration.
+
 ### v0.10.x
 
 - Almost full rewrite
