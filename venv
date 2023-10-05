@@ -14,7 +14,7 @@
 # TODO: investigate https://github.com/berdario/pew
 #
 
-set -e
+set -xe
 
 PYTHON=$1
 
