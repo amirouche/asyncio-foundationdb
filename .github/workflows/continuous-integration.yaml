@@ -4,6 +4,7 @@ on:
     push:
 
 env:
+  BRANCH: ${{ github.head_ref || github.ref_name }}
   GH_TOKEN: ${{ github.token }}
 
 jobs:
@@ -23,16 +24,16 @@ jobs:
     runs-on:  ${{ matrix.os }}
     name: ${{ matrix.python-version }} on ${{ matrix.os }}
     steps:
-      - run: gh repo clone amirouche/asyncio-foundationdb -- --branch $BRANCH --depth 1
+      - run: gh repo clone amirouche/asyncio-foundationdb -- --branch $BRANCH --depth 42
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
            python-version: ${{ matrix.python-version }}
            architecture: x64
       - run: python --version
-      - run: sudo make init-foundationdb
-      - run: pip install --upgrade pip
-      - run: pip install poetry
-      - run: ./venv python
-      - run: ./venv make init
-      - run: ./venv make check
+      - run: cd asyncio-foundationdb && sudo make init-foundationdb
+      - run: cd asyncio-foundationdb && pip install --upgrade pip
+      - run: cd asyncio-foundationdb && pip install poetry
+      - run: cd asyncio-foundationdb && ./venv python
+      - run: cd asyncio-foundationdb && ./venv make init
+      - run: cd asyncio-foundationdb && ./venv make check
