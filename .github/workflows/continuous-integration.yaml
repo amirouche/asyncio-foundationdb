@@ -26,9 +26,10 @@ jobs:
         with:
            python-version: ${{ matrix.python-version }}
            architecture: x64
+      - run: python --version
       - run: sudo make init-foundationdb
       - run: pip install --upgrade pip
       - run: pip install poetry
-      - run: ./venv python3
+      - run: ./venv python
       - run: ./venv make init
       - run: ./venv make check
