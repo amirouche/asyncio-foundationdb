@@ -3,6 +3,9 @@ name: Continuous Integration
 on:
     push:
 
+env:
+  GH_TOKEN: ${{ github.token }}
+
 jobs:
   check:
     strategy:

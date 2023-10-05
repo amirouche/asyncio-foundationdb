@@ -4,6 +4,7 @@ on: workflow_dispatch
 
 
 env:
+  GH_TOKEN: ${{ github.token }}
   BRANCH: ${{ github.head_ref || github.ref_name }}
 
 jobs:
