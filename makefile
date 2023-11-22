@@ -17,7 +17,7 @@ debian: ## Install foundationdb, requires sudo
 
 init: ## Prepare the host sytem for development
 	pip install -r requirements.txt -r requirements.dev.txt
-	python build.py
+	python ffibuild.py
 	@echo "\033[95m\n\nYou may now run 'make check'.\n\033[0m"
 
 database-clear:
