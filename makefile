@@ -31,7 +31,7 @@ check-fast: ## Run tests, fail fast
 	pytest -x -vvv --capture=no $(MAIN)
 
 check-coverage: ## Code coverage
-	pytest --quiet --cov-report=term --cov-report=html --cov=. $(MAIN)
+	pytest --quiet --cov-report=term --cov-report=html --cov=$(MAIN) $(MAIN)/*.py
 
 lint: ## Lint the code
 	pylama $(MAIN)
