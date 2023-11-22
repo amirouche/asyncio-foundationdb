@@ -19,18 +19,18 @@
 # limitations under the License.
 #
 
-from found._fdb import lib
 import fdb
 
+from found._fdb import lib
 
 __VERSION__ = (0, 10, 0)
 
-MAX_SIZE_TRANSACTION = 10 ** 7
-MAX_SIZE_KEY = 10 ** 4
-MAX_SIZE_VALUE = 10 ** 5
+MAX_SIZE_TRANSACTION = 10**7
+MAX_SIZE_KEY = 10**4
+MAX_SIZE_VALUE = 10**5
 
 
-HEADER_VERSION = VERSION = 630
+HEADER_VERSION = VERSION = 710
 
 
 code = lib.fdb_select_api_version_impl(VERSION, HEADER_VERSION)
@@ -54,45 +54,45 @@ elif code != 0:
 # Required to use fdb.tuple.pack and fdb.tuple.unpack
 fdb._version = VERSION
 
+from fdb.tuple import Versionstamp  # noqa
+from fdb.tuple import has_incomplete_versionstamp  # noqa
+from fdb.tuple import pack  # noqa
+from fdb.tuple import pack_with_versionstamp  # noqa
+from fdb.tuple import unpack  # noqa
+
+from found.base import STREAMING_MODE_EXACT  # noqa
+from found.base import STREAMING_MODE_ITERATOR  # noqa
+from found.base import STREAMING_MODE_LARGE  # noqa
+from found.base import STREAMING_MODE_MEDIUM  # noqa
+from found.base import STREAMING_MODE_SERIAL  # noqa
+from found.base import STREAMING_MODE_SMALL  # noqa
+from found.base import STREAMING_MODE_WANT_ALL  # noqa
 from found.base import BaseFoundException  # noqa
 from found.base import FoundException  # noqa
-from found.base import next_prefix  # noqa
-from found.base import STREAMING_MODE_WANT_ALL  # noqa
-from found.base import STREAMING_MODE_ITERATOR  # noqa
-from found.base import STREAMING_MODE_EXACT  # noqa
-from found.base import STREAMING_MODE_SMALL  # noqa
-from found.base import STREAMING_MODE_MEDIUM  # noqa
-from found.base import STREAMING_MODE_LARGE  # noqa
-from found.base import STREAMING_MODE_SERIAL  # noqa
-from found.base import read_version  # noqa
-from found.base import get  # noqa
-from found.base import lt  # noqa
-from found.base import lte  # noqa
-from found.base import gt  # noqa
-from found.base import gte  # noqa
-from found.base import query  # noqa
-from found.base import estimated_size_bytes  # noqa
-from found.base import set_read_version  # noqa
-from found.base import set  # noqa
-from found.base import clear  # noqa
 from found.base import add  # noqa
 from found.base import bit_and  # noqa
 from found.base import bit_or  # noqa
 from found.base import bit_xor  # noqa
-from found.base import max  # noqa
 from found.base import byte_max  # noqa
-from found.base import min  # noqa
 from found.base import byte_min  # noqa
+from found.base import clear  # noqa
+from found.base import estimated_size_bytes  # noqa
+from found.base import get  # noqa
+from found.base import gt  # noqa
+from found.base import gte  # noqa
+from found.base import lt  # noqa
+from found.base import lte  # noqa
+from found.base import max  # noqa
+from found.base import min  # noqa
+from found.base import next_prefix  # noqa
+from found.base import open  # noqa
+from found.base import query  # noqa
+from found.base import read_version  # noqa
+from found.base import set  # noqa
+from found.base import set_read_version  # noqa
 from found.base import set_versionstamped_key  # noqa
 from found.base import set_versionstamped_value  # noqa
 from found.base import transactional  # noqa
-from found.base import open  # noqa
-
-from fdb.tuple import pack  # noqa
-from fdb.tuple import pack_with_versionstamp  # noqa
-from fdb.tuple import unpack  # noqa
-from fdb.tuple import has_incomplete_versionstamp  # noqa
-from fdb.tuple import Versionstamp  # noqa
 
 # TODO: from fdb.subspace_impl import Subspace  # noqa
 
@@ -100,4 +100,12 @@ from fdb.tuple import Versionstamp  # noqa
 def co(func):
     async def wrapper(*args, **kwargs):
         return func(*args, **kwargs)
+
     return wrapper
+
+
+async def all(aiogenerator):
+    out = []
+    async for item in aiogenerator:
+        out.append(item)
+    return out

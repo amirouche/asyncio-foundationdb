@@ -24,8 +24,7 @@ import struct
 import threading
 from collections import namedtuple
 
-from found._fdb import lib
-from found._fdb import ffi
+from found._fdb import ffi, lib
 
 
 class BaseFoundException(Exception):
@@ -132,7 +131,7 @@ def on_transaction_get_range(fdb_future, aio_future):
         # being we do a copy of the whole range iteration
 
         # total count of buffers for this key-value array
-        copy = kvs[0][0:count[0]]
+        copy = kvs[0][0 : count[0]]
 
         for kv in copy:
             # XXX: manual unpacking because cffi doesn't known about packing
@@ -155,7 +154,7 @@ def on_transaction_get_range(fdb_future, aio_future):
         lib.fdb_future_destroy(fdb_future)
 
 
-Transaction = namedtuple('Transaction', ('pointer', 'db', 'snapshot'))
+Transaction = namedtuple("Transaction", ("pointer", "db", "snapshot", "vars"))
 
 
 def _make_transaction(db, snapshot=False):
@@ -163,7 +162,7 @@ def _make_transaction(db, snapshot=False):
     out = ffi.new("FDBTransaction **")
     lib.fdb_database_create_transaction(db.pointer, out)
     out = ffi.gc(out[0], lib.fdb_transaction_destroy)
-    out = Transaction(out, db, snapshot)
+    out = Transaction(out, db, snapshot, dict())
     return out
 
 
@@ -212,9 +211,7 @@ def _on_transaction_get(fdb_future, aio_future):
 async def get(tx, key):
     assert isinstance(tx, Transaction)
     assert isinstance(key, bytes)
-    fdb_future = lib.fdb_transaction_get(
-        tx.pointer, key, len(key), tx.snapshot
-    )
+    fdb_future = lib.fdb_transaction_get(tx.pointer, key, len(key), tx.snapshot)
     aio_future = _loop.create_future()
     handle = ffi.new_handle(aio_future)
     lib.fdb_future_set_callback(fdb_future, _on_transaction_get, handle)
@@ -222,7 +219,7 @@ async def get(tx, key):
     return out
 
 
-KeySelector = namedtuple('KeySelector', ('key', 'or_equal', 'offset'))
+KeySelector = namedtuple("KeySelector", ("key", "or_equal", "offset"))
 
 
 def lt(key, offset=0):
@@ -248,18 +245,20 @@ def gte(key, offset=1):
 async def query(tx, key, other, *, limit=0, mode=STREAMING_MODE_ITERATOR):
     key = key if isinstance(key, KeySelector) else gte(key)
     other = other if isinstance(other, KeySelector) else gte(other)
+
     if key.key < other.key:
         begin = key
         end = other
         reverse = False
     else:
-        begin = other
-        end = key
+        begin = KeySelector(other.key, False, other.offset)
+        end = KeySelector(key.key, True, key.offset)
         reverse = True
 
     # the first read was fired off when the FDBRange was initialized
     iteration = 1
     snapshot = tx.snapshot
+
     while True:
         fdb_future = lib.fdb_transaction_get_range(
             tx.pointer,
@@ -320,11 +319,7 @@ def _estimated_size_bytes_callback(fdb_future, aio_future):
 
 async def estimated_size_bytes(tx, begin, end):
     fdb_future = lib.fdb_transaction_get_estimated_range_size_bytes(
-        tx.pointer,
-        begin,
-        len(begin),
-        end,
-        len(end)
+        tx.pointer, begin, len(begin), end, len(end)
     )
     aio_future = _loop.create_future()
     handle = ffi.new_handle(aio_future)
@@ -333,12 +328,12 @@ async def estimated_size_bytes(tx, begin, end):
     return size
 
 
-def set_read_version(tx, version):
+async def set_read_version(tx, version):
     assert not tx.snapshot
     lib.fdb_transaction_set_read_version(tx.pointer, version)
 
 
-def set(tx, key, value):
+async def set(tx, key, value):
     assert isinstance(tx, Transaction)
     assert isinstance(key, bytes)
     assert isinstance(value, bytes)
@@ -347,7 +342,7 @@ def set(tx, key, value):
     lib.fdb_transaction_set(tx.pointer, key, len(key), value, len(value))
 
 
-def clear(tx, key, other=None):
+async def clear(tx, key, other=None):
     assert isinstance(tx, Transaction)
     assert isinstance(key, bytes)
     if other is None:
@@ -381,43 +376,43 @@ def _atomic(tx, opcode, key, param):
     lib.fdb_transaction_atomic_op(tx.pointer, key, len(key), param, len(param), opcode)
 
 
-def add(tx, key, param):
+async def add(tx, key, param):
     _atomic(tx, MUTATION_ADD, key, param)
 
 
-def bit_and(tx, key, param):
+async def bit_and(tx, key, param):
     _atomic(tx, MUTATION_BIT_AND, key, param)
 
 
-def bit_or(tx, key, param):
+async def bit_or(tx, key, param):
     _atomic(tx, MUTATION_BIT_OR, key, param)
 
 
-def bit_xor(tx, key, param):
+async def bit_xor(tx, key, param):
     _atomic(tx, MUTATION_BIT_XOR, key, param)
 
 
-def max(tx, key, param):
+async def max(tx, key, param):
     _atomic(tx, MUTATION_MAX, key, param)
 
 
-def byte_max(tx, key, param):
+async def byte_max(tx, key, param):
     _atomic(tx, MUTATION_BYTE_MAX, key, param)
 
 
-def min(tx, key, param):
+async def min(tx, key, param):
     _atomic(tx, MUTATION_MIN, key, param)
 
 
-def byte_min(tx, key, param):
+async def byte_min(tx, key, param):
     _atomic(tx, MUTATION_BYTE_MIN, key, param)
 
 
-def set_versionstamped_key(tx, key, param):
+async def set_versionstamped_key(tx, key, param):
     _atomic(tx, MUTATION_SET_VERSIONSTAMPED_KEY, key, param)
 
 
-def set_versionstamped_value(tx, key, param):
+async def set_versionstamped_value(tx, key, param):
     _atomic(tx, MUTATION_SET_VERSIONSTAMPED_VALUE, key, param)
 
 
@@ -448,11 +443,10 @@ async def transactional(db, func, *args, snapshot=False, **kwargs):
             return out
 
 
-Database = namedtuple('Database', ('pointer',))
+Database = namedtuple("Database", ("pointer",))
 
 
 async def open(cluster_file=None):
-
     with _network_thread_reentrant_lock:
         if _network_thread is None:
             _init()

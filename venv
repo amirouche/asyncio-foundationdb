@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 #
 # tl;dr: use or create a virtual environment.
@@ -14,24 +14,21 @@
 # TODO: investigate https://github.com/berdario/pew
 #
 
-set -e
+set -xe
 
 PYTHON=$1
+VENV="$HOME/.cache/venv-$(basename $(pwd))-$(echo -n $(pwd) | md5sum | cut -d ' ' -f1)"
 
 if [ "$PYTHON" = "" ]; then
     PYTHON="python3"
 fi;
 
-if test -d .venv; then
+if test -d $VENV; then
     if [[ -z "$MYVENV" ]]; then
         export MYVENV=1
-        source .venv/bin/activate
+        source $VENV/bin/activate
         if [[ -z "$@" ]]; then
-            if test -f .venv/bin/rc.sh; then
-                bash --rcfile .venv/bin/rc.sh
-            else
-                bash --norc --noprofile
-            fi
+            $SHELL
         else
             exec "$@"
         fi
@@ -39,13 +36,11 @@ if test -d .venv; then
         echo "You are already in a virtual environment!"
     fi
 else
-    $PYTHON -m venv --prompt="$(basename $(pwd))" .venv
+    $PYTHON -m venv --upgrade-deps --prompt="$(basename $(pwd)) :" $VENV
     curl -sSL https://bootstrap.pypa.io/get-pip.py -o get-pip.py
     ./venv python get-pip.py
     rm -r get-pip.py
-    ./venv pip install --quiet poetry
-    ./venv poetry install --quiet
-    echo VENV_PATH=$(pwd) > .venv/bin/rc.sh
-    cat .venv/bin/activate >> .venv/bin/rc.sh
+    echo VENV_PATH=$(pwd) > $VENV/bin/rc.sh
+    cat $VENV/bin/activate >> $VENV/bin/rc.sh
     ./venv "$@"
 fi

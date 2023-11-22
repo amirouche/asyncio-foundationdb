@@ -1,187 +1,348 @@
-# Copyright (C) 2020,2022 Amirouche A. Boubekki
+# Copyright (C) 2020-2023 Amirouche A. Boubekki
 #
 # https://git.sr.ht/~amirouche/copernic
 #
-from uuid import uuid4
+import asyncio
+from collections import namedtuple
+from uuid import UUID, uuid4
 
 import fdb
 import fdb.tuple
+import pytest
+from immutables import Map
+from uuid_extensions import uuid7
 
 import found
+from found import nstore
 from found.base import FoundException
 
-from immutables import Map
-import nstore
+_VNStore = namedtuple("VNStore", "name subspace items changes tuples")
 
 
-
-class VNStoreBase:
+class VNStoreException(FoundException):
     pass
 
 
-class VNStoreExcpetion(Exception):
-    pass
+def make(name, subspace, items):
+    assert isinstance(subspace, (tuple, list))
+    assert isinstance(items, (tuple, list))
+    name = name
+    subspace = subspace
+    items = list(items)
+    # A change can have two key:
+    #
+    # - "message": that is a small description of the change
+    #
+    # - "significance": once the change is applied, it has an
+    #    history significance VersionStamp that allows to order
+    #    the changes.
+    #
+    changes = nstore.make(
+        "{}-changes".format(name), subspace + ["changes"], len(("uid", "key", "value"))
+    )
+    # self.tuples contains the tuples associated with the change
+    # identifier (changeid+alive?) store the change that created
+    # or removed the tuple. `not alive?` is dead.
+    tuples = nstore.make(
+        "{}-tuples".format(name),
+        subspace + ["tuples"],
+        len(items + ["changeid+alive?"]),
+    )
+    vnstore = _VNStore(name, subspace, items, changes, tuples)
+    return vnstore
 
 
-class VNStore(VNStoreBase):
+async def change_create(tr, vnstore):
+    tr.vars["vnstore_changeid"] = changeid = uuid4()
+    # With significance as `None` the change is invisible to
+    # VNStore.ask.
+    await nstore.add(tr, vnstore.changes, changeid, "significance", None)
+    await nstore.add(tr, vnstore.changes, changeid, "message", None)
+    return changeid
 
-    def __init__(self, subspace, items):
-        assert isinstance(subspace, (tuple, list))
-        assert isinstance(items, (tuple, list))
-        self._subspace = subspace
-        self._items = items = list(items)
-        # A change can have two key:
-        #
-        # - "message": that is a small description of the change
-        #
-        # - "significance": once the change is applied, it has an
-        #    history significance VersionStamp that allows to order
-        #    the changes.
-        #
-        self._changes = nstore.open(
-            subspace + ['changes'],
-            ('uid', 'key', 'value')
+
+def change_continue(tr, vnstore, changeid):
+    tr.vars["_vnstore_changeid"] = changeid
+
+
+async def change_message(tr, vnstore, changeid, message):
+    # Remove existing message if any
+    async for binding in nstore.query(
+        tr, vnstore.changes, changeid, "message", nstore.var("message")
+    ):
+        nstore.remove(tr, vnstore.changes, changeid, "message", binding["message"])
+    await nstore.add(tr, vnstore.changes, changeid, "message", message)
+
+
+def pk(*args):
+    print(args)
+    return args[-1]
+
+
+async def change_apply(tr, vnstore, changeid):
+    # apply change by settings a verionstamp
+    await nstore.remove(tr, vnstore.changes, changeid, "significance", None)
+    significance = uuid7()
+    await nstore.add(tr, vnstore.changes, changeid, "significance", significance)
+
+
+async def ask(tr, vnstore, *items):
+    assert len(items) == len(vnstore.items), "Incorrect count of ITEMS"
+    # Complexity is O(n), where n is the number of times the exact
+    # same ITEMS were added and deleted.  In pratice, n=0, n=1 or
+    # n=2, and of course it always possible that it is more...
+    items = list(items)
+    items.append(nstore.v("changeid+alive?"))
+    bindings = nstore.query(tr, vnstore.tuples, items)
+    ok = False
+    # TODO: use asyncio.gather insted the block for binding in bindings;
+    # smallest versoinstamp is b'\x00' * 10
+    significance_max = UUID(int=0)
+    async for binding in bindings:
+        changeid, is_alive = binding["changeid+alive?"]
+        # TODO: Cache significance in the transaction
+        significance = nstore.query(
+            tr, vnstore.changes, (changeid, "significance", nstore.var("significance"))
         )
-        # self.tuples contains the tuples associated with the change
-        # identifier (changeid) that created or removed the tuple
-        # (alive?).
-        self._tuples = nstore.open(
-            subspace + ['tuples'],
-            items + ['alive?', 'changeid']
-        )
+        significance = await found.all(significance)
+        significance = significance[0]["significance"]
+        if (significance is not None) and (significance > significance_max):
+            significance_max = significance
+            ok = is_alive
+    return ok
 
-    def change_create(self, tr):
-        # TODO: XXX: In theory, uuid4 can clash, replace with
-        # VersionStamp.
-        tr._vnstore_changeid = changeid = uuid4()
-        # With significance as `None` the change is invisible to
-        # VNStore.ask.
-        self._changes.add(tr, changeid, 'significance', None)
-        self._changes.add(tr, changeid, 'message', None)
 
-        return changeid
+async def get(tr, *items):
+    # TODO: ask, but return the value
+    raise NotImplementedError
 
-    def change_continue(self, tr, changeid):
-        tr._vnstore_changeid = changeid
 
-    def change_message(self, tr, changeid, message):
-        # Remove existing message if any
-        bindings = self._changes.FROM(tr, changeid, 'message', nstore.var('message'))
-        for binding in bindings:
-            self._changes.delete(tr, changeid, 'message', binding['message'])
-        # add message
-        self._changes.add(tr, changeid, 'message', message)
+async def add(tr, vnstore, *items, value=b""):
+    # TODO: add support for the value
+    assert len(items) == len(vnstore.items)
+    assert tr.vars["_vnstore_changeid"]
+    items = list(items) + [(tr.vars["_vnstore_changeid"], True)]
+    await nstore.add(tr, vnstore.tuples, *items, value=value)
+    return True
 
-    def change_apply(self, tr, changeid):
-        # apply change by settings a verionstamp
-        self._changes.delete(tr, changeid, 'significance', None)
-        self._changes.add(tr, changeid, 'significance', fdb.tuple.Versionstamp())
 
-    def ask(self, tr, *items):
-        assert len(items) == len(self._items), "Incorrect count of ITEMS"
-        # Complexity is O(n), where n is the number of times the exact
-        # same ITEMS was added and deleted.  In pratice, n=0, n=1 or
-        # n=2, and of course it always possible that it is more...
-        bindings = self._tuples.FROM(tr, *items, nstore.var('alive?'), nstore.var('changeid'))
-        found = False
-        significance_max = fdb.tuple.Versionstamp(b'\x00' * 10)
-        for binding in bindings:
-            changeid = binding['changeid']
-            significance = self._changes.FROM(
-                tr,
-                changeid, 'significance', nstore.var('significance')
-            )
-            significance = next(significance)
-            significance = significance['significance']
-            if (significance is not None) and (significance > significance_max):
-                found = binding['alive?']
-        return found
+async def remove(tr, vnstore, *items):
+    assert len(items) == len(vnstore.items)
+    if not await ask(tr, vnstore, *items):
+        # ITEMS does not exists, nothing to do.
+        return False
+    # Delete it
+    items = list(items) + [(tr.vars["_vnstore_changeid"], False)]
+    await nstore.add(tr, vnstore.tuples, *items)
+    return True
 
-    def add(self, tr, *items):
-        assert len(items) == len(self._items)
-        if self.ask(tr, *items):
-            # ITEMS already exists.
-            return False
-        # Add it
-        items = list(items) + [True, tr._vnstore_changeid]
-        self._tuples.add(tr, *items)
-        return True
 
-    def delete(self, tr, *items):
-        assert len(items) == len(self._items)
-        if not self.ask(tr, *items):
-            # ITEMS does not exists.
-            return False
-        # Delete it
-        items = list(items) + [False, tr._vnstore_changeid]
-        self._tuples.add(tr, *items)
-        return True
+async def select(tr, vnstore, *pattern, seed=Map()):  # seed is immutable
+    """Yields bindings that match PATTERN"""
+    assert len(pattern) == len(vnstore.items), "invalid item count"
 
-    def FROM(self, tr, *pattern, seed=Map()):  # seed is immutable
-        """Yields bindings that match PATTERN"""
-        assert len(pattern) == len(self._items), "invalid item count"
-        # TODO: validate that pattern does not have variables named
-        # `alive?` or `changeid`.
+    # TODO: validate that pattern does not have variables named
+    # `alive?` or `changeid`.
 
-        def bind(pattern, binding):
-            for item in pattern:
-                if isinstance(item, Variable):
-                    yield binding[item.name]
-                else:
-                    yield item
-
-        # The complexity really depends on the pattern.  A pattern
-        # only made of variables will scan the whole database.  In
-        # practice, the user will seldom do time traveling queries, so
-        # it should rarely hit this code path.
-        pattern = list(pattern) + [nstore.var('alive?'), nstore.var('changeid')]
-        bindings = self._tuples.FROM(tr, *pattern, seed=seed)
-        for binding in bindings:
-            if not binding['alive?']:
-                # The associated tuple is dead, so the bindings are
-                # not valid in all cases.
-                continue
-            elif self.ask(self, *bind(pattern, binding)):
-                # The bound pattern exist, so the bindings are valid
-                binding = binding.delete('alive?')
-                binding = binding.delete('changeid')
-                yield binding
+    def bind(pattern, binding):
+        for item in pattern:
+            if isinstance(item, nstore.Variable):
+                yield binding[item.name]
             else:
-                continue
+                yield item
 
-    def where(self, tr, *pattern):
-        assert len(pattern) == len(self._items), "invalid item count"
+    # The complexity really depends on the pattern.  A pattern
+    # only made of variables will scan the whole database.  In
+    # practice, the user will seldom do time traveling queries, so
+    # it should rarely hit this code path.
+    query = pattern
+    pattern = list(pattern) + [nstore.v("changeid+alive?")]
+    bindings = nstore.select(tr, vnstore.tuples, *pattern, seed=seed)
+    async for binding in bindings:
+        if not binding["changeid+alive?"][1]:
+            # The associated tuple is dead, so the bindings are
+            # not valid in all cases.
+            continue
 
-        def _where(iterator):
-            for bindings in iterator:
-                # bind PATTERN against BINDINGS
-                bound = []
-                for item in pattern:
-                    # if ITEM is variable try to bind
-                    if isinstance(item, Variable):
-                        try:
-                            value = bindings[item.name]
-                        except KeyError:
-                            # no bindings
-                            bound.append(item)
-                        else:
-                            # pick the value from bindings
-                            bound.append(value)
-                    else:
-                        # otherwise keep item as is
-                        bound.append(item)
-                # hey!
-                yield from self.FROM(tr, *bound, seed=bindings)
+        x = tuple(bind(query, binding))
+        alive = await ask(tr, vnstore, *x)
+        if not alive:
+            continue
 
-        return _where
+        binding = binding.delete("changeid+alive?")
+        yield binding
 
 
+async def where(tr, vnstore, iterator, *pattern):
+    assert len(pattern) == len(vnstore.items), "invalid item count"
 
-open = VNStore
+    async for bindings in iterator:
+        # bind PATTERN against BINDINGS
+        bound = []
+        for item in pattern:
+            # if ITEM is variable try to bind
+            if isinstance(item, v):
+                try:
+                    value = bindings[item.name]
+                except KeyError:
+                    # no bindings
+                    bound.append(item)
+                else:
+                    # pick the value from bindings
+                    bound.append(value)
+            else:
+                # otherwise keep item as is
+                bound.append(item)
+        # hey!
+        async for item in select(tr, vnstore, *bound, seed=bindings):
+            yield item
 
 
-def select(seed, *wheres):
-    out = seed
-    for where in wheres:
-        out = where(out)
+async def query(tx, nstore, pattern, *patterns):
+    out = select(tx, nstore, *pattern)
+    for pattern in patterns:
+        out = where(tx, nstore, out, *pattern)
     return out
+
+
+async def open():
+    # XXX: hack around the fact that the loop is cached in found
+    loop = asyncio.get_event_loop()
+    found.base._loop = loop
+
+    db = await found.open()
+
+    async def purge(tx):
+        await found.clear(tx, b"", b"\xff")
+
+    await found.transactional(db, purge)
+
+    return db
+
+
+v = nstore.v
+
+
+@pytest.mark.asyncio
+async def test_noop():
+    assert True
+
+
+@pytest.mark.asyncio
+async def test_empty():
+    ntest = make("test-name", ["subspace-42"], ["uid", "key", "value"])
+    assert ntest
+
+
+@pytest.mark.asyncio
+async def test_query_zero():
+    db = await open()
+    ntest = make("test-name", [42], ["uid", "key", "value"])
+
+    for i in range(10):
+        expected = uuid4()
+
+        async def subject_query(tx):
+            out = await query(tx, ntest, (nstore.v("subject"), "title", "hypermove.fr"))
+            out = await found.all(out)
+            return out
+
+        out = await found.transactional(db, subject_query)
+
+        assert not out
+
+        change = await found.transactional(db, change_create, ntest)
+
+        async def prepare(tx):
+            change_continue(tx, ntest, change)
+            await add(tx, ntest, expected, "title", "hypermove")
+            await change_apply(tx, ntest, change)
+
+        await found.transactional(db, prepare)
+
+        async def subject_query(tx):
+            out = await query(tx, ntest, (nstore.v("subject"), "title", "hypermove"))
+            out = await found.all(out)
+            return out
+
+        out = await found.transactional(db, subject_query)
+
+        assert out[0]["subject"] == expected
+
+        # delete hypermove
+
+        change = await found.transactional(db, change_create, ntest)
+
+        async def delete_hypermove(tx):
+            change_continue(tx, ntest, change)
+            await remove(tx, ntest, expected, "title", "hypermove")
+            await change_apply(tx, ntest, change)
+
+        await found.transactional(db, delete_hypermove)
+
+        out = await found.transactional(db, subject_query)
+
+        assert not out
+
+
+@pytest.mark.asyncio
+async def test_query():
+    db = await open()
+    ntest = make("test-name", [42], ["uid", "key", "value"])
+    euid = uuid4()
+
+    for i in range(10):
+        change = await found.transactional(db, change_create, ntest)
+        expected = "Fractal queries for the win"
+
+        async def prepare(tx):
+            change_continue(tx, ntest, change)
+            await add(tx, ntest, euid, "title", expected)
+            await add(tx, ntest, euid, "slug", "fractal-queries")
+            await add(
+                tx,
+                ntest,
+                euid,
+                "body",
+                "fractal architecture help ease cognitive performance",
+            )
+            uid = uuid4()
+            await add(
+                tx, ntest, uid, "title", "A case for inspecting values at runtime"
+            )
+            await add(tx, ntest, uid, "slug", "runtime-inspection")
+            await add(
+                tx,
+                ntest,
+                uid,
+                "body",
+                "Runtime inspection help just-in-time user defined compilation",
+            )
+            await change_apply(tx, ntest, change)
+
+        await found.transactional(db, prepare)
+
+        async def query_title_by_slug(tx):
+            out = await query(
+                tx,
+                ntest,
+                (nstore.v("subject"), "slug", "fractal-queries"),
+                (nstore.v("subject"), "title", nstore.v("title")),
+            )
+            out = await found.all(out)
+            out = out
+
+            return out
+
+        change = await found.transactional(db, change_create, ntest)
+
+        async def delete_expected(tx):
+            change_continue(tx, ntest, change)
+            await remove(tx, ntest, euid, "title", expected)
+            await change_apply(tx, ntest, change)
+
+        await found.transactional(db, delete_expected)
+
+        out = await found.transactional(db, query_title_by_slug)
+
+        assert not out

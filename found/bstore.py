@@ -17,11 +17,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from uuid import uuid4
-from uuid import UUID
 from collections import namedtuple
-
 from hashlib import blake2b as hasher
+from uuid import UUID, uuid4
+
 from more_itertools import sliced
 
 import found
@@ -31,15 +30,24 @@ class BStoreException(found.BaseFoundException):
     pass
 
 
-BSTORE_SUFFIX_HASH = [b'\x01']
-BSTORE_SUFFIX_BLOB = [b'\x02']
+BSTORE_SUFFIX_HASH = [b"\x01"]
+BSTORE_SUFFIX_BLOB = [b"\x02"]
 
-BStore = namedtuple('BStore', ('name', 'prefix_hash', 'prefix_blob',))
+BStore = namedtuple(
+    "BStore",
+    (
+        "name",
+        "prefix_hash",
+        "prefix_blob",
+    ),
+)
 
 
 def make(name, prefix):
     prefix = list(prefix)
-    out = BStore(name, tuple(prefix + BSTORE_SUFFIX_HASH), tuple(prefix + BSTORE_SUFFIX_BLOB))
+    out = BStore(
+        name, tuple(prefix + BSTORE_SUFFIX_HASH), tuple(prefix + BSTORE_SUFFIX_BLOB)
+    )
     return out
 
 
@@ -53,17 +61,17 @@ async def get_or_create(tx, bstore, blob):
     # TODO: Use a counter and implement a garbage collector, and implement
     # bstore.delete
     uid = uuid4()
-    found.set(tx, key, uid.bytes)
+    await found.set(tx, key, uid.bytes)
     for index, slice in enumerate(sliced(blob, found.MAX_SIZE_VALUE)):
-        found.set(tx, found.pack((bstore.prefix_blob, uid, index)), bytes(slice))
+        await found.set(tx, found.pack((bstore.prefix_blob, uid, index)), bytes(slice))
     return uid
 
 
 async def get(tx, bstore, uid):
     key = found.pack((bstore.prefix_blob, uid))
-    out = b''
+    out = b""
     async for _, value in found.query(tx, key, found.next_prefix(key)):
         out += value
-    if out == b'':
-        raise BStoreException('BLOB should be in database: uid={}'.format(uid))
+    if out == b"":
+        raise BStoreException("BLOB should be in database: uid={}".format(uid))
     return out

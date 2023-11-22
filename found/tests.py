@@ -6,10 +6,8 @@ from fdb.tuple import SingleFloat
 
 import found
 import found.base
-from found import nstore
+from found import bstore, eavstore, nstore
 from found.nstore import var
-from found import bstore
-from found import eavstore
 
 
 def test_pack_unpack():
@@ -29,11 +27,16 @@ async def open():
     db = await found.open()
 
     async def purge(tx):
-        found.clear(tx, b"", b"\xff")
+        await found.clear(tx, b"", b"\xff")
 
     await found.transactional(db, purge)
 
     return db
+
+
+@pytest.mark.asyncio
+async def test_noop():
+    assert True
 
 
 @pytest.mark.asyncio
@@ -50,20 +53,13 @@ async def test_get():
     await found.transactional(db, test0)
 
     async def test1(tx):
-        found.set(tx, b"test", b"test")
+        await found.set(tx, b"test", b"test")
         out = await found.get(tx, b"test")
         # check
         assert out == b"test"
 
     # exec
     await found.transactional(db, test1)
-
-
-async def aiolist(aiogenerator):
-    out = []
-    async for item in aiogenerator:
-        out.append(item)
-    return out
 
 
 @pytest.mark.asyncio
@@ -73,19 +69,42 @@ async def test_query():
 
     async def set(tx):
         for number in range(10):
-            found.set(tx, found.pack((number,)), found.pack((str(number),)))
+            await found.set(tx, found.pack((number,)), found.pack((str(number),)))
 
     await found.transactional(db, set)
 
     async def query(tx):
         out = found.query(tx, found.pack((1,)), found.pack((8,)))
-        out = await aiolist(out)
+        out = await found.all(out)
         return out
 
     out = await found.transactional(db, query)
     for (key, value), index in zip(out, range(10)[1:-1]):
         assert found.unpack(key)[0] == index
         assert found.unpack(value)[0] == str(index)
+
+
+@pytest.mark.asyncio
+async def test_query_reverse():
+    # prepare
+    db = await open()
+
+    async def set(tx):
+        for number in range(11):
+            await found.set(tx, found.pack((number,)), found.pack((str(number),)))
+
+    await found.transactional(db, set)
+
+    async def query(tx):
+        out = found.query(tx, found.pack((8,)), found.pack((4,)))
+        out = await found.all(out)
+        return out
+
+    out = await found.transactional(db, query)
+    keys = [found.unpack(k)[0] for k, v in out]
+    values = [found.unpack(v)[0] for k, v in out]
+    assert keys == list(reversed(range(4, 9)))
+    assert values == [str(x) for x in list(reversed(range(4, 9)))]
 
 
 @pytest.mark.asyncio
@@ -98,17 +117,17 @@ async def test_next_prefix():
 
     # exec
     async def test(tx):
-        found.set(tx, prefix_zero + b"\x01", found.pack((1,)))
-        found.set(tx, prefix_zero + b"\x02", found.pack((2,)))
-        found.set(tx, prefix_zero + b"\x03", found.pack((3,)))
-        found.set(tx, prefix_one + b"\x42", found.pack((42,)))
+        await found.set(tx, prefix_zero + b"\x01", found.pack((1,)))
+        await found.set(tx, prefix_zero + b"\x02", found.pack((2,)))
+        await found.set(tx, prefix_zero + b"\x03", found.pack((3,)))
+        await found.set(tx, prefix_one + b"\x42", found.pack((42,)))
 
     await found.transactional(db, test)
 
     # check
     async def query0(tx):
-        everything = found.query(tx, b'', b'\xFF')
-        everything = await aiolist(everything)
+        everything = found.query(tx, b"", b"\xFF")
+        everything = await found.all(everything)
         assert len(everything) == 4
 
     await found.transactional(db, query0)
@@ -116,7 +135,7 @@ async def test_next_prefix():
     # check
     async def query1(tx):
         everything = found.query(tx, prefix_zero, found.next_prefix(prefix_zero))
-        everything = await aiolist(everything)
+        everything = await found.all(everything)
         assert len(everything) == 3
 
     await found.transactional(db, query1)
@@ -142,28 +161,33 @@ async def test_estimated_size_bytes():
 
     # initial check
 
-    out = await found.transactional(db, found.estimated_size_bytes, b'\x00', b'\xFF')
+    out = await found.transactional(db, found.estimated_size_bytes, b"\x00", b"\xFF")
     assert out == 0
 
     # populate with a small set of keys and check
 
     for i in range(10):
-        await found.transactional(db, found.co(found.set), bytes((i,)), b'\xFF' * found.MAX_SIZE_VALUE)
+        await found.transactional(
+            db, found.set, bytes((i,)), b"\xFF" * found.MAX_SIZE_VALUE
+        )
 
-    out = await found.transactional(db, found.estimated_size_bytes, b'\x00', b'\xFF')
+    out = await found.transactional(db, found.estimated_size_bytes, b"\x00", b"\xFF")
     # below 3 MB the estimated size is less accurate, only check it is positive
     assert 0 < out
 
     # populate with a large set of keys and check
     for i in range(100):
-        await found.transactional(db, found.co(found.set), bytes((i,)), b'\xFF' * found.MAX_SIZE_VALUE)
+        await found.transactional(
+            db, found.set, bytes((i,)), b"\xFF" * found.MAX_SIZE_VALUE
+        )
 
-    out = await found.transactional(db, found.estimated_size_bytes, b'\x00', b'\xFF')
+    out = await found.transactional(db, found.estimated_size_bytes, b"\x00", b"\xFF")
     # estimated size hence approximate check
     assert abs(out - (found.MAX_SIZE_VALUE * 100)) < found.MAX_SIZE_VALUE
 
 
 # nstore tests
+
 
 @pytest.mark.asyncio
 async def test_nstore_empty():
@@ -179,12 +203,14 @@ async def test_nstore_simple_single_item_db_subject_lookup():
     expected = uuid4()
 
     async def prepare(tx):
-        nstore.add(tx, ntest, expected, "title", "hyper.dev")
+        await nstore.add(tx, ntest, expected, "title", "hyper.dev")
 
     await found.transactional(db, prepare)
 
     async def query(tx):
-        out = await aiolist(nstore.select(tx, ntest, var("subject"), "title", "hyper.dev"))
+        out = await found.all(
+            nstore.select(tx, ntest, var("subject"), "title", "hyper.dev")
+        )
         return out
 
     out = await found.transactional(db, query)
@@ -209,14 +235,14 @@ async def test_nstore_ask_rm_and_ask():
     assert out is None
 
     async def add(tx):
-        nstore.add(tx, ntest, expected, "title", "hyper.dev")
+        await nstore.add(tx, ntest, expected, "title", "hyper.dev")
 
     await found.transactional(db, add)
     out = await found.transactional(db, get)
-    assert out == b''
+    assert out == b""
 
     async def remove(tx):
-        nstore.remove(tx, ntest, expected, "title", "hyper.dev")
+        await nstore.remove(tx, ntest, expected, "title", "hyper.dev")
 
     await found.transactional(db, remove)
 
@@ -233,11 +259,13 @@ async def test_nstore_simple_multiple_items_db_subject_lookup():
     expected = uuid4()
 
     async def prepare(tx):
-        nstore.add(tx, ntest, expected, "title", "hyper.dev")
-        nstore.add(tx, ntest, uuid4(), "title", "blog.copernic.com")
+        await nstore.add(tx, ntest, expected, "title", "hyper.dev")
+        await nstore.add(tx, ntest, uuid4(), "title", "blog.copernic.com")
 
     async def query(tx):
-        out = await aiolist(nstore.select(tx, ntest, var("subject"), "title", "hyper.dev"))
+        out = await found.all(
+            nstore.select(tx, ntest, var("subject"), "title", "hyper.dev")
+        )
         return out
 
     await found.transactional(db, prepare)
@@ -254,18 +282,18 @@ async def test_nstore_complex():
 
     async def prepare(tx):
         hyperdev = uuid4()
-        nstore.add(tx, ntest, hyperdev, "title", "hyper.dev")
-        nstore.add(tx, ntest, hyperdev, "keyword", "scheme")
-        nstore.add(tx, ntest, hyperdev, "keyword", "hacker")
+        await nstore.add(tx, ntest, hyperdev, "title", "hyper.dev")
+        await nstore.add(tx, ntest, hyperdev, "keyword", "scheme")
+        await nstore.add(tx, ntest, hyperdev, "keyword", "hacker")
         copernic = uuid4()
-        nstore.add(tx, ntest, copernic, "title", "blog.copernic.com")
-        nstore.add(tx, ntest, copernic, "keyword", "corporate")
+        await nstore.add(tx, ntest, copernic, "title", "blog.copernic.com")
+        await nstore.add(tx, ntest, copernic, "keyword", "corporate")
 
     async def query(tx):
         seed = nstore.select(tx, ntest, var("identifier"), "keyword", "hacker")
-        out = await aiolist(nstore.where(
-            tx, ntest, seed, var("identifier"), "title", var("blog")
-        ))
+        out = await found.all(
+            nstore.where(tx, ntest, seed, var("identifier"), "title", var("blog"))
+        )
         return out
 
     await found.transactional(db, prepare)
@@ -284,19 +312,21 @@ async def test_nstore_seed_subject_variable():
     hypersocial = uuid4()
 
     async def prepare(tx):
-        nstore.add(tx, ntest, hyperdev, "title", "hyper.dev")
-        nstore.add(tx, ntest, hyperdev, "keyword", "scheme")
-        nstore.add(tx, ntest, hyperdev, "keyword", "hacker")
+        await nstore.add(tx, ntest, hyperdev, "title", "hyper.dev")
+        await nstore.add(tx, ntest, hyperdev, "keyword", "scheme")
+        await nstore.add(tx, ntest, hyperdev, "keyword", "hacker")
 
-        nstore.add(tx, ntest, copernic, "title", "copernic.space")
-        nstore.add(tx, ntest, copernic, "keyword", "corporate")
+        await nstore.add(tx, ntest, copernic, "title", "copernic.space")
+        await nstore.add(tx, ntest, copernic, "keyword", "corporate")
 
-        nstore.add(tx, ntest, hypersocial, "title", "hypersocial.space")
-        nstore.add(tx, ntest, hypersocial, "keyword", "python")
-        nstore.add(tx, ntest, hypersocial, "keyword", "hacker")
+        await nstore.add(tx, ntest, hypersocial, "title", "hypersocial.space")
+        await nstore.add(tx, ntest, hypersocial, "keyword", "python")
+        await nstore.add(tx, ntest, hypersocial, "keyword", "hacker")
 
     async def query(tx):
-        out = await aiolist(nstore.select(tx, ntest, var("subject"), "keyword", "corporate"))
+        out = await found.all(
+            nstore.select(tx, ntest, var("subject"), "keyword", "corporate")
+        )
         return out
 
     await found.transactional(db, prepare)
@@ -317,19 +347,21 @@ async def test_nstore_seed_subject_lookup():
     hypersocial = uuid4()
 
     async def prepare(tx):
-        nstore.add(tx, ntest, hyperdev, "title", "hyper.dev")
-        nstore.add(tx, ntest, hyperdev, "keyword", "scheme")
-        nstore.add(tx, ntest, hyperdev, "keyword", "hacker")
+        await nstore.add(tx, ntest, hyperdev, "title", "hyper.dev")
+        await nstore.add(tx, ntest, hyperdev, "keyword", "scheme")
+        await nstore.add(tx, ntest, hyperdev, "keyword", "hacker")
 
-        nstore.add(tx, ntest, copernic, "title", "blog.copernic.com")
-        nstore.add(tx, ntest, copernic, "keyword", "corporate")
+        await nstore.add(tx, ntest, copernic, "title", "blog.copernic.com")
+        await nstore.add(tx, ntest, copernic, "keyword", "corporate")
 
-        nstore.add(tx, ntest, hypersocial, "title", "hypersocial.space")
-        nstore.add(tx, ntest, hypersocial, "keyword", "python")
-        nstore.add(tx, ntest, hypersocial, "keyword", "hacker")
+        await nstore.add(tx, ntest, hypersocial, "title", "hypersocial.space")
+        await nstore.add(tx, ntest, hypersocial, "keyword", "python")
+        await nstore.add(tx, ntest, hypersocial, "keyword", "hacker")
 
     async def query(tx):
-        out = await aiolist(nstore.select(tx, ntest, copernic, var("key"), var("value")))
+        out = await found.all(
+            nstore.select(tx, ntest, copernic, var("key"), var("value"))
+        )
         return out
 
     await found.transactional(db, prepare)
@@ -353,19 +385,19 @@ async def test_nstore_seed_object_variable():
     hypersocial = uuid4()
 
     async def prepare(tx):
-        nstore.add(tx, ntest, hyperdev, "title", "hyper.dev")
-        nstore.add(tx, ntest, hyperdev, "keyword", "scheme")
-        nstore.add(tx, ntest, hyperdev, "keyword", "hacker")
+        await nstore.add(tx, ntest, hyperdev, "title", "hyper.dev")
+        await nstore.add(tx, ntest, hyperdev, "keyword", "scheme")
+        await nstore.add(tx, ntest, hyperdev, "keyword", "hacker")
 
-        nstore.add(tx, ntest, copernic, "title", "blog.copernic.com")
-        nstore.add(tx, ntest, copernic, "keyword", "corporate")
+        await nstore.add(tx, ntest, copernic, "title", "blog.copernic.com")
+        await nstore.add(tx, ntest, copernic, "keyword", "corporate")
 
-        nstore.add(tx, ntest, hypersocial, "title", "hypersocial.space")
-        nstore.add(tx, ntest, hypersocial, "keyword", "python")
-        nstore.add(tx, ntest, hypersocial, "keyword", "hacker")
+        await nstore.add(tx, ntest, hypersocial, "title", "hypersocial.space")
+        await nstore.add(tx, ntest, hypersocial, "keyword", "python")
+        await nstore.add(tx, ntest, hypersocial, "keyword", "hacker")
 
     async def query(tx):
-        out = await aiolist(nstore.select(tx, ntest, hyperdev, "title", var("title")))
+        out = await found.all(nstore.select(tx, ntest, hyperdev, "title", var("title")))
         return out
 
     await found.transactional(db, prepare)
@@ -383,20 +415,22 @@ async def test_nstore_subject_variable():
     post2 = uuid4()
 
     async def prepare(tx):
-        nstore.add(tx, ntest, hyperdev, "title", "hyper.dev")
-        nstore.add(tx, ntest, hyperdev, "keyword", "scheme")
-        nstore.add(tx, ntest, hyperdev, "keyword", "hacker")
-        nstore.add(tx, ntest, post1, "blog", hyperdev)
-        nstore.add(tx, ntest, post1, "title", "hoply is awesome")
-        nstore.add(tx, ntest, post2, "blog", hyperdev)
-        nstore.add(tx, ntest, post2, "title", "hoply foundiple store")
+        await nstore.add(tx, ntest, hyperdev, "title", "hyper.dev")
+        await nstore.add(tx, ntest, hyperdev, "keyword", "scheme")
+        await nstore.add(tx, ntest, hyperdev, "keyword", "hacker")
+        await nstore.add(tx, ntest, post1, "blog", hyperdev)
+        await nstore.add(tx, ntest, post1, "title", "hoply is awesome")
+        await nstore.add(tx, ntest, post2, "blog", hyperdev)
+        await nstore.add(tx, ntest, post2, "title", "hoply foundiple store")
 
     # exec, fetch all blog title from hyper.dev
 
     async def query(tx):
         query = nstore.select(tx, ntest, var("blog"), "title", "hyper.dev")
         query = nstore.where(tx, ntest, query, var("post"), "blog", var("blog"))
-        out = await aiolist(nstore.where(tx, ntest, query, var("post"), "title", var("title")))
+        out = await found.all(
+            nstore.where(tx, ntest, query, var("post"), "title", var("title"))
+        )
         return out
 
     await found.transactional(db, prepare)
@@ -416,13 +450,13 @@ async def test_nstore_query():
         hyperdev = uuid4()
         post1 = uuid4()
         post2 = uuid4()
-        nstore.add(tx, ntest, hyperdev, "title", "hyper.dev")
-        nstore.add(tx, ntest, hyperdev, "keyword", "scheme")
-        nstore.add(tx, ntest, hyperdev, "keyword", "hacker")
-        nstore.add(tx, ntest, post1, "blog", hyperdev)
-        nstore.add(tx, ntest, post1, "title", "hoply is awesome")
-        nstore.add(tx, ntest, post2, "blog", hyperdev)
-        nstore.add(tx, ntest, post2, "title", "hoply foundiple store")
+        await nstore.add(tx, ntest, hyperdev, "title", "hyper.dev")
+        await nstore.add(tx, ntest, hyperdev, "keyword", "scheme")
+        await nstore.add(tx, ntest, hyperdev, "keyword", "hacker")
+        await nstore.add(tx, ntest, post1, "blog", hyperdev)
+        await nstore.add(tx, ntest, post1, "title", "hoply is awesome")
+        await nstore.add(tx, ntest, post2, "blog", hyperdev)
+        await nstore.add(tx, ntest, post2, "title", "hoply foundiple store")
 
     # exec, fetch all blog title from hyper.dev
 
@@ -432,7 +466,7 @@ async def test_nstore_query():
             [var("post"), "blog", var("blog")],
             [var("post"), "title", var("title")],
         ]
-        out = await aiolist(nstore.query(tx, ntest, *query))
+        out = await found.all(nstore.query(tx, ntest, *query))
         return out
 
     await found.transactional(db, prepare)
@@ -443,13 +477,14 @@ async def test_nstore_query():
 
 # bstore tests
 
+
 @pytest.mark.asyncio
 async def test_bstore_small():
     db = await open()
 
-    store = bstore.make('bstore-test', (42,))
+    store = bstore.make("bstore-test", (42,))
 
-    expected = b'\xBE\xEF'
+    expected = b"\xBE\xEF"
 
     uid = await found.transactional(db, bstore.get_or_create, store, expected)
     out = await found.transactional(db, bstore.get, store, uid)
@@ -461,73 +496,76 @@ async def test_bstore_small():
 async def test_bstore_large():
     db = await open()
 
-    store = bstore.make('bstore-test', (42,))
+    store = bstore.make("bstore-test", (42,))
 
-    expected = b'\xBE\xEF' * found.MAX_SIZE_VALUE
+    expected = b"\xBE\xEF" * found.MAX_SIZE_VALUE
 
     uid = await found.transactional(db, bstore.get_or_create, store, expected)
     out = await found.transactional(db, bstore.get, store, uid)
 
     assert out == expected
 
+
 @pytest.mark.asyncio
 async def test_bstore_idempotent():
     db = await open()
 
-    store = bstore.make('bstore-test', (42,))
+    store = bstore.make("bstore-test", (42,))
 
-    blob = b'\xBE\xEF' * found.MAX_SIZE_VALUE
+    blob = b"\xBE\xEF" * found.MAX_SIZE_VALUE
 
     expected = await found.transactional(db, bstore.get_or_create, store, blob)
     out = await found.transactional(db, bstore.get_or_create, store, blob)
 
     assert out == expected
 
+
 # eavstore tests
+
 
 @pytest.mark.asyncio
 async def test_eavstore_crud():
     db = await open()
 
-    store = eavstore.make('eavstore-test', (42,))
+    store = eavstore.make("eavstore-test", (42,))
 
     expected = dict(hello="world")
 
-    uid = await found.transactional(db, found.co(eavstore.create), store, expected)
+    uid = await found.transactional(db, eavstore.create, store, expected)
     out = await found.transactional(db, eavstore.get, store, uid)
     assert out == expected
 
     other = dict(hello="world", who="me")
-    await found.transactional(db, found.co(eavstore.update), store, other)
+    await found.transactional(db, eavstore.update, store, uid, other)
     out = await found.transactional(db, eavstore.get, store, uid)
     assert out == other
 
-    await found.transactional(db, found.co(eavstore.remove), uid)
+    await found.transactional(db, eavstore.remove, store, uid)
     out = await found.transactional(db, eavstore.get, store, uid)
     assert not out
 
 
 @pytest.mark.asyncio
-async def test_eavstore_crud():
+async def test_eavstore_crud_2():
     db = await open()
 
-    store = eavstore.make('eavstore-test', (42,))
+    store = eavstore.make("eavstore-test", (42,))
 
     expected = set()
     mydict = dict(key=42)
     for _ in range(10):
-        uid = await found.transactional(db, found.co(eavstore.create), store, mydict)
+        uid = await found.transactional(db, eavstore.create, store, mydict)
         expected.add(uid)
 
     # add some unwanted dictionaries, with key != 42
     # before 42
     for value in range(42):
         mydict = dict(key=value)
-        uid = await found.transactional(db, found.co(eavstore.create), store, mydict)
+        uid = await found.transactional(db, eavstore.create, store, mydict)
     # and after 42
     for value in range(43, 84):
         mydict = dict(key=value)
-        uid = await found.transactional(db, found.co(eavstore.create), store, mydict)
+        uid = await found.transactional(db, eavstore.create, store, mydict)
 
     # query
     async def query(tx, store, key, value):
@@ -536,7 +574,7 @@ async def test_eavstore_crud():
             out.add(uid)
         return out
 
-    out = await found.transactional(db, query, store, 'key', 42)
+    out = await found.transactional(db, query, store, "key", 42)
 
     assert out == expected
 
@@ -544,23 +582,20 @@ async def test_eavstore_crud():
 @pytest.mark.asyncio
 async def test_peace_search_store():
     import multiprocessing
-    from found import pstore
     from concurrent import futures
+
+    from found import pstore
 
     db = await open()
 
-    store = pstore.make('test-pstore', (42,))
+    store = pstore.make("test-pstore", (42,))
 
     DOC0 = dict(
         foundationdb=1,
         okvs=2,
         database=42,
     )
-    DOC1 = dict(
-        sqlite=1,
-        sql=2,
-        database=3
-    )
+    DOC1 = dict(sqlite=1, sql=2, database=3)
     DOC2 = dict(
         spam=42,
     )

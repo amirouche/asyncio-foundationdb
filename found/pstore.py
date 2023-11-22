@@ -17,18 +17,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import asyncio
 import os
 import random
-import asyncio
+from collections import Counter, namedtuple
 from operator import itemgetter
 from uuid import uuid4
-from collections import namedtuple
-from collections import Counter
+
+import zstandard as zstd
 
 import found
 from found import nstore
-
-import zstandard as zstd
 
 
 class PStoreException(found.BaseFoundException):
@@ -36,22 +35,24 @@ class PStoreException(found.BaseFoundException):
 
 
 try:
-    FOUND_PSTORE_SAMPLE_COUNT = int(os.environ['FOUND_PSTORE_SAMPLE_COUNT'])
+    FOUND_PSTORE_SAMPLE_COUNT = int(os.environ["FOUND_PSTORE_SAMPLE_COUNT"])
 except (KeyError, ValueError):
     FOUND_PSTORE_SAMPLE_COUNT = 1337
 
 
-PSTORE_SUFFIX_TOKENS = [b'\x01']
-PSTORE_SUFFIX_INDEX = [b'\x02']
-PSTORE_SUFFIX_COUNTERS = [b'\x03']
+PSTORE_SUFFIX_TOKENS = [b"\x01"]
+PSTORE_SUFFIX_INDEX = [b"\x02"]
+PSTORE_SUFFIX_COUNTERS = [b"\x03"]
 
-PStore = namedtuple('PStore', ('name', 'tokens', 'prefix_index', 'prefix_counters', 'pool'))
+PStore = namedtuple(
+    "PStore", ("name", "tokens", "prefix_index", "prefix_counters", "pool")
+)
 
 
 def make(name, prefix):
     prefix = list(prefix)
     prefix_tokens = tuple(prefix + PSTORE_SUFFIX_TOKENS)
-    tokens = nstore.make('{}/token'.format(name), prefix_tokens, 2)
+    tokens = nstore.make("{}/token".format(name), prefix_tokens, 2)
     out = PStore(
         name,
         # Use nstore with n=2 to be able to go from a string token to an uid,
@@ -73,36 +74,36 @@ async def index(tx, store, docuid, counter):
     # store.tokens
     tokens = dict()
     for string, count in counter.items():
-        query = nstore.select(tx, store.tokens, string, nstore.var('uid'))
+        query = nstore.select(tx, store.tokens, string, nstore.var("uid"))
         try:
             uid = await query.__anext__()
         except StopAsyncIteration:
             uid = uuid4()
-            nstore.add(tx, store.tokens, string, uid)
+            await nstore.add(tx, store.tokens, string, uid)
         else:
-            uid = uid['uid']
+            uid = uid["uid"]
         tokens[uid] = count
 
     # store tokens to use later during search for filtering
-    found.set(
+    await found.set(
         tx,
         found.pack((store.prefix_counters, docuid)),
-        zstd.compress(found.pack(tuple(tokens.items())))
+        zstd.compress(found.pack(tuple(tokens.items()))),
     )
 
     # store tokens keys for candidate selection
     for token in tokens:
-        found.set(tx, found.pack((store.prefix_index, token, docuid)), b'')
+        await found.set(tx, found.pack((store.prefix_index, token, docuid)), b"")
 
 
 async def _keywords_to_token(tx, tokens, keyword):
-    query = nstore.select(tx, tokens, keyword, nstore.var('uid'))
+    query = nstore.select(tx, tokens, keyword, nstore.var("uid"))
     try:
         uid = await query.__anext__()
     except StopAsyncIteration:
         return None
     else:
-        uid = uid['uid']
+        uid = uid["uid"]
         return uid
 
 
@@ -137,6 +138,7 @@ def _filter(hits):
         if args is not None:
             candidate, score = args
             hits[candidate] = score
+
     return wrapped
 
 
