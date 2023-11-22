@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "asyncio-foundationdb"
+version = "v0.12.0rc0"
+description = "FoundationDB drivers for asyncio"
+readme = "README.md"
+requires-python = ">=3.10"
+
+[console_scripts]
+template = "template:__main__"
+
