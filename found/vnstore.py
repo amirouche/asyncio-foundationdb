@@ -1,6 +1,6 @@
 # Copyright (C) 2020-2023 Amirouche A. Boubekki
 #
-# https://git.sr.ht/~amirouche/copernic
+# https://github.com/amirouche/asyncio-foundationdb
 #
 import asyncio
 from collections import namedtuple
@@ -346,3 +346,8 @@ async def test_query():
         out = await found.transactional(db, query_title_by_slug)
 
         assert not out
+
+
+def uvicorn(scope, receive, send):
+
+
