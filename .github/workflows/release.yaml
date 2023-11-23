@@ -1,7 +1,7 @@
 name: Build
 
 on: workflow_dispatch
-O
+
 jobs:
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
