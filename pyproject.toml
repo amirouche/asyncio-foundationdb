@@ -1,14 +1,14 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0", "wheel", "cffi"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "asyncio-foundationdb"
-version = "v0.12.0rc0"
+version = "v0.12.0rc1"
 description = "FoundationDB drivers for asyncio"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.8"
+dynamic = ["dependencies"]
 
-[console_scripts]
-template = "template:__main__"
-
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}

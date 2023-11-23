@@ -346,8 +346,3 @@ async def test_query():
         out = await found.transactional(db, query_title_by_slug)
 
         assert not out
-
-
-def uvicorn(scope, receive, send):
-
-
