@@ -11,9 +11,10 @@ jobs:
         os: [ubuntu-22.04, windows-2019, macOS-11]
 
     steps:
+      - run: sudo apt install wget
+
       - uses: actions/checkout@v4
 
-      # Used to host cibuildwheel
       - uses: actions/setup-python@v3
 
       - name: Install cibuildwheel
