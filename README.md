@@ -413,11 +413,11 @@ transactions, and its message `None`.
 
 Against transaction `tr`, and `vnstore`, continue a change `changeid`.
 
-### `vnstore.change_message(tr, vnstore, changeid, message)`
+### `await vnstore.change_message(tr, vnstore, changeid, message)`
 
 Replace the exisiting message of `changeid` with `message`
 
-### `vnstore.change_appply(tr, vnstore, changeid)`
+### `await vnstore.change_appply(tr, vnstore, changeid)`
 
 Apply the change `changeid` against `vnstore`, setting the next
 `uuid7` as significance. 
@@ -443,19 +443,19 @@ serializability guarantee.
 There is several ways to workaround some of those issues, they require
 more code. [Contact me for more info](mailto:amirouchhe@hyper.dev).
 
-### `vnstore.ask(tr, vnstore, *items)`
+### `await vnstore.ask(tr, vnstore, *items)`
 
 Return `True` if `items` is alive in the space `vnstore`.
 
-### `vnstore.get(tr, vnstore, *items)`
+### `await vnstore.get(tr, vnstore, *items)`
 
 TODO
 
-### `vnstore.remove(tr, vnstore, *items)`
+### `await vnstore.remove(tr, vnstore, *items)`
 
 Remove `items` from `vnstore`.
 
-### `vnstore.query(tr, vnstore, pattern, *pattern)`
+### `await vnstore.query(tr, vnstore, pattern, *pattern)`
 
 Return immutable mappings where `vnstore.var` from `pattern`, and
 `patterns` are replaced with objects from `vnstore`.
