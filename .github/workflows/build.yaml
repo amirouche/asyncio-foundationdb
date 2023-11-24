@@ -1,4 +1,4 @@
-name: Build
+xname: Build
 
 on: workflow_dispatch
 
@@ -7,7 +7,8 @@ jobs:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
-      matrix:
+     fail-fast: false
+     matrix:
         os: [ubuntu-22.04, windows-2019, macOS-11]
 
     steps:
