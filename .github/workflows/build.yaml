@@ -12,8 +12,6 @@ jobs:
         os: [ubuntu-22.04, windows-2019, macOS-11]
 
     steps:
-      - run: sudo apt install wget
-
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v3
@@ -25,7 +23,7 @@ jobs:
         run: python -m cibuildwheel --output-dir wheelhouse
         env:
           CIBW_TEST_COMMAND: make check
-          CIBW_BEFORE_ALL: make debian
+          CIBW_BEFORE_ALL: sudo apt install wget && sudo make debian
 
       - uses: actions/upload-artifact@v3
         with:
