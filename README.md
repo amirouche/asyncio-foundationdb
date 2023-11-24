@@ -30,6 +30,7 @@ reliability
 - [`from found import nstore`](#from-found-import-nstore)
 - [`from found import eavstore`](#from-found-import-eavstore)
 - [`from found import pstore`](#from-found-import-pstore)
+- [`from found import vnstore`](#from-found-import-vnstore)
 <!-- markdown-toc end -->
 
 Enter the world of data organization and retrieval with FoundationDB,
@@ -387,3 +388,74 @@ zero.
 ### `await pstore.search(tx, store, keywords, limit)`
 
 Return a sorted list of at most `limit` documents matching `keywords`.
+
+## `from found import vnstore`
+
+### `vnstore.make(name, prefix, items)`
+
+Create a handle over a `vnstore` called `name` with the prefix tuple
+`prefix`, and `items` as column names.
+
+The argument name should be a string, it is really meant to ease
+debugging. prefix should be a tuple that can be packed with
+found.pack. Last but not least, `items` is the columns in the returned
+tuple store (or, if you prefer, the name of tuple items).
+
+It is preferable to store the returned value.
+
+### `await vnstore.change_create(tr, vnstore)`
+
+Return the unique idenifier of a new change in database.  Its initial
+signifiance is `None` which means it is invisible to other
+transactions, and its message `None`.
+
+### `vnstore.change_continue(tr, vsntore, changeid)`
+
+Against transaction `tr`, and `vnstore`, continue a change `changeid`.
+
+### `vnstore.change_message(tr, vnstore, changeid, message)`
+
+Replace the exisiting message of `changeid` with `message`
+
+### `vnstore.change_appply(tr, vnstore, changeid)`
+
+Apply the change `changeid` against `vnstore`, setting the next
+`uuid7` as significance. 
+
+#### Known issue: No serializability guarantee, because of write skew anomaly
+
+- The historization of data introduce a risk of inexact in two steps
+  intorduce a serializability problem. This can break things when
+  changes are related to some group of triples: Two changes, modify
+  two overllaping triples, strict ordering, serializability is not
+  guaranteed, hence one transaction may write, a value based on a
+  value that was overwritten by another aka. write skew anomaly.
+
+- The use `uuid7` can break consistency, when deleting the same
+  triple, and adding another, it may result in two deletion, and two
+  additions, that may break the schema.
+  
+In other words, as long as we rely `uuid7` we can't consider
+transaction commited with `vnstore_change_apply` happen as if all
+transaction were commited on after the other, that is, there is not
+serializability guarantee.
+
+There is several ways to workaround some of those issues, they require
+more code. [Contact me for more info](mailto:amirouchhe@hyper.dev).
+
+### `vnstore.ask(tr, vnstore, *items)`
+
+Return `True` if `items` is alive in the space `vnstore`.
+
+### `vnstore.get(tr, vnstore, *items)`
+
+TODO
+
+### `vnstore.remove(tr, vnstore, *items)`
+
+Remove `items` from `vnstore`.
+
+### `vnstore.query(tr, vnstore, pattern, *pattern)`
+
+Return immutable mappings where `vnstore.var` from `pattern`, and
+`patterns` are replaced with objects from `vnstore`.
