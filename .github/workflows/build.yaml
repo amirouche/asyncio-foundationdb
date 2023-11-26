@@ -23,7 +23,7 @@ jobs:
         run: python -m cibuildwheel --output-dir wheelhouse
         env:
           CIBW_TEST_COMMAND: make check
-          CIBW_BEFORE_ALL: sudo apt install wget && sudo make debian
+          CIBW_BEFORE_ALL: apt install wget && make debian
 
       - uses: actions/upload-artifact@v3
         with:
