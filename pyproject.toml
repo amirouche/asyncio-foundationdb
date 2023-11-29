@@ -3,7 +3,7 @@ dependencies = {file = ["requirements.txt"]}
 
 [tool.poetry]
 name = "asyncio-foundationdb"
-version = "0.12.0rc4"
+version = "0.12.0rc5"
 description = "FoundationDB drivers for asyncio"
 authors = ["ⵄⵎⵉⵔⵓⵛ ⴰⵎⴰⵣⵉⵖ <amirouche@hyper.dev>"]
 license = "Apache v2"
