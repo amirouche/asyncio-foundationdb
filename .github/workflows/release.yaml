@@ -14,12 +14,11 @@ jobs:
         python-version:
           - 3.8
           - 3.9
-          - "3.10"
-          - "3.11"
-          # - "3.12" # it is still early, first released 2023-09-19.
-          - pypy-3.8
-          - pypy-3.9
-          # - pypy-3.7, disable because aiostream has no distribution for 3.7
+          - 3.10
+          - 3.11
+          - pypy3.8
+          - pypy3.9
+          - pypy3.10
         os:
           - ubuntu-latest
     runs-on:  ${{ matrix.os }}
