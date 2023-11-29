@@ -108,8 +108,8 @@ asyncio.run(readme())
 
 ### v0.12.0
 
-- Rework packaging;
 - Move back to GitHub;
+- Add versioned generic tuple store (code name `vnstore`)
 
 ### v0.10.x
 
@@ -420,7 +420,7 @@ Replace the exisiting message of `changeid` with `message`
 ### `await vnstore.change_appply(tr, vnstore, changeid)`
 
 Apply the change `changeid` against `vnstore`, setting the next
-`uuid7` as significance. 
+`uuid7` as significance.
 
 #### Known issue: No serializability guarantee, because of write skew anomaly
 
@@ -434,7 +434,7 @@ Apply the change `changeid` against `vnstore`, setting the next
 - The use `uuid7` can break consistency, when deleting the same
   triple, and adding another, it may result in two deletion, and two
   additions, that may break the schema.
-  
+
 In other words, as long as we rely `uuid7` we can't consider
 transaction commited with `vnstore_change_apply` happen as if all
 transaction were commited on after the other, that is, there is not
