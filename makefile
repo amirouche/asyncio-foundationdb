@@ -53,7 +53,9 @@ serve: ## Run the server
 	uvicorn --lifespan on --log-level warning --reload $(MAIN):uvicorn
 
 lock: ## Lock dependencies
-	pip-compile -o requirements.txt requirements.source.txt
+	poetry lock
+	poetry export > requirements.txt
+	poetry export --only=dev > requirements.dev.txt
 
 wip: ## clean up code, and commit wip
 	black $(MAIN)

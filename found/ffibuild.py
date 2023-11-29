@@ -1,6 +1,6 @@
 import os
-from cffi import FFI
 
+from cffi import FFI
 
 ffi = FFI()
 with open(os.path.join(os.path.dirname(__file__), "fdb_c.h")) as f:
@@ -8,8 +8,12 @@ with open(os.path.join(os.path.dirname(__file__), "fdb_c.h")) as f:
         "found._fdb",
         f.read(),
         libraries=["fdb_c"],
-        include_dirs=['/nix/store/rlnbpd2m5dm09y66gcsgd8cwml3pdfdh-foundationdb-7.1.30-lib/include/'],
-        library_dirs=['/nix/store/rlnbpd2m5dm09y66gcsgd8cwml3pdfdh-foundationdb-7.1.30-lib/lib/'],
+        include_dirs=[
+            "/nix/store/rlnbpd2m5dm09y66gcsgd8cwml3pdfdh-foundationdb-7.1.30-lib/include/"
+        ],
+        library_dirs=[
+            "/nix/store/rlnbpd2m5dm09y66gcsgd8cwml3pdfdh-foundationdb-7.1.30-lib/lib/"
+        ],
     )
 
 # TODO: replace fdb_c2.h with what it is, what it's useful for
@@ -21,5 +25,5 @@ def main(*args, **kwargs):
     ffi.compile(verbose=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
