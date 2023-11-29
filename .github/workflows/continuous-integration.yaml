@@ -38,6 +38,5 @@ jobs:
       - run: pip install --upgrade pip
       - run: pip install poetry
       - run: cd found && make init
-      - run: cd found && make database-clear
-      - run: cd found && python readme.py
-      - run: cd found && make check
+      - run: cd found && poetry run python readme.py
+      - run: cd found && poetry run make check
