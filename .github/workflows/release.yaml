@@ -34,10 +34,10 @@ jobs:
            architecture: x64
       - run: python --version
       - run: cd found && sudo make debian
-      - run: cd found && pip install --upgrade pip
+      - run: pip install --upgrade pip
+      - run: pip install poetry
       - run: cd found && make init
       - run: cd found && make database-clear
       - run: cd found && python readme.py
       - run: cd found && make check
-      - run: cd found && pip install poetry
       - run: cd found && poetry publish --build
