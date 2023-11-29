@@ -1,6 +1,6 @@
 # [asyncio-foundationdb](https://github.com/amirouche/asyncio-foundationdb/)
 
-asyncio drivers for FoundationDB, tested with CPython 3.9, 3.10, 3.11, and PyPy 3.8, 3.9.
+asyncio drivers for FoundationDB, tested with CPython, and PyPy 3.8+.
 
 <!-- [![builds.sr.ht status](https://builds.sr.ht/~amirouche/asyncio-foundationdb/commits/main/.build.yml.svg)](https://builds.sr.ht/~amirouche/asyncio-foundationdb/commits/main/.build.yml?) -->
 

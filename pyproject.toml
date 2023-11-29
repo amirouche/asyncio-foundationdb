@@ -14,7 +14,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.8"
 aiostream = "^0.5.2"
 cffi = "^1.16.0"
 foundationdb = "^7.3.27"
