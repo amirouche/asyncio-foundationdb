@@ -34,8 +34,8 @@ jobs:
            architecture: x64
       - run: python --version
       - run: cd found && sudo make debian
-      - run: pip install --upgrade pip
-      - run: pip install poetry
+      - run: python3 -m pip install --upgrade pip
+      - run: python3 -m pip install poetry
       - run: cd found && make init
       - run: cd found && poetry run python readme.py
       - run: cd found && poetry run make check
