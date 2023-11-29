@@ -39,4 +39,5 @@ jobs:
       - run: cd found && make init
       - run: cd found && poetry run python readme.py
       - run: cd found && poetry run make check
-      - run: cd found && poetry publish --build
+      - run: poetry config pypi-token.pypi ${{ secrets.PYPI }}
+      - run: cd found && poetry publish --build --skip-existing
