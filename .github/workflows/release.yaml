@@ -1,0 +1,43 @@
+name: Release
+
+on: workflow_dispatch
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  GIT_OBJECT: ${{ github.head_ref || github.ref_name }}
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - 3.8
+          - 3.9
+          - "3.10"
+          - "3.11"
+          # - "3.12" # it is still early, first released 2023-09-19.
+          - pypy-3.8
+          - pypy-3.9
+          # - pypy-3.7, disable because aiostream has no distribution for 3.7
+        os:
+          - ubuntu-latest
+    runs-on:  ${{ matrix.os }}
+    name: ${{ matrix.python-version }} on ${{ matrix.os }}
+    steps:
+      - run: gh repo clone amirouche/asyncio-foundationdb -- found
+      - run: cd found && git checkout $GIT_OBJECT
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+           python-version: ${{ matrix.python-version }}
+           architecture: x64
+      - run: python --version
+      - run: cd found && sudo make debian
+      - run: cd found && pip install --upgrade pip
+      - run: cd found && make init
+      - run: cd found && make database-clear
+      - run: cd found && python readme.py
+      - run: cd found && make check
+      - run: cd found && pip install poetry
+      - run: cd found && poetry publish --build
