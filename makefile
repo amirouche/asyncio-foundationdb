@@ -16,8 +16,7 @@ debian: ## Install foundationdb, requires sudo
 	dpkg -i fdb-server.deb
 
 init: ## Prepare the host sytem for development
-	pip install -r requirements.txt -r requirements.dev.txt
-	python found/ffibuild.py
+	poetry install
 	@echo "\033[95m\n\nYou may now run 'make check'.\n\033[0m"
 
 database-clear:
