@@ -109,3 +109,14 @@ async def all(aiogenerator):
     async for item in aiogenerator:
         out.append(item)
     return out
+
+async def limit(iterator, length):
+    async for item in iterator:
+        if length <= 0:
+            return
+        length -= 1
+        yield item
+    # iterator = iterator.__aiter__()
+    # for _ in range(length):
+    #     out = await iterator.__anext__()
+    #     yield out
