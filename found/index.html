@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>uvicorn found.vnstore:server</title>
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
+    </head>
+    <body>
+	<div id="root"></div>
+	<script type="module">
+	 import * as preact from 'https://unpkg.com/preact?module';
+
+	 function makeEventHandlerCallback(name, uid) {
+	     return function(event) {
+		 event.preventDefault();
+		 let msg = {
+		     type: 'dom-event',
+		     name: name,
+		     uid: uid,
+		     path: location.pathname,
+		     payload: {'target.value': event.target.value},
+		 };
+		 console.log('send', msg);
+		 ws.send(JSON.stringify(msg));
+		 return false;
+	     }
+	 }
+
+	 // Translate json to preact vdom node
+	 let TAG = 0;
+	 let PROPERTIES = 1;
+	 let CHILDREN = 2;
+
+	 function translate(json) {
+	     // create callbacks
+	     Object.keys(json[PROPERTIES]).forEach(function(key) {
+		 // If the key starts with on, it must be an event handler,
+		 // replace the value with a callback that sends the event
+		 // to the backend.
+		 if (key.startsWith('on')) {
+		     json[PROPERTIES][key] = makeEventHandlerCallback(key, json[PROPERTIES][key]);
+		 }
+	     });
+
+	     let children = json[CHILDREN].map(function(child) {
+		 if (child instanceof Array) {
+		     // recurse
+		     return translate(child);
+		 } else { // it's a string or a number
+		     return child;
+		 }
+	     });
+
+	     return preact.h(json[TAG], json[PROPERTIES], children);
+	 }
+
+	 console.log("echo hello world");
+
+	 let root = document.getElementById('root');
+	 let url = `ws://${window.location.host}`
+	 console.log(url);
+	 let ws = new WebSocket(url);
+
+	 ws.onerror = function (msg) {
+	     console.error(msg);
+
+	 }
+
+	 ws.onopen = function (_) {
+	     console.log('ws open');
+	     let msg = {
+		 type: 'init',
+		 path: location.pathname,
+	     };
+	     console.log(msg);
+	     ws.send(JSON.stringify(msg));
+	 };
+
+	 ws.onmessage = function(msg) {
+	     msg = JSON.parse(msg.data);
+	     console.log('onmessage', msg);
+	     let app = translate(msg);
+	     preact.render(app, root);
+	     let input = document.querySelector("#input");
+	     input.scrollIntoView();
+	     input.focus();
+	 }
+
+	 ws.onclose = function (_) {
+	     window.location.reload();
+	 };
+
+	 document.addEventListener('keyup', (event) => {
+	     const keyName = event.key;
+
+	     if (keyName === '/' && event.ctrlKey) {
+		 let input = document.querySelector("#input");
+		 input.scrollIntoView();
+		 input.focus();
+	     }
+	 }, false);
+
+	</script>
+    </body>
+</html>

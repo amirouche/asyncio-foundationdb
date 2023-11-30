@@ -2,9 +2,14 @@
 #
 # https://github.com/amirouche/asyncio-foundationdb
 #
+import json
+import os
+import sys
 import asyncio
 from collections import namedtuple
 from uuid import UUID, uuid4
+from loguru import logger as log
+from found import ffw
 
 import fdb
 import fdb.tuple
@@ -205,7 +210,7 @@ async def query(tx, nstore, pattern, *patterns):
     return out
 
 
-async def open():
+async def _test_open():
     # XXX: hack around the fact that the loop is cached in found
     loop = asyncio.get_event_loop()
     found.base._loop = loop
@@ -236,7 +241,7 @@ async def test_empty():
 
 @pytest.mark.asyncio
 async def test_query_zero():
-    db = await open()
+    db = await _test_open()
     ntest = make("test-name", [42], ["uid", "key", "value"])
 
     for i in range(10):
@@ -287,7 +292,7 @@ async def test_query_zero():
 
 @pytest.mark.asyncio
 async def test_query():
-    db = await open()
+    db = await _test_open()
     ntest = make("test-name", [42], ["uid", "key", "value"])
     euid = uuid4()
 
@@ -346,3 +351,130 @@ async def test_query():
         out = await found.transactional(db, query_title_by_slug)
 
         assert not out
+
+
+# Server
+
+async def send_response_bytes(send, bytes):
+    await send(
+        {
+            "type": "http.response.start",
+            "status": 202,
+            "headers": [(b'content-type', b'application/vnstore'),],
+        }
+    )
+    await send(
+        {
+            "type": "http.response.body",
+            "body": bytes,
+        }
+    )
+
+async def _init():
+    database = await found.open()
+    store = make("found.vnstore:server", ["found.vnstore:server"], ["uid", "key", "value"])
+    return db, store
+
+
+INDEX = None
+
+def style(**kwargs):
+    return ";".join("{}:{}".format(k, v) for k, v in kwargs.items())
+
+
+async def websocket(scope, receive, send):
+    # https://asgi.readthedocs.io/en/latest/specs/www.html#websocket
+    assert scope['type'] == 'websocket'
+
+    event = await receive()
+
+    assert event['type'] == 'websocket.connect'
+
+    await send({'type': 'websocket.accept'})
+
+    count = 0
+
+    while True:
+        event = await receive()
+
+        # TODO: support type == websocket.close
+        assert event['type'] == 'websocket.receive'
+        message = json.loads(event['text'])
+
+        log.debug("ffw message: {}", message)
+
+        async def on_click(msg):
+            nonlocal count
+            count += 1
+
+        def render():
+            html = ffw.h.div(style=style(padding="15px"))
+            html.append(ffw.h.h1(style=style(color="green"))["vnstore server"])
+            return html
+
+        if message['type'] == 'init':
+            html, events = ffw.serialize(render())
+            previous = events
+            await send({'type': 'websocket.send', 'text': json.dumps(html)})
+        elif message['type'] == 'dom-event':
+            try:
+                handler = events[message['uid']]
+            except KeyError:
+                await send({'type': 'websocket.send', 'text': json.dumps(html)})
+            else:
+                await handler(message)
+                html, new_events = ffw.serialize(render())
+                events = dict(new_events)
+                events.update(previous)
+                previous = new_events
+            await send({'type': 'websocket.send', 'text': json.dumps(html)})
+        else:
+            log.critical('Unknown event type: {}', message['type'])
+
+
+async def server(scope, receive, send):
+    log.debug("ASGI scope: {}", scope)
+
+    if scope["type"] == "lifespan":
+        global INDEX
+        index = os.path.join(os.path.dirname(__file__), 'index.html')
+        with open(index, 'rb') as f:
+            INDEX = f.read()
+        log.remove()
+        log.add(sys.stderr, enqueue=True)
+        log.debug('Application server init: done.')
+        return
+
+    if scope['type'] == 'websocket':
+        out = await websocket(scope, receive, send)
+
+    elif scope['type'] == 'http':
+        path = scope['path']
+        if path == '/':
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers": [(b'content-type', b'text/html'),],
+                }
+            )
+            await send(
+                {
+                    "type": "http.response.body",
+                    "body": INDEX,
+                }
+            )
+        else:
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 404,
+                    "headers": [(b'content-type', b'text/html'),],
+                }
+            )
+            await send(
+                {
+                    "type": "http.response.body",
+                    "body": b"Not found",
+                }
+            )
