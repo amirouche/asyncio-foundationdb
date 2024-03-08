@@ -116,7 +116,3 @@ async def limit(iterator, length):
             return
         length -= 1
         yield item
-    # iterator = iterator.__aiter__()
-    # for _ in range(length):
-    #     out = await iterator.__anext__()
-    #     yield out
