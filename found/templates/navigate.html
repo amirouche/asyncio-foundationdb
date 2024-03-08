@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en" data-bs-theme="auto">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="author" content="Amirouche A. BOUBEKKI et al.">
+    <meta name="generator" content="Le Blanc-Mesnil">
+    <title>found vnstore</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
+  </head>
+  <body>
+    <div class="bg-primary text-secondary px-7 py-5">
+      <div class="container">
+        <div class="row justify-content-center">
+          <div class="col lh-base">
+            <h2>🔠🔡🔢🔣</h2>
+            <h1 class="display-5 fw-bold text-white">found vnstore</h1>
+            <p class="display-7 fw-bold text-white">Where Time Meets Data - Seamless Versioning, Infinite Possibilities.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="bg-light text-secondary px-7 py-5">
+      <div class="container">
+        <div class="row justify-content-center">
+          <div class="col lh-base">
+            <nav aria-label="breadcrumb">
+              <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/">home</a></li>
+                <li class="breadcrumb-item active" aria-current="page"><a href="/navigate/">navigate</a></li>
+              </ol>
+            </nav>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="container py-5 px-7 mb-4">
+      <div class="row row-cols-12 text-center justify-content-center">
+        <div class="col-4"><h4><code>identifier</code></h4></div>
+        <div class="col-4"><h4><code>key</code><h4></div>
+        <div class="col-4"><h4><code>value</code><h4></div>
+      </div>
+      <form method=GET>
+        <div class="row row-cols-12 text-center justify-content-center">
+          <div class="col-4">
+            <input name=uid class="form-control" id="uid" placeholder="some identifier"
+                   {% if uid %}value="{{ uid }}"{% endif %}>
+          </div>
+          <div class="col-4">
+            <input name=key class="form-control" id="key" placeholder="some key name"
+                   {% if key %}value="{{ key }}"{% endif %}>
+          </div>
+          <div class="col-4">
+            <textarea name=value class="form-control" id="value">{% if value %}{{ value }}{% endif %}</textarea>
+          </div>
+        </div>
+        <br/>
+        <div class="row row-cols-12 text-center">
+            <button type="submit" class="btn btn-primary">navigate</button>
+        </div>
+      </form>
+      <br/>
+      {% for change in changes %}
+      <div class="row row-cols-12 text-justify justify-content-center border border-primary mb-4 p-3">
+        {% for key in ['uid', 'key', 'value'] %}
+        {% if key in change %}
+        <div class="col-4">
+          <code>{{ key }}</code>: {{ tostring(change[key]) | safe }}
+          {% if isinstance(change[key], UUID) %}
+          <form method=GET style="display: inline">
+            <input type=submit value=🔎 />
+            <input name=uid type=hidden value="#u{{ change[key].hex }}"/>
+          </form>
+          <form method=GET style="display: inline">
+            <input type=submit value=🎯 />
+            <input name=value type=hidden value="#u{{ change[key].hex }}"/>
+          </form>
+          
+          {% endif %}
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+  </body>
+</html>

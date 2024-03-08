@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en" data-bs-theme="auto">
+    <head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="description" content="">
+	<meta name="author" content="Amirouche A. BOUBEKKI et al.">
+	<meta name="generator" content="Le Blanc-Mesnil">
+	<title>found vnstore</title>
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
+    </head>
+    <body>
+	<div class="bg-primary text-secondary px-7 py-5">
+	    <div class="container">
+		<div class="row justify-content-center">
+		    <div class="col lh-base">
+			<h2>🔠🔡🔢🔣</h2>
+			<h1 class="display-5 fw-bold text-white">found vnstore</h1>
+			<p class="display-7 fw-bold text-white">Where Time Meets Data - Seamless Versioning, Infinite Possibilities.</p>
+	            </div>
+	        </div>
+	    </div>
+	</div>
+	<div class="bg-light text-secondary px-7 py-5">
+	    <div class="container">
+		<div class="row justify-content-center">
+		    <div class="col lh-base">
+                        <nav aria-label="breadcrumb">
+                            <ol class="breadcrumb">
+                                <li class="breadcrumb-item"><a href="/">home</a></li>
+                                <li class="breadcrumb-item"><a href="/history/">history</a></li>
+                                <li class="breadcrumb-item active" aria-current="page">
+                                    <a href="/history/u/{{ uid.hex }}/">
+                                        <code>{{ uid.hex }}</code>
+                                    </a>
+                                </li>
+                                <li class="breadcrumb-item active" aria-current="page">{{ message }}</li>
+                            </ol>
+                        </nav>
+		    </div>
+		</div>
+	    </div>
+	</div>
+
+	<div class="container py-5 px-7" >
+	    <div class="row row-cols-6">
+		<div class="col-2">
+                    <h2>action</h2>
+                    <div class="list-group">
+                        <a href="/history/u/{{ uid.hex }}/add/" class="list-group-item list-group-item-action" aria-current="true">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h5 class="mb-1">add a change</h5>
+                            </div>
+                            <!-- <p class="mb-1">You known something.</p>
+                                 <small>And some small print.</small> -->
+                        </a>
+                        <a href="/history/u/{{ uid.hex }}/remove/" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h5 class="mb-1">delete a change</h5>
+                            </div>
+                            <!-- <p class="mb-1">Some placeholder content in a paragraph.</p>
+                                 <small class="text-body-secondary">And some muted small print.</small> -->
+                        </a>
+                        <a href="/history/u/{{ uid.hex }}/apply/" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h5 class="mb-1">apply a change</h5>
+                            </div>
+                            <!-- <p class="mb-1">Some placeholder content in a paragraph.</p>
+                                 <small class="text-body-secondary">And some muted small print.</small> -->
+                        </a>
+                        <!-- <a href="#" class="list-group-item list-group-item-action"> -->
+                        <!--      <div class="d-flex w-100 justify-content-between"> -->
+                        <!--      <h5 class="mb-1">List group item heading</h5> -->
+                        <!--      <small class="text-body-secondary">3 days ago</small> -->
+                        <!--      </div> -->
+                        <!--      <p class="mb-1">Some placeholder content in a paragraph.</p> -->
+                        <!--      <small class="text-body-secondary">And some muted small print.</small> -->
+                        <!--      </a> -->
+                    </div>
+		</div>
+		<div class="col-10">
+                    {% if not changes %}
+                    <div class="alert alert-primary" role="alert">
+                        Alert! The Data Canvas Awaits! 🚀 No changes
+                        detected. Time to add, remove, or modify tuples and
+                        infuse life into our database. Your input sparks the
+                        evolution—let's make waves together! Click to
+                        contribute and shape the future of our data.
+                    </div>
+                    {% endif %}
+                    {% if changes %}
+                    <h2>changes</h2>
+                    <table class="table">
+                        <!-- <thead>
+                             <tr>
+                             <th scope="col">#</th>
+                             <th scope="col">First</th>
+                             <th scope="col">Last</th>
+                             <th scope="col">Handle</th>
+                             </tr>
+                             </thead> -->
+                        <tbody>
+                            {% for change in changes %}
+                            <tr class="{% if change['alive?'] %}table-success{% else %}table-warning{% endif %} ">
+                                <th>{{ tostring(change.uid) | safe }}</th>
+                                <th>{{ tostring(change.key) | safe }}</th>
+                                <th>{{ tostring(change.value) | safe}}</th>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% endif %}
+                </div>
+            </div>
+	</div>
+        {% block action %}{% endblock %}
+    </body>
+</html>

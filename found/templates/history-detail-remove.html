@@ -1,0 +1,51 @@
+{% extends "history-detail.html" %}
+
+{% block action %}
+
+<div class="modal" tabindex="-1" style="display: block; background: hsla(0, 100%, 100%, 0.75)">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Remove a change</h5>
+                <a href="/history/u/{{ uid.hex.upper() }}/" type="button" class="btn-close" aria-label="Close"></a>
+            </div>
+            <form method="POST">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="uid" class="form-label"><code>identifier</code>:</label>
+                        <input name=uid class="form-control" id="uid" placeholder="#ufd5eee01563441b284608020c30762b2">
+                        <div class="form-text">
+                            It is the handler over the object your are
+                            editing. For a new object, use the
+                            underscore character <code>_</code> to
+                            generate a new unique identifier.
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="key" class="form-label"><code>key</code>:</label>
+                        <input name=key class="form-control" id="key" placeholder="some key name">
+                        <div class="form-text">
+                            Should be a hexadecimal string starting
+                            with <code>#u</code> referecing another
+                            object or one or more english words.
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="value" class="form-label"><code>value</code>:</label>
+                        <textarea name=value class="form-control" id="value">The quick brown fox jumps over the lazy dog</textarea>
+                    </div>
+                    <div class="form-text">
+                        For the given <code>identifier</code>, and <code>key</code> provide
+                        a value that is associated with them.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <a href="/history/u/{{ uid.hex.upper() }}/" type="button" class="btn btn-secondary" data-bs-dismiss="modal">close</a>
+                    <button type="submit" class="btn btn-primary">add change</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

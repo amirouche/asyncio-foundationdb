@@ -50,7 +50,7 @@ xxx: ## Things that require attention
 	@grep -nR --color=always --before-context=2 --after-context=2 XXX $(MAIN)
 
 serve: ## Run the server
-	uvicorn --lifespan on --log-level warning --reload $(MAIN):uvicorn
+	uvicorn --reload --lifespan on --log-level warning --reload $(MAIN).vnstore:server
 
 lock: ## Lock dependencies
 	poetry lock
