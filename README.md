@@ -80,7 +80,7 @@ async def readme():
         return out
 
     async def set(tx, key, value):
-        return found.set(tx, key, value)
+        await found.set(tx, key, value)
 
     db = await found.open()
     out = await found.transactional(db, get, b'hello')
