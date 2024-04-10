@@ -38,6 +38,7 @@ pylama = "*"
 pytest = "*"
 pytest-asyncio = "*"
 pytest-cov = "*"
+setuptools = "*"
 
 [build-system]
 requires = ["poetry-core", "setuptools", "cffi"]
