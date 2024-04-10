@@ -1,5 +1,6 @@
 [project]
 name = "asyncio-foundationdb"
+version = "0.12.0rc6"
 
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
