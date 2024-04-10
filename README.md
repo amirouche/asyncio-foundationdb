@@ -141,13 +141,18 @@ is `/etc/foundationdb/fdb.cluster`. Returns a database object.
 
 ### `await found.transactional(db, func, *args, snapshot=False, **kwargs)`
 
-Operate a transaction for `func`.
+Operate a transaction for `func`. 
 
 Coroutine that will operate a transaction against `db` for `func`. If
 `snapshot=True` then the transaction is read-only. `func` will receive
 an appropriate transaction object as first argument, then `args`, then
 `kwargs`. Because of errors `transactional` might run `func` several
 times, hence `func` should be idempotent.
+
+The function `func` receive transaction object that should be passed
+to other database functions. It has a property `vars` that is a
+dictionary that can be used to cache objects for the extent of the
+transaction.
 
 ### `await found.get(tx, key)`
 
