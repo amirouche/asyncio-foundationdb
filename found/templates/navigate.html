@@ -70,14 +70,17 @@
           <code>{{ key }}</code>: {{ tostring(change[key]) | safe }}
           {% if isinstance(change[key], UUID) %}
           <form method=GET style="display: inline">
-            <input type=submit value=🔎 />
-            <input name=uid type=hidden value="#u{{ change[key].hex }}"/>
+            <small>
+              <input type=submit value=🔎 />
+              <input name=uid type=hidden value="#u{{ change[key].hex }}"/>
+            </small>
           </form>
           <form method=GET style="display: inline">
-            <input type=submit value=🎯 />
-            <input name=value type=hidden value="#u{{ change[key].hex }}"/>
+            <small>
+              <input type=submit value=🎯 />
+              <input name=value type=hidden value="#u{{ change[key].hex }}"/>
+            </small>
           </form>
-          
           {% endif %}
         </div>
         {% endif %}
