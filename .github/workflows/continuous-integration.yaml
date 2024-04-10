@@ -17,6 +17,7 @@ jobs:
           - 3.9
           - "3.10"
           - "3.11"
+          - "3.12"
           - "pypy-3.8"
           - "pypy-3.9"
           - "pypy-3.10"
@@ -34,8 +35,8 @@ jobs:
            architecture: x64
       - run: python --version
       - run: cd found && sudo make debian
-      - run: python3 -m pip install --upgrade pip
-      - run: python3 -m pip install poetry
+      - run: python3 -m pip install --upgrade pip > /dev/null
+      - run: python3 -m pip install poetry > /dev/null
       - run: cd found && make init
       - run: cd found && poetry run python readme.py
       - run: cd found && poetry run make check

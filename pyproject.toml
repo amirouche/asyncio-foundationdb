@@ -1,3 +1,7 @@
+[project]
+name = "asyncio-foundationdb"
+version = "0.12.0rc6"
+
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
 
@@ -34,7 +38,8 @@ pylama = "*"
 pytest = "*"
 pytest-asyncio = "*"
 pytest-cov = "*"
+setuptools = "*"
 
 [build-system]
-requires = ["poetry-core", "cffi"]
+requires = ["poetry-core", "setuptools", "cffi"]
 build-backend = "poetry.core.masonry.api"
