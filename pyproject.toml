@@ -1,13 +1,13 @@
 [project]
 name = "asyncio-foundationdb"
-version = "0.12.0rc6"
+version = "0.12.0rc7"
 
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
 
 [tool.poetry]
 name = "asyncio-foundationdb"
-version = "0.12.0rc6"
+version = "0.12.0rc7"
 description = "FoundationDB drivers for asyncio"
 authors = ["ⵄⵎⵉⵔⵓⵛ ⴰⵎⴰⵣⵉⵖ <amirouche@hyper.dev>"]
 license = "Apache v2"
