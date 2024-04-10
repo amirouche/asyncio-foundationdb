@@ -424,20 +424,21 @@ Apply the change `changeid` against `vnstore`, setting the next
 
 #### Known issue: No serializability guarantee, because of write skew anomaly
 
-- The historization of data introduce a risk of inexact in two steps
-  intorduce a serializability problem. This can break things when
-  changes are related to some group of triples: Two changes, modify
-  two overllaping triples, strict ordering, serializability is not
+- The historization of data introduce a risk of inexact
+  serializability. This can break things when changes happen over
+  overlapping triples. Strict ordering, serializability is not
   guaranteed, hence one transaction may write, a value based on a
-  value that was overwritten by another aka. write skew anomaly.
+  value that was overwritten by another concurrent change also known
+  as a write skew anomaly.
 
 - The use `uuid7` can break consistency, when deleting the same
   triple, and adding another, it may result in two deletion, and two
-  additions, that may break the schema.
+  additions, that may break the schema, and application relying on
+  vnstore.
 
 In other words, as long as we rely `uuid7` we can't consider
 transaction commited with `vnstore_change_apply` happen as if all
-transaction were commited on after the other, that is, there is not
+transaction were commited after the other, that is, there is no
 serializability guarantee.
 
 There is several ways to workaround some of those issues, they require
@@ -446,10 +447,6 @@ more code. [Contact me for more info](mailto:amirouchhe@hyper.dev).
 ### `await vnstore.ask(tr, vnstore, *items)`
 
 Return `True` if `items` is alive in the space `vnstore`.
-
-### `await vnstore.get(tr, vnstore, *items)`
-
-TODO
 
 ### `await vnstore.remove(tr, vnstore, *items)`
 
