@@ -417,32 +417,34 @@ Against transaction `tr`, and `vnstore`, continue a change `changeid`.
 
 Replace the exisiting message of `changeid` with `message`
 
-### `await vnstore.change_appply(tr, vnstore, changeid)`
+### `await vnstore.change_apply(tr, vnstore, changeid)`
 
 Apply the change `changeid` against `vnstore`, setting the next
 `uuid7` as significance.
 
-#### Known issue: No serializability guarantee, because of write skew anomaly
+#### Known issue: Weak serializability
 
-- The historization of data introduce a risk of inexact
-  serializability. This can break things when changes happen over
-  overlapping triples. Strict ordering, serializability is not
-  guaranteed, hence one transaction may write, a value based on a
-  value that was overwritten by another concurrent change also known
-  as a write skew anomaly.
+The use of `uuid7` instead of versionstamps can break things when
+changes happen over overlapping versioned triples. Strict ordering,
+serializability is not guaranteed, hence one transaction may write, a
+value based on a value that was overwritten by another change that
+appears to be commited after according to its `uuid7` significance.
+Even if changes are commited in the correct order uuid7 does not
+guarantee serializability.
 
-- The use `uuid7` can break consistency, when deleting the same
-  triple, and adding another, it may result in two deletion, and two
-  additions, that may break the schema, and application relying on
-  vnstore.
+In other words, as long as we rely `uuid7` we can't consider changes
+commited with `vnstore_change_apply` happen as if all changes were
+commited after the other, that is, there is no serializability
+guarantee.
 
-In other words, as long as we rely `uuid7` we can't consider
-transaction commited with `vnstore_change_apply` happen as if all
-transaction were commited after the other, that is, there is no
-serializability guarantee.
+[Contact me for workarounds](mailto:amirouche@hyper.dev)
 
-There is several ways to workaround some of those issues, they require
-more code. [Contact me for more info](mailto:amirouchhe@hyper.dev).
+#### Known issue: consistency
+
+Since changes may be constructed with several transactions, it is
+possible that two changes introduce consistency bugs.
+
+[Contact me for workarounds](mailto:amirouche@hyper.dev)
 
 ### `await vnstore.ask(tr, vnstore, *items)`
 
