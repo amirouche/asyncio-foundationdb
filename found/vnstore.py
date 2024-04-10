@@ -19,7 +19,7 @@ from loguru import logger as log
 from uuid_extensions import uuid7
 
 import found
-from found import ffw, nstore
+from found import nstore
 from found.base import FoundException
 
 _VNStore = namedtuple("VNStore", "name subspace items changes tuples names")
