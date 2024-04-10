@@ -36,5 +36,5 @@ pytest-asyncio = "*"
 pytest-cov = "*"
 
 [build-system]
-requires = ["poetry-core", "cffi"]
+requires = ["poetry-core", "setuptools", "cffi"]
 build-backend = "poetry.core.masonry.api"
