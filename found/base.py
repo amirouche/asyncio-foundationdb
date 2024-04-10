@@ -457,4 +457,5 @@ async def open(cluster_file=None):
     out = ffi.gc(out[0], lib.fdb_database_destroy)
     out = Database(out)
 
-    return out
+    return out        
+    
