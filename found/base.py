@@ -654,6 +654,30 @@ async def get_range_split_points(tx, begin, end, chunk_size):
     return await aio_future
 
 
+def watch(tx, key):
+    """Wraps fdb_transaction_watch.
+
+    Registers a watch on key immediately (synchronous C call) and returns an
+    asyncio.Future that resolves to None when the key is next modified by
+    another transaction.
+
+    The watch only detects external changes after the transaction that created
+    it has been committed. Typical usage:
+
+        watch_future = found.watch(tx, key)
+        await found.commit(tx)            # activates the watch
+        # ... in another task, modify the key ...
+        await watch_future                # waits until the key changes
+
+    key must be bytes."""
+    assert isinstance(key, bytes)
+    loop = asyncio.get_running_loop()
+    fdb_future = lib.fdb_transaction_watch(tx.pointer, key, len(key))
+    aio_future = loop.create_future()
+    _register_callback(fdb_future, _cb_commit, loop, aio_future)
+    return aio_future
+
+
 async def transactional(db, func, *args, snapshot=False, **kwargs):
     loop = asyncio.get_running_loop()
     tx = _make_transaction(db, snapshot)
