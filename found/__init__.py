@@ -30,7 +30,7 @@ MAX_SIZE_KEY = 10**4
 MAX_SIZE_VALUE = 10**5
 
 
-HEADER_VERSION = VERSION = 710
+HEADER_VERSION = VERSION = 730
 
 
 code = lib.fdb_select_api_version_impl(VERSION, HEADER_VERSION)
@@ -54,6 +54,10 @@ elif code != 0:
 # Required to use fdb.tuple.pack and fdb.tuple.unpack
 fdb._version = VERSION
 
+# Load fdb.impl so that fdb.tuple.Versionstamp.to_bytes() can reference
+# fdb.impl.Value without AttributeError.
+import fdb.impl  # noqa
+
 from fdb.tuple import Versionstamp  # noqa
 from fdb.tuple import has_incomplete_versionstamp  # noqa
 from fdb.tuple import pack  # noqa
@@ -69,15 +73,28 @@ from found.base import STREAMING_MODE_SMALL  # noqa
 from found.base import STREAMING_MODE_WANT_ALL  # noqa
 from found.base import BaseFoundException  # noqa
 from found.base import FoundException  # noqa
+from found.base import CONFLICT_RANGE_TYPE_READ  # noqa
+from found.base import CONFLICT_RANGE_TYPE_WRITE  # noqa
+from found.base import KeySelector  # noqa
+from found.base import Transaction  # noqa
+from found.base import _make_transaction  # noqa
 from found.base import add  # noqa
+from found.base import add_conflict_range  # noqa
 from found.base import bit_and  # noqa
 from found.base import bit_or  # noqa
 from found.base import bit_xor  # noqa
 from found.base import byte_max  # noqa
 from found.base import byte_min  # noqa
+from found.base import cancel  # noqa
 from found.base import clear  # noqa
+from found.base import commit  # noqa
 from found.base import estimated_size_bytes  # noqa
 from found.base import get  # noqa
+from found.base import get_approximate_size  # noqa
+from found.base import get_committed_version  # noqa
+from found.base import get_key  # noqa
+from found.base import get_range  # noqa
+from found.base import get_versionstamp  # noqa
 from found.base import gt  # noqa
 from found.base import gte  # noqa
 from found.base import lt  # noqa
@@ -85,10 +102,13 @@ from found.base import lte  # noqa
 from found.base import max  # noqa
 from found.base import min  # noqa
 from found.base import next_prefix  # noqa
+from found.base import on_error  # noqa
 from found.base import open  # noqa
 from found.base import query  # noqa
 from found.base import read_version  # noqa
+from found.base import reset  # noqa
 from found.base import set  # noqa
+from found.base import set_option  # noqa
 from found.base import set_read_version  # noqa
 from found.base import set_versionstamped_key  # noqa
 from found.base import set_versionstamped_value  # noqa

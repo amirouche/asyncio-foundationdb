@@ -1199,4 +1199,4 @@ dev = ["bandit", "black", "isort", "pylama", "pytest", "pytest-asyncio", "pytest
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9"
-content-hash = "721eca990f5c27ad8cef1dda2b8417e34da730cda0ec4b2e292ce0be20ee1a2c"
+content-hash = "7520d3422f8ab6a66b41b636ecf75899c01d3fad2205a9c03e4bfdd2d4aa4fb7"

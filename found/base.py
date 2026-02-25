@@ -237,6 +237,24 @@ def _cb_int64(fdb_future, handle):
 
 
 @ffi.callback("void(FDBFuture *, void *)")
+def _cb_get_key(fdb_future, handle):
+    """Callback for fdb_transaction_get_key — copies key bytes from the future."""
+    loop, aio_future = ffi.from_handle(handle)
+    key = ffi.new("uint8_t const **")
+    key_length = ffi.new("int *")
+    error = lib.fdb_future_get_key(fdb_future, key, key_length)
+    if error == 0:
+        out = bytes(ffi.buffer(key[0], key_length[0]))
+        _release_handle(fdb_future)
+        lib.fdb_future_destroy(fdb_future)
+        loop.call_soon_threadsafe(aio_future.set_result, out)
+    else:
+        _release_handle(fdb_future)
+        lib.fdb_future_destroy(fdb_future)
+        loop.call_soon_threadsafe(aio_future.set_exception, FoundException(error))
+
+
+@ffi.callback("void(FDBFuture *, void *)")
 def _cb_error(fdb_future, handle):
     """Used for fdb_transaction_on_error — resolves to None or raises."""
     loop, aio_future = ffi.from_handle(handle)
@@ -427,12 +445,14 @@ MUTATION_ADD = 2
 MUTATION_BIT_AND = 6
 MUTATION_BIT_OR = 7
 MUTATION_BIT_XOR = 8
+MUTATION_APPEND_IF_FITS = 9
 MUTATION_MAX = 12
 MUTATION_MIN = 13
 MUTATION_SET_VERSIONSTAMPED_KEY = 14
 MUTATION_SET_VERSIONSTAMPED_VALUE = 15
 MUTATION_BYTE_MIN = 16
 MUTATION_BYTE_MAX = 17
+MUTATION_COMPARE_AND_CLEAR = 20
 
 
 def _atomic(tx, opcode, key, param):
@@ -458,6 +478,145 @@ async def set_versionstamped_value(tx, key, param): _atomic(tx, MUTATION_SET_VER
 async def _commit(tx):
     loop = asyncio.get_running_loop()
     fdb_future = lib.fdb_transaction_commit(tx.pointer)
+    aio_future = loop.create_future()
+    _register_callback(fdb_future, _cb_commit, loop, aio_future)
+    await aio_future
+
+
+async def commit(tx):
+    """Public commit — same as _commit."""
+    await _commit(tx)
+
+
+async def on_error(tx, code):
+    """Wraps fdb_transaction_on_error. Returns when the transaction can be retried,
+    or raises if the error is not retryable."""
+    loop = asyncio.get_running_loop()
+    fdb_future = lib.fdb_transaction_on_error(tx.pointer, code)
+    aio_future = loop.create_future()
+    _register_callback(fdb_future, _cb_error, loop, aio_future)
+    await aio_future
+
+
+def reset(tx):
+    """Wraps fdb_transaction_reset (synchronous)."""
+    lib.fdb_transaction_reset(tx.pointer)
+
+
+def cancel(tx):
+    """Wraps fdb_transaction_cancel (synchronous)."""
+    lib.fdb_transaction_cancel(tx.pointer)
+
+
+def get_committed_version(tx):
+    """Wraps fdb_transaction_get_committed_version (synchronous, returns int64)."""
+    version = ffi.new("int64_t *")
+    _check(lib.fdb_transaction_get_committed_version(tx.pointer, version))
+    return version[0]
+
+
+async def get_approximate_size(tx):
+    """Wraps fdb_transaction_get_approximate_size (async future -> int64)."""
+    loop = asyncio.get_running_loop()
+    fdb_future = lib.fdb_transaction_get_approximate_size(tx.pointer)
+    aio_future = loop.create_future()
+    _register_callback(fdb_future, _cb_int64, loop, aio_future)
+    return await aio_future
+
+
+async def get_versionstamp(tx):
+    """Wraps fdb_transaction_get_versionstamp (async future -> key bytes).
+    Must be called after commit."""
+    loop = asyncio.get_running_loop()
+    fdb_future = lib.fdb_transaction_get_versionstamp(tx.pointer)
+    aio_future = loop.create_future()
+    _register_callback(fdb_future, _cb_get_key, loop, aio_future)
+    return await aio_future
+
+
+async def get_key(tx, key_selector):
+    """Wraps fdb_transaction_get_key (async future -> key bytes)."""
+    loop = asyncio.get_running_loop()
+    fdb_future = lib.fdb_transaction_get_key(
+        tx.pointer,
+        key_selector.key, len(key_selector.key),
+        key_selector.or_equal, key_selector.offset,
+        tx.snapshot,
+    )
+    aio_future = loop.create_future()
+    _register_callback(fdb_future, _cb_get_key, loop, aio_future)
+    return await aio_future
+
+
+async def get_range(tx, begin, end, limit=0, reverse=False, mode=STREAMING_MODE_WANT_ALL):
+    """Non-generator range read returning a flat list of (key, value) pairs.
+    begin/end can be bytes or KeySelector instances."""
+    loop = asyncio.get_running_loop()
+    if isinstance(begin, bytes):
+        begin = gte(begin)
+    if isinstance(end, bytes):
+        end = gte(end)
+
+    out = []
+    iteration = 1
+
+    while True:
+        fdb_future = lib.fdb_transaction_get_range(
+            tx.pointer,
+            begin.key, len(begin.key), begin.or_equal, begin.offset,
+            end.key, len(end.key), end.or_equal, end.offset,
+            limit, 0, mode, iteration, tx.snapshot, reverse,
+        )
+        aio_future = loop.create_future()
+        _register_callback(fdb_future, _cb_get_range, loop, aio_future)
+        kvs, count, more = await aio_future
+
+        out.extend(kvs)
+
+        if not more or count == 0:
+            break
+        if limit > 0:
+            limit -= count
+            if limit <= 0:
+                break
+
+        iteration += 1
+        last_key = kvs[-1][0]
+        if reverse:
+            end = gte(last_key)
+        else:
+            begin = gt(last_key)
+
+    return out
+
+
+def add_conflict_range(tx, begin, end, conflict_type):
+    """Wraps fdb_transaction_add_conflict_range (synchronous)."""
+    _check(lib.fdb_transaction_add_conflict_range(
+        tx.pointer, begin, len(begin), end, len(end), conflict_type
+    ))
+
+
+def set_option(tx, option, value=None):
+    """Wraps fdb_transaction_set_option."""
+    if value is None:
+        _check(lib.fdb_transaction_set_option(tx.pointer, option, ffi.NULL, 0))
+    else:
+        _check(lib.fdb_transaction_set_option(tx.pointer, option, value, len(value)))
+
+
+# Conflict range type constants
+CONFLICT_RANGE_TYPE_READ = 0
+CONFLICT_RANGE_TYPE_WRITE = 1
+
+
+async def get_range_split_points(tx, begin, end, chunk_size):
+    """Wraps fdb_transaction_get_range_split_points (async future).
+    Returns None on success (result keys are not extracted)."""
+    loop = asyncio.get_running_loop()
+    fdb_future = lib.fdb_transaction_get_range_split_points(
+        tx.pointer, begin, len(begin), end, len(end), chunk_size
+    )
     aio_future = loop.create_future()
     _register_callback(fdb_future, _cb_commit, loop, aio_future)
     await aio_future
