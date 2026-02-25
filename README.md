@@ -86,6 +86,7 @@ asyncio.run(readme())
 - Upgrade to FoundationDB 7.3 (API version 730)
 - Add binding tester (correctness test suite) with CI workflows, tested under both POSIX threads (`tester_pthread.py`) and asyncio tasks (`tester_aio.py`) concurrency modes
 - Add new public APIs: `get_key`, `get_range`, `commit`, `on_error`, `reset`, `cancel`, `get_committed_version`, `get_approximate_size`, `get_versionstamp`, `add_conflict_range`, `set_option`, `get_range_split_points`
+- Add `append_if_fits`, `compare_and_clear`, `get_client_version`, `get_addresses_for_key`, `database_set_option`, `network_set_option`, `add_network_thread_completion_hook`, `error_predicate`
 - Add docstrings to all public functions and module docstrings to all modules
 - Support Python 3.9+
 - Refactor base.py to use `asyncio.get_running_loop()` instead of deprecated `asyncio.get_event_loop()`
@@ -454,6 +455,52 @@ contain an incomplete versionstamp.
 
 Set `key` to `param` where `param` contains an embedded versionstamp.
 The value must contain an incomplete versionstamp.
+
+### `await found.append_if_fits(tx, key, param)`
+
+Atomically append `param` to the value at `key`. If the resulting value
+would exceed the maximum value size, the operation has no effect.
+
+### `await found.compare_and_clear(tx, key, param)`
+
+Atomically clear `key` if its current value equals `param`. If the
+value does not match, the key is left unchanged.
+
+### `found.get_client_version()`
+
+Return the FDB client library version string (synchronous).
+
+### `await found.get_addresses_for_key(tx, key)`
+
+Return a list of strings representing the storage server addresses
+responsible for `key`. `key` must be `bytes`.
+
+### `found.database_set_option(db, option, value=None)`
+
+Set a database-level option. `option` must be one of the
+`FDB_DB_OPTION_*` integer constants. `value` is optional and must
+be `bytes` when provided.
+
+### `found.network_set_option(option, value=None)`
+
+Set a network-level option. `option` must be one of the
+`FDB_NET_OPTION_*` integer constants. `value` is optional and must
+be `bytes` when provided. Must be called before the network thread
+starts (i.e., before the first `found.open()` call).
+
+### `found.add_network_thread_completion_hook(callback)`
+
+Register a callback to be invoked when the FDB network thread exits.
+`callback` must be a callable taking no arguments.
+
+### `found.error_predicate(predicate, code)`
+
+Test whether an error `code` matches `predicate`. Returns `True` or
+`False`. Predicate constants:
+
+- `found.ERROR_PREDICATE_RETRYABLE` (50000)
+- `found.ERROR_PREDICATE_MAYBE_COMMITTED` (50001)
+- `found.ERROR_PREDICATE_RETRYABLE_NOT_COMMITTED` (50002)
 
 ## `from found import bstore`
 
