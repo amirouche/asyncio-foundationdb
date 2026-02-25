@@ -86,11 +86,14 @@ asyncio.run(readme())
 - Upgrade to FoundationDB 7.3 (API version 730)
 - Add binding tester (correctness test suite) with CI workflows
 - Add new public APIs: `get_key`, `get_range`, `commit`, `on_error`, `reset`, `cancel`, `get_committed_version`, `get_approximate_size`, `get_versionstamp`, `add_conflict_range`, `set_option`, `get_range_split_points`
+- Add docstrings to all public functions and module docstrings to all modules
 - Support Python 3.9+
 - Refactor base.py to use `asyncio.get_running_loop()` instead of deprecated `asyncio.get_event_loop()`
 - Fix `gte()` ignoring the `offset` parameter
+- Fix assert bug in readme.py example
 - Check `fdb_create_database()` return code for errors
 - Make ffibuild.py portable (use `FDB_INCLUDE_DIR` / `FDB_LIB_DIR` env vars)
+- Clean up pyproject.toml for Poetry 2.x compatibility
 - Upgrade bandit to 1.9+ for Python 3.14 compatibility
 
 ### v0.12.0
