@@ -395,6 +395,144 @@ async def test_query():
         assert not out
 
 
+@pytest.mark.asyncio
+async def test_change_list():
+    db = await _test_open()
+    ntest = make("test-name", [42], ["uid", "key", "value"])
+
+    c1 = await found.transactional(db, change_create, ntest)
+    c2 = await found.transactional(db, change_create, ntest)
+
+    changes = await found.transactional(db, change_list, ntest)
+    uids = [c["uid"] for c in changes]
+    assert c1 in uids
+    assert c2 in uids
+
+
+@pytest.mark.asyncio
+async def test_change_message():
+    db = await _test_open()
+    ntest = make("test-name", [42], ["uid", "key", "value"])
+
+    changeid = await found.transactional(db, change_create, ntest)
+
+    async def set_msg(tx):
+        await change_message(tx, ntest, changeid, "hello world")
+
+    await found.transactional(db, set_msg)
+
+    out = await found.transactional(db, change_get, ntest, changeid)
+    assert out["message"] == "hello world"
+
+
+@pytest.mark.asyncio
+async def test_change_changes():
+    db = await _test_open()
+    ntest = make("test-name", [42], ["uid", "key", "value"])
+
+    changeid = await found.transactional(db, change_create, ntest)
+
+    async def do_add(tx):
+        change_continue(tx, ntest, changeid)
+        await add(tx, ntest, "subj1", "key1", "val1")
+        await add(tx, ntest, "subj2", "key2", "val2")
+
+    await found.transactional(db, do_add)
+
+    out = await found.transactional(db, change_changes, ntest, changeid)
+    assert len(out) == 2
+
+
+@pytest.mark.asyncio
+async def test_where():
+    db = await _test_open()
+    ntest = make("test-name", [42], ["uid", "key", "value"])
+
+    uid1 = uuid4()
+
+    changeid = await found.transactional(db, change_create, ntest)
+
+    async def setup(tx):
+        change_continue(tx, ntest, changeid)
+        await add(tx, ntest, uid1, "title", "hello")
+        await add(tx, ntest, uid1, "tag", "world")
+        await change_apply(tx, ntest, changeid)
+
+    await found.transactional(db, setup)
+
+    async def do_query(tx):
+        seed = select(tx, ntest, v("uid"), "title", "hello")
+        out = await found.all(where(tx, ntest, seed, v("uid"), "tag", v("tag")))
+        return out
+
+    out = await found.transactional(db, do_query)
+    assert len(out) == 1
+    assert out[0]["tag"] == "world"
+
+
+@pytest.mark.asyncio
+async def test_change_apply_twice():
+    db = await _test_open()
+    ntest = make("test-name", [42], ["uid", "key", "value"])
+
+    changeid = await found.transactional(db, change_create, ntest)
+
+    async def do_apply(tx):
+        await change_apply(tx, ntest, changeid)
+
+    await found.transactional(db, do_apply)
+
+    # Get significance after first apply
+    out1 = await found.transactional(db, change_get, ntest, changeid)
+    sig1 = out1["significance"]
+    assert sig1 is not None
+
+    # Apply again — should be a no-op (significance unchanged)
+    await found.transactional(db, do_apply)
+
+    out2 = await found.transactional(db, change_get, ntest, changeid)
+    sig2 = out2["significance"]
+    assert sig1 == sig2
+
+
+@pytest.mark.asyncio
+async def test_change_get_nonexistent():
+    db = await _test_open()
+    ntest = make("test-name", [42], ["uid", "key", "value"])
+
+    out = await found.transactional(db, change_get, ntest, uuid4())
+    assert out is None
+
+
+def test_pk(capsys):
+    result = pk("a", "b", "c")
+    assert result == "c"
+    captured = capsys.readouterr()
+    assert "('a', 'b', 'c')" in captured.out
+
+
+@pytest.mark.asyncio
+async def test_get_not_implemented():
+    with pytest.raises(NotImplementedError):
+        await get(None)
+
+
+@pytest.mark.asyncio
+async def test_remove_nonexistent():
+    db = await _test_open()
+    ntest = make("test-name", [42], ["uid", "key", "value"])
+
+    changeid = await found.transactional(db, change_create, ntest)
+
+    async def do_remove(tx):
+        change_continue(tx, ntest, changeid)
+        result = await remove(tx, ntest, "no-such-uid", "no-key", "no-val")
+        return result
+
+    out = await found.transactional(db, do_remove)
+    assert out is False
+
+
 # Server
 
 CACHE = dict()
