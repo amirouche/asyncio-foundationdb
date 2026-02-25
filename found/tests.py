@@ -580,6 +580,135 @@ async def test_eavstore_crud_2():
 
 
 @pytest.mark.asyncio
+async def test_co_decorator():
+    @found.co
+    def add(a, b):
+        return a + b
+
+    result = await add(1, 2)
+    assert result == 3
+
+
+@pytest.mark.asyncio
+async def test_all():
+    async def gen():
+        for i in range(5):
+            yield i
+
+    out = await found.all(gen())
+    assert out == [0, 1, 2, 3, 4]
+
+
+@pytest.mark.asyncio
+async def test_limit():
+    async def gen():
+        for i in range(10):
+            yield i
+
+    out = await found.all(found.limit(gen(), 3))
+    assert out == [0, 1, 2]
+
+    # limit of 0 yields nothing
+    out = await found.all(found.limit(gen(), 0))
+    assert out == []
+
+
+@pytest.mark.asyncio
+async def test_query_with_limit():
+    db = await open()
+
+    async def setup(tx):
+        for number in range(10):
+            await found.set(tx, found.pack((number,)), found.pack((str(number),)))
+
+    await found.transactional(db, setup)
+
+    async def do_query(tx):
+        out = found.query(tx, found.pack((0,)), found.pack((9,)), limit=3)
+        return await found.all(out)
+
+    out = await found.transactional(db, do_query)
+    assert len(out) == 3
+    assert found.unpack(out[0][0])[0] == 0
+
+
+@pytest.mark.asyncio
+async def test_set_read_version():
+    db = await open()
+
+    # First, get a valid read version
+    async def get_version(tx):
+        return await found.read_version(tx)
+
+    version = await found.transactional(db, get_version)
+
+    # Now use set_read_version on a fresh transaction
+    async def do(tx):
+        await found.set_read_version(tx, version)
+        out = await found.get(tx, b"nonexistent")
+        assert out is None
+
+    await found.transactional(db, do)
+
+
+@pytest.mark.asyncio
+async def test_clear_single_key():
+    db = await open()
+
+    async def setup(tx):
+        await found.set(tx, b"clearme", b"value")
+
+    await found.transactional(db, setup)
+
+    async def verify_exists(tx):
+        return await found.get(tx, b"clearme")
+
+    out = await found.transactional(db, verify_exists)
+    assert out == b"value"
+
+    async def do_clear(tx):
+        await found.clear(tx, b"clearme")
+
+    await found.transactional(db, do_clear)
+
+    out = await found.transactional(db, verify_exists)
+    assert out is None
+
+
+@pytest.mark.asyncio
+async def test_atomic_add():
+    db = await open()
+    import struct
+
+    key = b"counter"
+
+    async def setup(tx):
+        await found.set(tx, key, struct.pack("<q", 0))
+
+    await found.transactional(db, setup)
+
+    async def do_add(tx):
+        await found.add(tx, key, struct.pack("<q", 5))
+
+    await found.transactional(db, do_add)
+
+    async def check(tx):
+        raw = await found.get(tx, key)
+        return struct.unpack("<q", raw)[0]
+
+    out = await found.transactional(db, check)
+    assert out == 5
+
+
+def test_next_prefix_all_ff():
+    with pytest.raises(ValueError):
+        found.next_prefix(b"\xff")
+
+    with pytest.raises(ValueError):
+        found.next_prefix(b"\xff\xff\xff")
+
+
+@pytest.mark.asyncio
 async def test_peace_search_store():
     import multiprocessing
     from concurrent import futures
