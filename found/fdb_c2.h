@@ -193,6 +193,40 @@ typedef struct keyvalue {
     ...;
 } FDBKeyValue;
 
+/* --- new types from upstream --- */
+
+typedef struct key {
+    const uint8_t* key;
+    int key_length;
+} FDBKey;
+
+typedef struct keyselector {
+    ...;
+} FDBKeySelector;
+
+typedef struct getrangereqandresult {
+    ...;
+} FDBGetRangeReqAndResult;
+
+typedef struct mappedkeyvalue {
+    ...;
+} FDBMappedKeyValue;
+
+typedef struct keyrange {
+    const uint8_t* begin_key;
+    int begin_key_length;
+    const uint8_t* end_key;
+    int end_key_length;
+} FDBKeyRange;
+
+typedef struct granulesummary {
+    FDBKeyRange key_range;
+    int64_t snapshot_version;
+    int64_t snapshot_size;
+    int64_t delta_version;
+    int64_t delta_size;
+} FDBGranuleSummary;
+
 const char*
 fdb_get_error( fdb_error_t code );
 
@@ -249,6 +283,14 @@ fdb_future_get_keyvalue_array( FDBFuture* f, FDBKeyValue const** out_kv,
 fdb_error_t fdb_future_get_string_array(FDBFuture* f,
                                         const char*** out_strings, int* out_count);
 
+fdb_error_t fdb_future_get_bool(FDBFuture* f, fdb_bool_t* out);
+fdb_error_t fdb_future_get_uint64(FDBFuture* f, uint64_t* out);
+fdb_error_t fdb_future_get_double(FDBFuture* f, double* out);
+fdb_error_t fdb_future_get_key_array(FDBFuture* f, FDBKey const** out_key_array, int* out_count);
+fdb_error_t fdb_future_get_mappedkeyvalue_array(FDBFuture* f, FDBMappedKeyValue const** out_kv, int* out_count, fdb_bool_t* out_more);
+fdb_error_t fdb_future_get_keyrange_array(FDBFuture* f, FDBKeyRange const** out_ranges, int* out_count);
+fdb_error_t fdb_future_get_granule_summary_array(FDBFuture* f, FDBGranuleSummary const** out_summaries, int* out_count);
+
 fdb_error_t
 fdb_create_database( const char* cluster_file_path, FDBDatabase** out_database );
 
@@ -261,6 +303,19 @@ fdb_database_set_option( FDBDatabase* d, FDBDatabaseOption option,
 fdb_error_t
 fdb_database_create_transaction( FDBDatabase* d,
                                  FDBTransaction** out_transaction );
+
+fdb_error_t fdb_create_database_from_connection_string(const char* connection_string, FDBDatabase** out_database);
+fdb_error_t fdb_database_open_tenant(FDBDatabase* d, uint8_t const* tenant_name, int tenant_name_length, FDBTenant** out_tenant);
+FDBFuture* fdb_database_reboot_worker(FDBDatabase* db, uint8_t const* address, int address_length, fdb_bool_t check, int duration);
+FDBFuture* fdb_database_force_recovery_with_data_loss(FDBDatabase* db, uint8_t const* dcid, int dcid_length);
+FDBFuture* fdb_database_create_snapshot(FDBDatabase* db, uint8_t const* uid, int uid_length, uint8_t const* snap_command, int snap_command_length);
+double fdb_database_get_main_thread_busyness(FDBDatabase* db);
+FDBFuture* fdb_database_get_server_protocol(FDBDatabase* db, uint64_t expected_version);
+FDBFuture* fdb_database_get_client_status(FDBDatabase* db);
+
+fdb_error_t fdb_tenant_create_transaction(FDBTenant* tenant, FDBTransaction** out_transaction);
+void fdb_tenant_destroy(FDBTenant* tenant);
+FDBFuture* fdb_tenant_get_id(FDBTenant* tenant);
 
 void fdb_transaction_destroy( FDBTransaction* tr);
 
@@ -357,6 +412,26 @@ fdb_transaction_get_range_split_points(FDBTransaction* tr,
                                        uint8_t const* end_key_name,
                                        int end_key_name_length,
                                        int64_t chunk_size);
+
+FDBFuture* fdb_transaction_get_mapped_range(
+    FDBTransaction* tr,
+    uint8_t const* begin_key_name, int begin_key_name_length, fdb_bool_t begin_or_equal, int begin_offset,
+    uint8_t const* end_key_name,   int end_key_name_length,   fdb_bool_t end_or_equal,   int end_offset,
+    uint8_t const* mapper_name, int mapper_name_length,
+    int limit, int target_bytes, FDBStreamingMode mode, int iteration,
+    fdb_bool_t snapshot, fdb_bool_t reverse);
+
+FDBFuture* fdb_transaction_get_tag_throttled_duration(FDBTransaction* tr);
+FDBFuture* fdb_transaction_get_total_cost(FDBTransaction* tr);
+
+FDBFuture* fdb_transaction_get_blob_granule_ranges(FDBTransaction* tr,
+    uint8_t const* begin_key_name, int begin_key_name_length,
+    uint8_t const* end_key_name,   int end_key_name_length, int rangeLimit);
+
+FDBFuture* fdb_transaction_summarize_blob_granules(FDBTransaction* tr,
+    uint8_t const* begin_key_name, int begin_key_name_length,
+    uint8_t const* end_key_name,   int end_key_name_length,
+    int64_t summaryVersion, int rangeLimit);
 
 fdb_error_t
 fdb_select_api_version_impl( int runtime_version, int header_version );
