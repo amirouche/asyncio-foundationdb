@@ -1,6 +1,6 @@
 # [asyncio-foundationdb](https://github.com/amirouche/asyncio-foundationdb/)
 
-FoundationDB drivers for asyncio tested with CPython, and PyPy 3.8+.
+FoundationDB drivers for asyncio tested with CPython and PyPy 3.9+.
 
 <!-- [![builds.sr.ht status](https://builds.sr.ht/~amirouche/asyncio-foundationdb/commits/main/.build.yml.svg)](https://builds.sr.ht/~amirouche/asyncio-foundationdb/commits/main/.build.yml?) -->
 
@@ -99,12 +99,21 @@ async def readme():
         return out
 
     out = await found.transactional(db, query, b'', b'\xFF')
-    assert [(b'azul', b'world'), (b'hello', b'world')]
+    assert out == [(b'azul', b'world'), (b'hello', b'world')]
 
 asyncio.run(readme())
 ```
 
 ## ChangeLog
+
+### v0.13.0
+
+- Support Python 3.9+
+- Refactor base.py to use `asyncio.get_running_loop()` instead of deprecated `asyncio.get_event_loop()`
+- Fix `gte()` ignoring the `offset` parameter
+- Check `fdb_create_database()` return code for errors
+- Make ffibuild.py portable (use `FDB_INCLUDE_DIR` / `FDB_LIB_DIR` env vars)
+- Upgrade bandit to 1.9+ for Python 3.14 compatibility
 
 ### v0.12.0
 
@@ -363,7 +372,7 @@ the dictionary associated with `uid` with `dict`.
 
 ### `await eavstore.query(tx, eavstore, key, value)`
 
-Lookup dictionaries according to sppecification.
+Lookup dictionaries according to specification.
 
 In the database associated with `tx`, as part of `eavstore`, generates
 unique identifier for dictionaries that have `key` equal to `value`.
@@ -459,7 +468,7 @@ Return `True` if `items` is alive in the space `vnstore`.
 
 Remove `items` from `vnstore`.
 
-### `await vnstore.query(tr, vnstore, pattern, *pattern)`
+### `await vnstore.query(tr, vnstore, pattern, *patterns)`
 
 Return immutable mappings where `vnstore.var` from `pattern`, and
 `patterns` are replaced with objects from `vnstore`.
