@@ -155,6 +155,32 @@ async def test_read_version():
 
 
 @pytest.mark.asyncio
+async def test_get_range_split_points():
+    # prepare
+    db = await open()
+
+    begin = found.pack((0,))
+    end = found.pack((100,))
+
+    # populate with a small amount of data (keeps DB size below estimation noise)
+    for i in range(10):
+        await found.transactional(
+            db, found.set, found.pack((i,)), b"\x00" * 100
+        )
+
+    # chunk_size of 1 byte asks FDB for as many split points as possible
+    out = await found.transactional(
+        db, found.get_range_split_points, begin, end, 1
+    )
+
+    # split points may be empty for small data sets — verify shape only
+    assert isinstance(out, list)
+    for key in out:
+        assert isinstance(key, bytes)
+        assert begin <= key <= end
+
+
+@pytest.mark.asyncio
 async def test_estimated_size_bytes():
     # prepare
     db = await open()

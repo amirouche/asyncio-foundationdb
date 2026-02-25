@@ -196,8 +196,7 @@ typedef struct keyvalue {
 /* --- new types from upstream --- */
 
 typedef struct key {
-    const uint8_t* key;
-    int key_length;
+    ...;
 } FDBKey;
 
 typedef struct keyselector {
