@@ -1,3 +1,4 @@
+"""Generic N-tuple store backed by FoundationDB."""
 #
 # Copyright (C) 2015-2022  Amirouche Boubekki <amirouche@hyper.dev>
 #
@@ -114,10 +115,12 @@ _NStore = namedtuple("NStore", ("name", "prefix", "n", "indices"))
 
 
 def make(name, prefix, n):
+    """Create a generic tuple store called ``name`` with ``prefix`` and ``n`` columns."""
     return _NStore(name, tuple(prefix), n, list(_compute_indices(n)))
 
 
 async def add(tx, nstore, *items, value=b""):
+    """Add ``items`` to ``nstore``, optionally associated with ``value``."""
     assert len(items) == nstore.n, "invalid item count"
     pack = (
         found.pack_with_versionstamp
@@ -132,6 +135,7 @@ async def add(tx, nstore, *items, value=b""):
 
 
 async def remove(tx, nstore, *items):
+    """Remove ``items`` from ``nstore``."""
     assert len(items) == nstore.n, "invalid item count"
     for subspace, index in enumerate(nstore.indices):
         permutation = list(items[i] for i in index)
@@ -140,6 +144,7 @@ async def remove(tx, nstore, *items):
 
 
 async def get(tx, nstore, *items):
+    """Return the value associated with ``items``, or ``None`` if not found."""
     assert len(items) == nstore.n, "invalid item count"
     subspace = 0
     key = nstore.prefix + (subspace,) + tuple(items)
@@ -177,6 +182,7 @@ async def select(tx, nstore, *pattern, seed=Map()):  # seed is immutable
 
 
 async def where(tx, nstore, iterator, *pattern):
+    """Bind ``pattern`` against each binding from ``iterator``, yield matching bindings."""
     assert len(pattern) == nstore.n, "invalid item count"
 
     async for bindings in iterator:
@@ -203,6 +209,7 @@ async def where(tx, nstore, iterator, *pattern):
 
 
 def query(tx, nstore, pattern, *patterns):
+    """Return bindings matching ``pattern`` and ``patterns`` by chaining select and where."""
     out = select(tx, nstore, *pattern)
     for pattern in patterns:
         out = where(tx, nstore, out, *pattern)

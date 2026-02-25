@@ -1,3 +1,4 @@
+"""Thread pool helpers for parallel map operations."""
 #
 # This source file is part of the asyncio-foundationdb open source project
 #
@@ -21,6 +22,7 @@ from aiostream import pipe, stream
 
 
 async def pool_for_each_par_map(loop, pool, f, p, iterator):
+    """Apply ``p`` in ``pool`` threads over ``iterator``, call ``f`` on each result."""
     zx = stream.iterate(iterator)
     zx = zx | pipe.map(lambda x: loop.run_in_executor(pool, p, x))
     async with zx.stream() as streamer:

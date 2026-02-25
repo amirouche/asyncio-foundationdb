@@ -1,3 +1,4 @@
+"""Asyncio bridge for FoundationDB via CFFI."""
 #
 # base.py — asyncio bridge for FoundationDB via CFFI
 #

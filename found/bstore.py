@@ -1,3 +1,4 @@
+"""Content-addressable blob store backed by FoundationDB."""
 #
 # found/bstore.py
 #
@@ -44,6 +45,7 @@ BStore = namedtuple(
 
 
 def make(name, prefix):
+    """Create a blob store handle called ``name`` with ``prefix``."""
     prefix = list(prefix)
     out = BStore(
         name, tuple(prefix + BSTORE_SUFFIX_HASH), tuple(prefix + BSTORE_SUFFIX_BLOB)
@@ -52,6 +54,7 @@ def make(name, prefix):
 
 
 async def get_or_create(tx, bstore, blob):
+    """Store ``blob`` and return its uid, or return existing uid if already stored."""
     hash = hasher(blob).digest()
     key = found.pack((bstore.prefix_hash, hash))
     maybe_uid = await found.get(tx, key)
@@ -68,6 +71,7 @@ async def get_or_create(tx, bstore, blob):
 
 
 async def get(tx, bstore, uid):
+    """Retrieve the blob associated with ``uid``. Raises ``BStoreException`` if not found."""
     key = found.pack((bstore.prefix_blob, uid))
     out = b""
     async for _, value in found.query(tx, key, found.next_prefix(key)):

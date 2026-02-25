@@ -441,7 +441,13 @@ Handle over a `bstore` called `name` with `prefix`.
 
 ### `await bstore.get_or_create(tx, bstore, blob)`
 
+Store `blob` and return its uid. If a blob with the same content
+already exists, return the existing uid without storing a duplicate.
+
 ### `await bstore.get(tx, bstore, uid)`
+
+Retrieve the blob associated with `uid`. Raises `BStoreException`
+if not found.
 
 ## `from found import nstore`
 
@@ -481,7 +487,18 @@ returns `None`.
 
 Create a variable called `name` for use with `nstore.query`.
 
-### `await nstore.query(tx, nstore, pattern, *patterns)`
+### `nstore.select(tx, nstore, *pattern, seed=Map())`
+
+Yield immutable bindings that match `pattern`. Each element of
+`pattern` is either a value or a `nstore.var`. This is the
+low-level primitive used by `nstore.query`.
+
+### `nstore.where(tx, nstore, iterator, *pattern)`
+
+For each binding from `iterator`, bind `pattern` and yield matching
+bindings from `nstore`. Used to chain queries together.
+
+### `nstore.query(tx, nstore, pattern, *patterns)`
 
 In the database associated with `tx`, as part of `nstore`, generate
 mappings that match `pattern` and `patterns`. Both `pattern` and
@@ -498,12 +515,13 @@ The argument `name` should be a string, it is really meant to ease
 debugging. `prefix` should be a tuple that can be packed with
 `found.pack`.
 
-### `await eavstore.create(tx, eavstore, dict)`
+### `await eavstore.create(tx, eavstore, dict, uid=None)`
 
 Store a dictionary.
 
 In the database associated with `tx`, as part of `eavstore`, save
-`dict` and returns its unique identifier.
+`dict` and returns its unique identifier. If `uid` is provided,
+use it instead of generating a new one.
 
 ### `await eavstore.get(tx, eavstore, uid)`
 
@@ -584,6 +602,12 @@ transactions, and its message `None`.
 Return a list of all changes in `vnstore`. Each change is a
 dictionary with keys `uid`, `type`, `significance`, and `message`.
 
+### `await vnstore.change_get(tr, vnstore, changeid)`
+
+Return the change as a dictionary with keys `uid`, `type`,
+`significance`, and `message`. Returns `None` if the change does
+not exist.
+
 ### `vnstore.change_continue(tr, vnstore, changeid)`
 
 Against transaction `tr`, and `vnstore`, continue a change `changeid`.
@@ -628,6 +652,13 @@ possible that two changes introduce consistency bugs.
 
 [Contact me for workarounds](mailto:amirouche@hyper.dev)
 
+### `vnstore.select(tr, vnstore, *pattern, seed=Map())`
+
+Yield immutable bindings that match `pattern` against alive tuples
+in `vnstore`. Each element of `pattern` is either a value or a
+`nstore.var`. This is the low-level primitive used by
+`vnstore.query`.
+
 ### `await vnstore.ask(tr, vnstore, *items)`
 
 Return `True` if `items` is alive in the space `vnstore`.
@@ -651,3 +682,11 @@ matching bindings from `vnstore`. Used to chain queries together.
 
 Return immutable mappings where `vnstore.var` from `pattern`, and
 `patterns` are replaced with objects from `vnstore`.
+
+## `from found import pool`
+
+### `await pool.pool_for_each_par_map(loop, pool, f, p, iterator)`
+
+Apply `p` in `pool` threads over `iterator`, calling `f` on each
+result as it completes. `loop` is the asyncio event loop, `pool` is
+a `concurrent.futures.ThreadPoolExecutor`.

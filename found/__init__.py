@@ -1,3 +1,4 @@
+"""FoundationDB asyncio drivers for Python."""
 #
 # __init__.py
 #
