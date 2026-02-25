@@ -192,6 +192,11 @@ typedef int fdb_error_t;
 typedef int fdb_bool_t;
 
 #pragma pack(push, 4)
+typedef struct key {
+    const uint8_t* key;
+    int key_length;
+} FDBKey;
+
 typedef struct keyvalue {
     const uint8_t* key;
     int key_length;
@@ -201,11 +206,6 @@ typedef struct keyvalue {
 #pragma pack(pop)
 
 /* --- new types from upstream --- */
-
-typedef struct key {
-    const uint8_t* key;
-    int key_length;
-} FDBKey;
 
 typedef struct keyselector {
     FDBKey key;

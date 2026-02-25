@@ -323,10 +323,11 @@ be `bytes` when provided.
 
 Get split points for a key range.
 
-In the database associated with `tx`, return split points that
-divide the range from `begin` to `end` into chunks of approximately
+In the database associated with `tx`, return a list of `bytes` keys
+that divide the range from `begin` to `end` into chunks of approximately
 `chunk_size` bytes each. `begin` and `end` must be `bytes`.
-`chunk_size` is an integer in bytes.
+`chunk_size` is an integer in bytes. Returns an empty list if the range
+is empty or smaller than `chunk_size`.
 
 ### `await found.estimated_size_bytes(tx, begin, end)`
 

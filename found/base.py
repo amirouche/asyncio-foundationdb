@@ -256,6 +256,35 @@ def _cb_get_key(fdb_future, handle):
 
 
 @ffi.callback("void(FDBFuture *, void *)")
+def _cb_get_key_array(fdb_future, handle):
+    """Callback for fdb_future_get_key_array — returns a list of bytes keys.
+
+    FDBKey is #pragma pack(4): pointer(8) + int(4) = 12 bytes, no trailing pad.
+    We unpack manually (same strategy as _cb_get_range / FDBKeyValue) to avoid
+    any CFFI-vs-compiler layout disagreement."""
+    loop, aio_future = ffi.from_handle(handle)
+    keys = ffi.new("FDBKey const **")
+    count = ffi.new("int *")
+    error = lib.fdb_future_get_key_array(fdb_future, keys, count)
+    if error == 0:
+        out = []
+        if count[0] > 0:
+            copy = keys[0][0:count[0]]
+            for k in copy:
+                # Layout with pack(4): key_ptr(8) key_len(4) = 12 bytes
+                memory = ffi.buffer(ffi.addressof(k), 12)
+                key_ptr, key_length = struct.unpack("=qi", memory)
+                out.append(bytes(ffi.buffer(ffi.cast("char *", key_ptr), key_length)))
+        _release_handle(fdb_future)
+        lib.fdb_future_destroy(fdb_future)
+        loop.call_soon_threadsafe(aio_future.set_result, out)
+    else:
+        _release_handle(fdb_future)
+        lib.fdb_future_destroy(fdb_future)
+        loop.call_soon_threadsafe(aio_future.set_exception, FoundException(error))
+
+
+@ffi.callback("void(FDBFuture *, void *)")
 def _cb_error(fdb_future, handle):
     """Used for fdb_transaction_on_error — resolves to None or raises."""
     loop, aio_future = ffi.from_handle(handle)
@@ -612,15 +641,17 @@ CONFLICT_RANGE_TYPE_WRITE = 1
 
 
 async def get_range_split_points(tx, begin, end, chunk_size):
-    """Wraps fdb_transaction_get_range_split_points (async future).
-    Returns None on success (result keys are not extracted)."""
+    """Wraps fdb_transaction_get_range_split_points.
+
+    Returns a list of bytes keys that divide the range [begin, end) into
+    chunks of approximately chunk_size bytes each."""
     loop = asyncio.get_running_loop()
     fdb_future = lib.fdb_transaction_get_range_split_points(
         tx.pointer, begin, len(begin), end, len(end), chunk_size
     )
     aio_future = loop.create_future()
-    _register_callback(fdb_future, _cb_commit, loop, aio_future)
-    await aio_future
+    _register_callback(fdb_future, _cb_get_key_array, loop, aio_future)
+    return await aio_future
 
 
 async def transactional(db, func, *args, snapshot=False, **kwargs):
