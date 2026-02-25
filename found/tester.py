@@ -249,11 +249,17 @@ class Tester:
             elif is_snapshot:
                 tx = self.current_transaction()
                 snap_tx = found.base.Transaction(tx.pointer, tx.db, True, tx.vars)
-                coro = found.get(snap_tx, key)
-                self.stack.push_value(idx, coro)
+                result = await found.get(snap_tx, key)
+                if result is None:
+                    self.stack.push(idx, b"RESULT_NOT_PRESENT")
+                else:
+                    self.stack.push(idx, result)
             else:
-                coro = found.get(self.current_transaction(), key)
-                self.stack.push_value(idx, coro)
+                result = await found.get(self.current_transaction(), key)
+                if result is None:
+                    self.stack.push(idx, b"RESULT_NOT_PRESENT")
+                else:
+                    self.stack.push(idx, result)
 
         elif op == b"GET_KEY":
             key = await self.stack.pop_value()
@@ -616,54 +622,72 @@ class Tester:
                 await found.set(tr, key, packed)
             await found.commit(tr)
 
-    # --- Database-level operations (auto-transact) ---
+    # --- Database-level operations (auto-transact with retry) ---
+
+    async def _db_transact(self, func):
+        """Run func(tx) with automatic retry on retryable errors."""
+        tx = _make_transaction(self.db)
+        while True:
+            try:
+                result = await func(tx)
+                return result
+            except found.FoundException as e:
+                await found.on_error(tx, e.code)
 
     async def _do_database_get(self, idx, key):
-        tx = _make_transaction(self.db)
-        result = await found.get(tx, key)
+        async def op(tx):
+            return await found.get(tx, key)
+        result = await self._db_transact(op)
         if result is None:
             self.stack.push(idx, b"RESULT_NOT_PRESENT")
         else:
             self.stack.push(idx, result)
 
     async def _do_database_get_key(self, idx, ks, prefix):
-        tx = _make_transaction(self.db)
-        result = await found.get_key(tx, ks)
+        async def op(tx):
+            return await found.get_key(tx, ks)
+        result = await self._db_transact(op)
         result = self._clamp_key(result, prefix)
         self.stack.push(idx, result)
 
     async def _do_database_get_range(self, idx, begin, end, limit, reverse, mode):
-        tx = _make_transaction(self.db)
-        kvs = await found.get_range(tx, begin, end, limit=limit, reverse=bool(reverse), mode=mode)
+        async def op(tx):
+            return await found.get_range(tx, begin, end, limit=limit, reverse=bool(reverse), mode=mode)
+        kvs = await self._db_transact(op)
         self.stack.push(idx, self._pack_range(kvs))
 
     async def _do_database_get_range_selector(self, idx, begin_sel, end_sel, limit, reverse, mode, prefix):
-        tx = _make_transaction(self.db)
-        kvs = await found.get_range(tx, begin_sel, end_sel, limit=limit, reverse=bool(reverse), mode=mode)
+        async def op(tx):
+            return await found.get_range(tx, begin_sel, end_sel, limit=limit, reverse=bool(reverse), mode=mode)
+        kvs = await self._db_transact(op)
         self.stack.push(idx, self._pack_range(kvs, prefix))
 
     async def _do_database_set(self, idx, key, value):
-        tx = _make_transaction(self.db)
-        await found.set(tx, key, value)
-        await found.commit(tx)
+        async def op(tx):
+            await found.set(tx, key, value)
+            await found.commit(tx)
+        await self._db_transact(op)
         self.stack.push(idx, b"RESULT_NOT_PRESENT")
 
     async def _do_database_clear(self, idx, key):
-        tx = _make_transaction(self.db)
-        await found.clear(tx, key)
-        await found.commit(tx)
+        async def op(tx):
+            await found.clear(tx, key)
+            await found.commit(tx)
+        await self._db_transact(op)
         self.stack.push(idx, b"RESULT_NOT_PRESENT")
 
     async def _do_database_clear_range(self, idx, begin, end):
-        tx = _make_transaction(self.db)
-        await found.clear(tx, begin, end)
-        await found.commit(tx)
+        async def op(tx):
+            await found.clear(tx, begin, end)
+            await found.commit(tx)
+        await self._db_transact(op)
         self.stack.push(idx, b"RESULT_NOT_PRESENT")
 
     async def _do_database_atomic_op(self, idx, opcode, key, value):
-        tx = _make_transaction(self.db)
-        found.base._atomic(tx, opcode, key, value)
-        await found.commit(tx)
+        async def op(tx):
+            found.base._atomic(tx, opcode, key, value)
+            await found.commit(tx)
+        await self._db_transact(op)
         self.stack.push(idx, b"RESULT_NOT_PRESENT")
 
 
