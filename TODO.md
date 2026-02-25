@@ -14,4 +14,4 @@ Unbound or incomplete FoundationDB C API bindings in `found/base.py`:
 
 ## Internals
 
-- [ ] Investigate `found/tester.py`: understand whether the binding tester uses multiple threads, multiple asyncio tasks, or both — and document the concurrency model
+- [x] Investigate `found/tester.py`: understand whether the binding tester uses multiple threads, multiple asyncio tasks, or both — and document the concurrency model

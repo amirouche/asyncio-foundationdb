@@ -47,11 +47,13 @@ fi
 # Patch known_testers.py to register `found`
 KNOWN_TESTERS="$FDB_DIR/bindings/bindingtester/known_testers.py"
 if ! grep -q "'found'" "$KNOWN_TESTERS"; then
-    echo "Registering 'found' tester..."
+    echo "Registering 'found' testers..."
     cat >> "$KNOWN_TESTERS" <<'PYEOF'
 
-# found — asyncio Python binding
-testers['found'] = Tester('found', 'python found/tester.py', 2040, 23, 730, types=ALL_TYPES)
+# found — asyncio Python binding (POSIX threads variant)
+testers['found'] = Tester('found', 'python found/tester_pthread.py', 2040, 23, 730, types=ALL_TYPES)
+# found — asyncio Python binding (asyncio tasks variant)
+testers['found_aio'] = Tester('found_aio', 'python found/tester_aio.py', 2040, 23, 730, types=ALL_TYPES)
 PYEOF
 fi
 

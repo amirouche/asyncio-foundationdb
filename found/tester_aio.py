@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 #
-# tester.py — FoundationDB binding tester stack machine for `found`
+# tester_aio.py — FoundationDB binding tester stack machine for `found`
+#
+# asyncio variant: START_THREAD spawns asyncio tasks instead of OS threads,
+# so all testers share a single event loop.
 #
 # Implements the stack machine protocol used by the FDB binding tester
 # (bindingtester.py) to validate correctness of language bindings.
 #
-# Invocation: python found/tester.py <prefix> <api_version> [cluster_file]
+# Invocation: python found/tester_aio.py <prefix> <api_version> [cluster_file]
 #
 
 import asyncio
 import struct
 import sys
-import threading
 import traceback
 
 import fdb
@@ -127,7 +129,7 @@ class Tester:
         self.transactions = {}
         self.tr_name = b"tr"
         self.last_version = 0
-        self.threads = []
+        self.tasks = []
 
     def current_transaction(self):
         return self.transactions[self.tr_name]
@@ -159,9 +161,9 @@ class Tester:
                 print(f"ERROR at instruction {idx}: op={op}", file=sys.stderr)
                 raise
 
-        # Wait for all spawned threads
-        for t in self.threads:
-            t.join()
+        # Wait for all spawned tasks
+        if self.tasks:
+            await asyncio.gather(*self.tasks)
 
     async def _process(self, idx, op, op_tuple):
         # Determine the object context (database, snapshot, or transaction)
@@ -553,9 +555,9 @@ class Tester:
 
         elif op == b"START_THREAD":
             prefix_arg = await self.stack.pop_value()
-            t = threading.Thread(target=_run_tester_thread, args=(self.db, prefix_arg))
-            t.start()
-            self.threads.append(t)
+            tester = Tester(self.db, prefix_arg)
+            task = asyncio.create_task(tester.run())
+            self.tasks.append(task)
 
         elif op == b"WAIT_EMPTY":
             prefix_arg = await self.stack.pop_value()
@@ -689,20 +691,6 @@ class Tester:
             await found.commit(tx)
         await self._db_transact(op)
         self.stack.push(idx, b"RESULT_NOT_PRESENT")
-
-
-# ---------------------------------------------------------------------------
-# Thread helper — each thread gets its own event loop
-# ---------------------------------------------------------------------------
-
-def _run_tester_thread(db, prefix):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        tester = Tester(db, prefix)
-        loop.run_until_complete(tester.run())
-    finally:
-        loop.close()
 
 
 # ---------------------------------------------------------------------------

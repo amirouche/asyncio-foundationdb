@@ -84,7 +84,7 @@ asyncio.run(readme())
 ### v0.13.0
 
 - Upgrade to FoundationDB 7.3 (API version 730)
-- Add binding tester (correctness test suite) with CI workflows
+- Add binding tester (correctness test suite) with CI workflows, tested under both POSIX threads (`tester_pthread.py`) and asyncio tasks (`tester_aio.py`) concurrency modes
 - Add new public APIs: `get_key`, `get_range`, `commit`, `on_error`, `reset`, `cancel`, `get_committed_version`, `get_approximate_size`, `get_versionstamp`, `add_conflict_range`, `set_option`, `get_range_split_points`
 - Add docstrings to all public functions and module docstrings to all modules
 - Support Python 3.9+
