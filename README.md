@@ -2,11 +2,7 @@
 
 FoundationDB drivers for asyncio tested with CPython and PyPy 3.9+.
 
-<!-- [![builds.sr.ht status](https://builds.sr.ht/~amirouche/asyncio-foundationdb/commits/main/.build.yml.svg)](https://builds.sr.ht/~amirouche/asyncio-foundationdb/commits/main/.build.yml?) -->
-
 [![Library Database](https://images.unsplash.com/photo-1544383835-bda2bc66a55d?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1021&q=80)](https://unsplash.com/photos/lRoX0shwjUQ)
-
-## Marketing
 
 **One language. One API. Your data model.**
 
@@ -32,10 +28,16 @@ wrong.
 This is not about avoiding complexity. It's about choosing which
 complexity you live with — and keeping it visible.
 
+## Links
+
+- [FoundationDB Website](https://www.foundationdb.org/)
+- [FoundationDB Forum](https://forums.foundationdb.org/)
+- [FoundationDB Documentation](https://apple.github.io/foundationdb/)
+
 ## Installation
 
-In a minute, install foundationdb, getting the latest stable release
-from the official release page: https://github.com/apple/foundationdb/releases
+In a minute, install FoundationDB 7.3+, getting the latest stable release
+from the official release page: https://github.com/apple/foundationdb/releases/tag/7.3.69
 
 Then install asyncio drivers `asyncio-foundationdb`:
 
@@ -81,6 +83,9 @@ asyncio.run(readme())
 
 ### v0.13.0
 
+- Upgrade to FoundationDB 7.3 (API version 730)
+- Add binding tester (correctness test suite) with CI workflows
+- Add new public APIs: `get_key`, `get_range`, `commit`, `on_error`, `reset`, `cancel`, `get_committed_version`, `get_approximate_size`, `get_versionstamp`, `add_conflict_range`, `set_option`, `get_range_split_points`
 - Support Python 3.9+
 - Refactor base.py to use `asyncio.get_running_loop()` instead of deprecated `asyncio.get_event_loop()`
 - Fix `gte()` ignoring the `offset` parameter
@@ -165,6 +170,12 @@ Serialize python objects `tuple` into bytes. `tuple` may contain
 
 Deserialize bytes into python objects.
 
+### `found.has_incomplete_versionstamp(tuple)`
+
+Return `True` if `tuple` contains at least one incomplete
+`Versionstamp`. Useful to validate input before calling
+`found.pack_with_versionstamp`.
+
 ### `found.Versionstamp(...)`
 
 Represents a FoundationDB versionstamp. Used with
@@ -211,6 +222,108 @@ The keyword `mode` can be one the following constant:
 - `found.STREAMING_MODE_MEDIUM`
 - `found.STREAMING_MODE_LARGE`
 - `found.STREAMING_MODE_SERIAL`
+
+### `await found.get_key(tx, key_selector)`
+
+Resolve a key selector to a key.
+
+In the database associated with `tx`, resolve the given
+`key_selector` and return the resulting key as `bytes`. The
+`key_selector` should be created with `found.lt`, `found.lte`,
+`found.gt`, or `found.gte`.
+
+### `await found.get_range(tx, begin, end, limit=0, reverse=False, mode=STREAMING_MODE_WANT_ALL)`
+
+Fetch a range of key-value pairs as a list.
+
+In the database associated with `tx`, return a list of `(key,
+value)` pairs in the range from `begin` to `end`. Unlike
+`found.query` which is an async generator, `get_range` fetches all
+results into a flat list. `begin` and `end` can be `bytes` or
+`KeySelector` instances.
+
+If `limit=0`, all key-value pairs in the range are returned.
+If `reverse=True`, results are returned in reverse lexicographic
+order.
+
+### `await found.commit(tx)`
+
+Commit the transaction.
+
+Explicitly commit the transaction `tx`. This is done automatically
+by `found.transactional`, but is useful when managing transactions
+manually with `found._make_transaction`.
+
+### `await found.on_error(tx, code)`
+
+Handle a transaction error.
+
+Pass error `code` to FoundationDB's conflict resolution logic. If
+the error is retryable, the transaction is reset and the coroutine
+returns. If the error is not retryable, raises `FoundException`.
+
+### `found.reset(tx)`
+
+Reset the transaction.
+
+Reset `tx` to its initial state, as if it had just been created.
+This allows the transaction object to be reused for a new operation.
+
+### `found.cancel(tx)`
+
+Cancel the transaction.
+
+Cancel `tx`, causing any pending or future operations on it to fail
+with an error.
+
+### `found.get_committed_version(tx)`
+
+Return the committed version of the transaction.
+
+After a successful commit, returns the version at which the
+transaction was committed as an integer. Must be called after
+`found.commit`.
+
+### `await found.get_approximate_size(tx)`
+
+Return the approximate size of the transaction in bytes.
+
+Returns the approximate byte size of the transaction so far,
+including all keys, values, and conflict ranges. Useful for
+monitoring whether a transaction is approaching the 10 MB limit.
+
+### `await found.get_versionstamp(tx)`
+
+Return the versionstamp of a committed transaction.
+
+Returns the 10-byte versionstamp as `bytes`. The future must be
+created before commit and awaited after commit completes.
+
+### `found.add_conflict_range(tx, begin, end, conflict_type)`
+
+Add a conflict range to the transaction.
+
+Manually add a read or write conflict range to `tx`. `begin` and
+`end` must be `bytes`. `conflict_type` must be
+`found.CONFLICT_RANGE_TYPE_READ` or
+`found.CONFLICT_RANGE_TYPE_WRITE`.
+
+### `found.set_option(tx, option, value=None)`
+
+Set a transaction option.
+
+Set an option on `tx`. `option` must be one of the
+`FDB_TR_OPTION_*` integer constants. `value` is optional and must
+be `bytes` when provided.
+
+### `await found.get_range_split_points(tx, begin, end, chunk_size)`
+
+Get split points for a key range.
+
+In the database associated with `tx`, return split points that
+divide the range from `begin` to `end` into chunks of approximately
+`chunk_size` bytes each. `begin` and `end` must be `bytes`.
+`chunk_size` is an integer in bytes.
 
 ### `await found.estimated_size_bytes(tx, begin, end)`
 

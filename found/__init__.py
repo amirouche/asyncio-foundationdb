@@ -23,7 +23,7 @@ import fdb
 
 from found._fdb import lib
 
-__VERSION__ = (0, 10, 0)
+__VERSION__ = (0, 13, 0)
 
 MAX_SIZE_TRANSACTION = 10**7
 MAX_SIZE_KEY = 10**4
@@ -94,6 +94,7 @@ from found.base import get_approximate_size  # noqa
 from found.base import get_committed_version  # noqa
 from found.base import get_key  # noqa
 from found.base import get_range  # noqa
+from found.base import get_range_split_points  # noqa
 from found.base import get_versionstamp  # noqa
 from found.base import gt  # noqa
 from found.base import gte  # noqa
