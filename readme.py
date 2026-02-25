@@ -28,7 +28,7 @@ async def readme():
         return out
 
     out = await found.transactional(db, query, b'', b'\xFF')
-    assert [(b'azul', b'world'), (b'hello', b'world')]
+    assert out == [(b'azul', b'world'), (b'hello', b'world')]
 
     print('What is done is not to be done.')
 
