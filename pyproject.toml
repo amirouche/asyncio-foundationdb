@@ -1,34 +1,48 @@
 [project]
 name = "asyncio-foundationdb"
-version = "0.12.0"
-
-[tool.setuptools.dynamic]
-dependencies = {file = ["requirements.txt"]}
-
-[tool.poetry]
-name = "asyncio-foundationdb"
-version = "0.12.0"
+version = "0.13.0"
 description = "FoundationDB drivers for asyncio"
-authors = ["ⵄⵎⵉⵔⵓⵛ ⴰⵎⴰⵣⵉⵖ <amirouche@hyper.dev>"]
-license = "Apache v2"
 readme = "README.md"
-build = "found/ffibuild.py"
-packages = [
-    { include = "found" },
+license = "Apache-2.0"
+authors = [
+    { name = "Amirouche A. BOUBEKKI", email = "amirouche.boubekki@gmail.com" },
 ]
 
-[tool.poetry.dependencies]
-python = "^3.8"
-aiostream = "^0.5"
-cffi = "^1"
-foundationdb = "^7.3"
-immutables = "^0"
-loguru = "^0"
-more-itertools = "^10"
-uuid7 = "^0.1"
-uvicorn = "^0.24"
-zstandard = "^0.22"
-jinja2 = "^3"
+requires-python = ">=3.14"
+
+dependencies = [
+    "aiostream",
+    "cffi",
+    "foundationdb",
+    "immutables",
+    "loguru",
+    "more-itertools",
+    "uuid7",
+    "uvicorn",
+    "zstandard",
+    "jinja2",
+    "typing-extensions>=4.12.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "bandit",
+    "black",
+    "isort",
+    "pylama",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "setuptools",
+]
+
+[build-system]
+requires = ["poetry-core", "setuptools", "cffi"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+packages = [{ include = "found" }]
+build = "found/ffibuild.py"
 
 [tool.poetry.group.dev.dependencies]
 bandit = "*"
@@ -39,7 +53,3 @@ pytest = "*"
 pytest-asyncio = "*"
 pytest-cov = "*"
 setuptools = "*"
-
-[build-system]
-requires = ["poetry-core", "setuptools", "cffi"]
-build-backend = "poetry.core.masonry.api"
