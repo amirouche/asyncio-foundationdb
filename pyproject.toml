@@ -8,7 +8,7 @@ authors = [
     { name = "Amirouche A. BOUBEKKI", email = "amirouche.boubekki@gmail.com" },
 ]
 
-requires-python = ">=3.14"
+requires-python = ">=3.9"
 
 dependencies = [
     "aiostream",
@@ -26,7 +26,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "bandit",
+    "bandit>=1.9; python_version>='3.10'",
     "black",
     "isort",
     "pylama",
@@ -45,7 +45,7 @@ packages = [{ include = "found" }]
 build = "found/ffibuild.py"
 
 [tool.poetry.group.dev.dependencies]
-bandit = "*"
+bandit = {version = ">=1.9", python = ">=3.10"}
 black = "*"
 isort = "*"
 pylama = "*"
