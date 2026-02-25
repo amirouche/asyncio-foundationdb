@@ -796,3 +796,104 @@ async def test_peace_search_store():
     expected = [(0, 42), (1, 3)]
     out = await found.transactional(db, pstore.search, store, ["database"], 10)
     assert out == expected
+
+
+@pytest.mark.asyncio
+async def test_append_if_fits():
+    db = await open()
+
+    key = b"append_test"
+
+    async def setup(tx):
+        await found.set(tx, key, b"hello")
+
+    await found.transactional(db, setup)
+
+    async def do_append(tx):
+        await found.append_if_fits(tx, key, b" world")
+
+    await found.transactional(db, do_append)
+
+    async def check(tx):
+        return await found.get(tx, key)
+
+    out = await found.transactional(db, check)
+    assert out == b"hello world"
+
+
+@pytest.mark.asyncio
+async def test_compare_and_clear():
+    db = await open()
+
+    key = b"cac_test"
+
+    # Set key, then compare_and_clear with matching value — key should be gone
+    async def setup(tx):
+        await found.set(tx, key, b"match")
+
+    await found.transactional(db, setup)
+
+    async def do_clear_match(tx):
+        await found.compare_and_clear(tx, key, b"match")
+
+    await found.transactional(db, do_clear_match)
+
+    async def check(tx):
+        return await found.get(tx, key)
+
+    out = await found.transactional(db, check)
+    assert out is None
+
+    # Set key, then compare_and_clear with non-matching value — key should remain
+    await found.transactional(db, setup)
+
+    async def do_clear_no_match(tx):
+        await found.compare_and_clear(tx, key, b"nope")
+
+    await found.transactional(db, do_clear_no_match)
+
+    out = await found.transactional(db, check)
+    assert out == b"match"
+
+
+def test_get_client_version():
+    version = found.get_client_version()
+    assert isinstance(version, str)
+    assert len(version) > 0
+    assert "7.3" in version
+
+
+@pytest.mark.asyncio
+async def test_get_addresses_for_key():
+    db = await open()
+
+    key = b"addr_test"
+
+    # Write a key so storage servers have it
+    await found.transactional(db, found.set, key, b"value")
+
+    async def do_get_addresses(tx):
+        return await found.get_addresses_for_key(tx, key)
+
+    out = await found.transactional(db, do_get_addresses)
+    assert isinstance(out, list)
+    for addr in out:
+        assert isinstance(addr, str)
+
+
+@pytest.mark.asyncio
+async def test_database_set_option():
+    db = await open()
+    # FDB_DB_OPTION_TRANSACTION_TIMEOUT = 500
+    import struct
+    found.database_set_option(db, 500, struct.pack("<q", 5000))
+
+
+def test_error_predicate():
+    # error code 1020 = not_committed, should be retryable
+    assert found.error_predicate(found.ERROR_PREDICATE_RETRYABLE, 1020) is True
+    # error code 1021 = commit_unknown_result, retryable and maybe_committed
+    assert found.error_predicate(found.ERROR_PREDICATE_RETRYABLE, 1021) is True
+    assert found.error_predicate(found.ERROR_PREDICATE_MAYBE_COMMITTED, 1021) is True
+    # error code 2000 is not retryable
+    assert found.error_predicate(found.ERROR_PREDICATE_RETRYABLE, 2000) is False

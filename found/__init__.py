@@ -84,7 +84,12 @@ from found.base import CONFLICT_RANGE_TYPE_WRITE  # noqa
 from found.base import KeySelector  # noqa
 from found.base import Transaction  # noqa
 from found.base import _make_transaction  # noqa
+from found.base import ERROR_PREDICATE_MAYBE_COMMITTED  # noqa
+from found.base import ERROR_PREDICATE_RETRYABLE  # noqa
+from found.base import ERROR_PREDICATE_RETRYABLE_NOT_COMMITTED  # noqa
 from found.base import add  # noqa
+from found.base import add_network_thread_completion_hook  # noqa
+from found.base import append_if_fits  # noqa
 from found.base import add_conflict_range  # noqa
 from found.base import bit_and  # noqa
 from found.base import bit_or  # noqa
@@ -94,9 +99,14 @@ from found.base import byte_min  # noqa
 from found.base import cancel  # noqa
 from found.base import clear  # noqa
 from found.base import commit  # noqa
+from found.base import compare_and_clear  # noqa
+from found.base import database_set_option  # noqa
+from found.base import error_predicate  # noqa
 from found.base import estimated_size_bytes  # noqa
 from found.base import get  # noqa
+from found.base import get_addresses_for_key  # noqa
 from found.base import get_approximate_size  # noqa
+from found.base import get_client_version  # noqa
 from found.base import get_committed_version  # noqa
 from found.base import get_key  # noqa
 from found.base import get_range  # noqa
@@ -108,6 +118,7 @@ from found.base import lt  # noqa
 from found.base import lte  # noqa
 from found.base import max  # noqa
 from found.base import min  # noqa
+from found.base import network_set_option  # noqa
 from found.base import next_prefix  # noqa
 from found.base import on_error  # noqa
 from found.base import open  # noqa

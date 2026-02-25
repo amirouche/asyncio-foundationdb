@@ -285,6 +285,26 @@ def _cb_get_key_array(fdb_future, handle):
 
 
 @ffi.callback("void(FDBFuture *, void *)")
+def _cb_get_string_array(fdb_future, handle):
+    """Callback for fdb_future_get_string_array — returns a list of UTF-8 strings."""
+    loop, aio_future = ffi.from_handle(handle)
+    strings = ffi.new("const char ***")
+    count = ffi.new("int *")
+    error = lib.fdb_future_get_string_array(fdb_future, strings, count)
+    if error == 0:
+        out = []
+        for i in range(count[0]):
+            out.append(ffi.string(strings[0][i]).decode("utf-8"))
+        _release_handle(fdb_future)
+        lib.fdb_future_destroy(fdb_future)
+        loop.call_soon_threadsafe(aio_future.set_result, out)
+    else:
+        _release_handle(fdb_future)
+        lib.fdb_future_destroy(fdb_future)
+        loop.call_soon_threadsafe(aio_future.set_exception, FoundException(error))
+
+
+@ffi.callback("void(FDBFuture *, void *)")
 def _cb_error(fdb_future, handle):
     """Used for fdb_transaction_on_error — resolves to None or raises."""
     loop, aio_future = ffi.from_handle(handle)
@@ -497,6 +517,8 @@ async def max(tx, key, param):                    _atomic(tx, MUTATION_MAX, key,
 async def byte_max(tx, key, param):               _atomic(tx, MUTATION_BYTE_MAX, key, param)
 async def min(tx, key, param):                    _atomic(tx, MUTATION_MIN, key, param)
 async def byte_min(tx, key, param):               _atomic(tx, MUTATION_BYTE_MIN, key, param)
+async def append_if_fits(tx, key, param):          _atomic(tx, MUTATION_APPEND_IF_FITS, key, param)
+async def compare_and_clear(tx, key, param):       _atomic(tx, MUTATION_COMPARE_AND_CLEAR, key, param)
 async def set_versionstamped_key(tx, key, param): _atomic(tx, MUTATION_SET_VERSIONSTAMPED_KEY, key, param)
 async def set_versionstamped_value(tx, key, param): _atomic(tx, MUTATION_SET_VERSIONSTAMPED_VALUE, key, param)
 
@@ -678,6 +700,16 @@ def watch(tx, key):
     return aio_future
 
 
+async def get_addresses_for_key(tx, key):
+    """Wraps fdb_transaction_get_addresses_for_key (async future -> list of strings)."""
+    assert isinstance(key, bytes)
+    loop = asyncio.get_running_loop()
+    fdb_future = lib.fdb_transaction_get_addresses_for_key(tx.pointer, key, len(key))
+    aio_future = loop.create_future()
+    _register_callback(fdb_future, _cb_get_string_array, loop, aio_future)
+    return await aio_future
+
+
 async def transactional(db, func, *args, snapshot=False, **kwargs):
     loop = asyncio.get_running_loop()
     tx = _make_transaction(db, snapshot)
@@ -712,3 +744,64 @@ async def open(cluster_file=None):
     _check(lib.fdb_create_database(cluster_file_c, out))
     out = ffi.gc(out[0], lib.fdb_database_destroy)
     return Database(out)
+
+
+# ---------------------------------------------------------------------------
+# Database options
+# ---------------------------------------------------------------------------
+
+def database_set_option(db, option, value=None):
+    """Wraps fdb_database_set_option (synchronous)."""
+    if value is None:
+        _check(lib.fdb_database_set_option(db.pointer, option, ffi.NULL, 0))
+    else:
+        _check(lib.fdb_database_set_option(db.pointer, option, value, len(value)))
+
+
+# ---------------------------------------------------------------------------
+# Network options and hooks
+# ---------------------------------------------------------------------------
+
+def network_set_option(option, value=None):
+    """Wraps fdb_network_set_option (synchronous). Must be called before network start."""
+    if value is None:
+        _check(lib.fdb_network_set_option(option, ffi.NULL, 0))
+    else:
+        _check(lib.fdb_network_set_option(option, value, len(value)))
+
+
+_completion_hooks = []
+
+
+@ffi.callback("void(void *)")
+def _completion_hook_trampoline(param):
+    idx = ffi.cast("intptr_t", param)
+    _completion_hooks[idx]()
+
+
+def add_network_thread_completion_hook(callback):
+    """Register a callback to be invoked when the network thread exits."""
+    idx = len(_completion_hooks)
+    _completion_hooks.append(callback)
+    _check(lib.fdb_add_network_thread_completion_hook(
+        _completion_hook_trampoline, ffi.cast("void *", idx)
+    ))
+
+
+# ---------------------------------------------------------------------------
+# Client version and error predicates
+# ---------------------------------------------------------------------------
+
+def get_client_version():
+    """Return the FDB client library version string."""
+    return ffi.string(lib.fdb_get_client_version()).decode("utf-8")
+
+
+ERROR_PREDICATE_RETRYABLE = 50000
+ERROR_PREDICATE_MAYBE_COMMITTED = 50001
+ERROR_PREDICATE_RETRYABLE_NOT_COMMITTED = 50002
+
+
+def error_predicate(predicate, code):
+    """Test whether an error code matches a predicate (retryable, maybe-committed, etc.)."""
+    return bool(lib.fdb_error_predicate(predicate, code))
