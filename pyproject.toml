@@ -3,7 +3,7 @@ name = "asyncio-foundationdb"
 version = "0.13.0"
 description = "FoundationDB drivers for asyncio"
 readme = "README.md"
-license = "Apache-2.0"
+license = {text = "Apache-2.0"}
 authors = [
     { name = "Amirouche A. BOUBEKKI", email = "amirouche.boubekki@gmail.com" },
 ]
@@ -13,7 +13,7 @@ requires-python = ">=3.9"
 dependencies = [
     "aiostream",
     "cffi",
-    "foundationdb",
+    "foundationdb>=7.3,<7.4",
     "immutables",
     "loguru",
     "more-itertools",

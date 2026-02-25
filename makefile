@@ -5,8 +5,8 @@ MAIN=$(shell basename $(PWD))
 help: ## This help.
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST) | sort
 
-FDB_CLIENT="https://github.com/apple/foundationdb/releases/download/7.1.43/foundationdb-clients_7.1.43-1_amd64.deb"
-FDB_SERVER="https://github.com/apple/foundationdb/releases/download/7.1.43/foundationdb-server_7.1.43-1_amd64.deb"
+FDB_CLIENT="https://github.com/apple/foundationdb/releases/download/7.3.69/foundationdb-clients_7.3.69-1_amd64.deb"
+FDB_SERVER="https://github.com/apple/foundationdb/releases/download/7.3.69/foundationdb-server_7.3.69-1_amd64.deb"
 
 debian: ## Install foundationdb, requires sudo
 	rm -rf fdb-clients.deb fdb-server.deb
@@ -23,8 +23,14 @@ init: ## Prepare the host sytem for development
 database-clear:
 	fdbcli --exec "writemode on; clearrange \x00 \xFF;"
 
+ITERATIONS?=1
+
+check-correctness: ## Run binding tester correctness suite
+	poetry run bash scripts/setup_bindingtester.sh
+	poetry run bash scripts/run_bindingtester.sh $(ITERATIONS)
+
 check: ## Run tests
-	pytest -vvv --exitfirst --capture=no $(MAIN)/*.py
+	poetry run pytest -vvv --exitfirst --capture=no $(MAIN)/*.py
 	if command -v bandit > /dev/null; then bandit --skip=B101,B311 -r $(MAIN); fi
 
 check-fast: ## Run tests, fail fast

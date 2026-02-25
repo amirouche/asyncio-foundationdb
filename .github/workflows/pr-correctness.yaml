@@ -1,0 +1,42 @@
+name: PR correctness
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [ labeled, unlabeled, opened, synchronize, reopened ]
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  GIT_OBJECT: ${{ github.head_ref || github.ref_name }}
+
+jobs:
+  binding-tester:
+    if: contains(github.event.pull_request.labels.*.name, 'correctness')
+    runs-on: ubuntu-latest
+    name: Binding Tester (Python 3.11)
+    steps:
+      - run: gh repo clone amirouche/asyncio-foundationdb -- found
+      - run: cd found && git checkout $GIT_OBJECT
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          architecture: x64
+
+      - run: python --version
+
+      - name: Install FoundationDB
+        run: cd found && sudo make debian
+
+      - name: Enable tenants
+        run: fdbcli --exec "configure tenant_mode=optional_experimental"
+
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip > /dev/null
+          python3 -m pip install poetry > /dev/null
+          cd found && make init
+
+      - name: Run correctness suite (1000 iterations)
+        run: cd found && make check-correctness ITERATIONS=1000
