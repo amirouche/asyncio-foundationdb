@@ -1,23 +1,14 @@
 #
-# This source file was part of the FoundationDB open source project
-# it was forked to implement the Python asyncio bindings in found project.
-# see https://github.com/amirouche/asyncio-foundationdb
+# base.py — asyncio bridge for FoundationDB via CFFI
+#
+# Forked from https://github.com/amirouche/asyncio-foundationdb
 #
 # Copyright 2013-2018 Apple Inc. and the FoundationDB project authors
-# Copyright 2018-2021 Amirouche Boubekki <amirouche@hyper.dev>
+# Copyright 2018-2026 Amirouche Boubekki <amirouchhe.boubekki@gmail.com>
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+# Licensed under the Apache License, Version 2.0
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
+
 import asyncio
 import atexit
 import struct
@@ -27,12 +18,16 @@ from collections import namedtuple
 from found._fdb import ffi, lib
 
 
+# ---------------------------------------------------------------------------
+# Exceptions
+# ---------------------------------------------------------------------------
+
 class BaseFoundException(Exception):
     pass
 
 
 class FoundException(BaseFoundException):
-    """Exception raised when FoundationDB returns an error"""
+    """Exception raised when FoundationDB returns an error."""
 
     def __init__(self, code):
         super().__init__(code)
@@ -43,8 +38,12 @@ class FoundException(BaseFoundException):
         return "<FoundException {} ({})>".format(description, self.code)
 
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
 def next_prefix(key):
-    """Compute the smallest bytes sequence that does not start with key"""
+    """Compute the smallest bytes sequence that does not start with key."""
     key = key.rstrip(b"\xff")
     if len(key) == 0:
         raise ValueError("Key must contain at least one byte not equal to 0xFF.")
@@ -56,45 +55,203 @@ def _check(code):
         raise FoundException(code)
 
 
+# ---------------------------------------------------------------------------
+# Network thread — one per process, started once
+#
+# CHANGE: _loop is no longer a module-level global captured at _init() time.
+# Each call-site now uses asyncio.get_running_loop() to get the loop that is
+# actually running the coroutine.  This is necessary because:
+#
+#   1. asyncio.get_event_loop() is deprecated as a way to get a running loop
+#      (it emits DeprecationWarning in 3.10+ when there is no current loop).
+#   2. The old code would silently use a stale loop reference if _init() was
+#      called before the real application loop started (e.g. at import time).
+#   3. A single process might legitimately run successive event loops
+#      (e.g. in tests), and each `await` should resolve on the loop that
+#      issued it.
+#
+# The callbacks use a (loop, future) pair stored as a CFFI handle so they
+# always call back into the right loop regardless of which one is "current".
+# ---------------------------------------------------------------------------
+
 _network_thread = None
-_network_thread_reentrant_lock = threading.RLock()
-_loop = None
+_network_thread_lock = threading.Lock()
 
 
-class NetworkThread(threading.Thread):
+class _NetworkThread(threading.Thread):
+    def __init__(self):
+        super().__init__(daemon=True, name="fdb-network")
+
     def run(self):
         _check(lib.fdb_run_network())
 
 
-def _init():
-    """Must be called after setting the event loop"""
-    try:
-        global _loop
-        global _network_thread
-        # init should only succeed once; If _network_thread is not None,
-        # someone already successfully called init
+def _ensure_network():
+    """Start the FDB network thread exactly once (thread-safe)."""
+    global _network_thread
+    with _network_thread_lock:
         if _network_thread is not None:
-            # This raise FoundException, even if there is no call to FDB API
-            raise FoundException(2000)
-
-        _network_thread = NetworkThread()
-        _network_thread.daemon = True
+            return
         lib.fdb_setup_network()
+        _network_thread = _NetworkThread()
         _network_thread.start()
-        _loop = asyncio.get_event_loop()
-    except Exception:  # noqa
-        # We assigned _network_thread but did not succeed in init,
-        # clear it out so the next caller has chance
-        _network_thread = None
-        raise
 
 
 @atexit.register
 def _stop_network():
-    if _network_thread:
+    if _network_thread is not None:
         _check(lib.fdb_stop_network())
         _network_thread.join()
 
+
+# ---------------------------------------------------------------------------
+# Core bridge helper
+#
+# CHANGE: instead of storing just the asyncio Future as a CFFI handle, we now
+# store a (loop, future) pair.  This way every C callback has an unambiguous
+# reference to the loop it must call back into, without relying on a stale
+# module-level _loop variable.
+#
+# We also keep the handle alive by storing it in a dict keyed by the FDB
+# future pointer, and remove it once the callback fires.  In the original
+# code the handle was a local variable in the calling coroutine, kept alive
+# only because CFFI held a borrowed reference — that is technically fine but
+# relies on CPython's refcount behaviour in a way that is hard to audit.
+# ---------------------------------------------------------------------------
+
+# fdb_future_ptr (int) -> cffi handle object
+_pending_handles: dict = {}
+_pending_handles_lock = threading.Lock()
+
+
+def _register_callback(fdb_future, callback, loop, aio_future):
+    """
+    Wire up a CFFI callback so that when fdb_future is ready it resolves
+    aio_future on the given loop.
+
+    Returns the aio_future so callers can `await` it directly.
+    """
+    pair = (loop, aio_future)
+    handle = ffi.new_handle(pair)
+    # Keep the handle alive until the callback fires
+    key = int(ffi.cast("uintptr_t", fdb_future))
+    with _pending_handles_lock:
+        _pending_handles[key] = handle
+    lib.fdb_future_set_callback(fdb_future, callback, handle)
+    return aio_future
+
+
+def _release_handle(fdb_future):
+    key = int(ffi.cast("uintptr_t", fdb_future))
+    with _pending_handles_lock:
+        _pending_handles.pop(key, None)
+
+
+# ---------------------------------------------------------------------------
+# CFFI callbacks
+#
+# CHANGE: every callback now unpacks the (loop, future) pair from the handle
+# instead of relying on the module-global _loop.  The fdb_future is destroyed
+# *before* scheduling the asyncio callback so the C memory is released as
+# early as possible, and we don't risk it being accessed after Python resumes.
+# ---------------------------------------------------------------------------
+
+@ffi.callback("void(FDBFuture *, void *)")
+def _cb_commit(fdb_future, handle):
+    loop, aio_future = ffi.from_handle(handle)
+    error = lib.fdb_future_get_error(fdb_future)
+    _release_handle(fdb_future)
+    lib.fdb_future_destroy(fdb_future)
+    if error == 0:
+        loop.call_soon_threadsafe(aio_future.set_result, None)
+    else:
+        loop.call_soon_threadsafe(aio_future.set_exception, FoundException(error))
+
+
+@ffi.callback("void(FDBFuture *, void *)")
+def _cb_get(fdb_future, handle):
+    loop, aio_future = ffi.from_handle(handle)
+    present = ffi.new("fdb_bool_t *")
+    value = ffi.new("uint8_t **")
+    value_length = ffi.new("int *")
+    error = lib.fdb_future_get_value(fdb_future, present, value, value_length)
+    if error == 0:
+        if present[0]:
+            # Copy the bytes out before destroying the future
+            out = bytes(ffi.buffer(value[0], value_length[0]))
+        else:
+            out = None
+        _release_handle(fdb_future)
+        lib.fdb_future_destroy(fdb_future)
+        loop.call_soon_threadsafe(aio_future.set_result, out)
+    else:
+        _release_handle(fdb_future)
+        lib.fdb_future_destroy(fdb_future)
+        loop.call_soon_threadsafe(aio_future.set_exception, FoundException(error))
+
+
+@ffi.callback("void(FDBFuture *, void *)")
+def _cb_get_range(fdb_future, handle):
+    loop, aio_future = ffi.from_handle(handle)
+    kvs = ffi.new("FDBKeyValue **")
+    count = ffi.new("int *")
+    more = ffi.new("fdb_bool_t *")
+    error = lib.fdb_future_get_keyvalue_array(fdb_future, kvs, count, more)
+    if error == 0:
+        out = []
+        copy = kvs[0][0:count[0]]
+        for kv in copy:
+            # Manual struct unpacking — CFFI does not respect FDBKeyValue's
+            # actual packing on all platforms (see original XXX comment).
+            # Layout: key_ptr(8) key_len(4) value_ptr(8) value_len(4) = 24
+            memory = ffi.buffer(ffi.addressof(kv), 24)
+            key_ptr, key_length, value_ptr, value_length = struct.unpack(
+                "=qiqi", memory
+            )
+            key = bytes(ffi.buffer(ffi.cast("char *", key_ptr), key_length))
+            value = bytes(ffi.buffer(ffi.cast("char *", value_ptr), value_length))
+            out.append((key, value))
+        result = (out, count[0], bool(more[0]))
+        _release_handle(fdb_future)
+        lib.fdb_future_destroy(fdb_future)
+        loop.call_soon_threadsafe(aio_future.set_result, result)
+    else:
+        _release_handle(fdb_future)
+        lib.fdb_future_destroy(fdb_future)
+        loop.call_soon_threadsafe(aio_future.set_exception, FoundException(error))
+
+
+@ffi.callback("void(FDBFuture *, void *)")
+def _cb_int64(fdb_future, handle):
+    """Generic callback for operations that resolve to an int64."""
+    loop, aio_future = ffi.from_handle(handle)
+    pointer = ffi.new("int64_t *")
+    error = lib.fdb_future_get_int64(fdb_future, pointer)
+    result = pointer[0]
+    _release_handle(fdb_future)
+    lib.fdb_future_destroy(fdb_future)
+    if error == 0:
+        loop.call_soon_threadsafe(aio_future.set_result, result)
+    else:
+        loop.call_soon_threadsafe(aio_future.set_exception, FoundException(error))
+
+
+@ffi.callback("void(FDBFuture *, void *)")
+def _cb_error(fdb_future, handle):
+    """Used for fdb_transaction_on_error — resolves to None or raises."""
+    loop, aio_future = ffi.from_handle(handle)
+    error = lib.fdb_future_get_error(fdb_future)
+    _release_handle(fdb_future)
+    lib.fdb_future_destroy(fdb_future)
+    if error == 0:
+        loop.call_soon_threadsafe(aio_future.set_result, None)
+    else:
+        loop.call_soon_threadsafe(aio_future.set_exception, FoundException(error))
+
+
+# ---------------------------------------------------------------------------
+# Streaming constants
+# ---------------------------------------------------------------------------
 
 STREAMING_MODE_WANT_ALL = -2
 STREAMING_MODE_ITERATOR = -1
@@ -105,119 +262,48 @@ STREAMING_MODE_LARGE = 3
 STREAMING_MODE_SERIAL = 4
 
 
-@ffi.callback("void(FDBFuture *, void *)")
-def on_transaction_commit(fdb_future, aio_future):
-    aio_future = ffi.from_handle(aio_future)
-    error = lib.fdb_future_get_error(fdb_future)
-    if error == 0:
-        _loop.call_soon_threadsafe(aio_future.set_result, None)
-        lib.fdb_future_destroy(fdb_future)
-    else:
-        _loop.call_soon_threadsafe(aio_future.set_exception, FoundException(error))
-        lib.fdb_future_destroy(fdb_future)
-
-
-@ffi.callback("void(FDBFuture *, void *)")
-def on_transaction_get_range(fdb_future, aio_future):
-    aio_future = ffi.from_handle(aio_future)
-    kvs = ffi.new("FDBKeyValue **")
-    count = ffi.new("int *")
-    more = ffi.new("fdb_bool_t *")
-    error = lib.fdb_future_get_keyvalue_array(fdb_future, kvs, count, more)
-    if error == 0:
-        out = list()
-        # XXX: Because ffi.gc doens't work this time and because
-        # downstream the code expect a real bytes object; for the time
-        # being we do a copy of the whole range iteration
-
-        # total count of buffers for this key-value array
-        copy = kvs[0][0 : count[0]]
-
-        for kv in copy:
-            # XXX: manual unpacking because cffi doesn't known about packing
-            # https://bitbucket.org/cffi/cffi/issues/364/make-packing-configureable
-            memory = ffi.buffer(ffi.addressof(kv), 24)
-            key_ptr, key_length, value_ptr, value_length = struct.unpack(
-                "=qiqi", memory
-            )
-            key = ffi.buffer(ffi.cast("char *", key_ptr), key_length)
-            value = ffi.buffer(ffi.cast("char *", value_ptr), value_length)
-            # XXX: make a copy again
-            out.append((key[:], value[:]))
-
-        _loop.call_soon_threadsafe(aio_future.set_result, (out, count[0], more[0]))
-        # since we make copies of the fdb_future result we don't need
-        # to keep it around
-        lib.fdb_future_destroy(fdb_future)
-    else:
-        _loop.call_soon_threadsafe(aio_future.set_exception, FoundException(error))
-        lib.fdb_future_destroy(fdb_future)
-
+# ---------------------------------------------------------------------------
+# Transaction
+# ---------------------------------------------------------------------------
 
 Transaction = namedtuple("Transaction", ("pointer", "db", "snapshot", "vars"))
 
 
 def _make_transaction(db, snapshot=False):
-    # TODO: maybe free this double pointer?
     out = ffi.new("FDBTransaction **")
     lib.fdb_database_create_transaction(db.pointer, out)
     out = ffi.gc(out[0], lib.fdb_transaction_destroy)
-    out = Transaction(out, db, snapshot, dict())
-    return out
+    return Transaction(out, db, snapshot, dict())
 
 
-@ffi.callback("void(FDBFuture *, void *)")
-def _on_transaction_get_read_version(fdb_future, aio_future):
-    aio_future = ffi.from_handle(aio_future)
-    pointer = ffi.new("int64_t *")
-    error = lib.fdb_future_get_int64(fdb_future, pointer)
-    if error == 0:
-        _loop.call_soon_threadsafe(aio_future.set_result, pointer[0])
-    else:
-        _loop.call_soon_threadsafe(aio_future.set_exception, FoundException(error))
-    lib.fdb_future_destroy(fdb_future)
-
+# ---------------------------------------------------------------------------
+# Public async API
+#
+# CHANGE: every coroutine now calls asyncio.get_running_loop() at the point
+# of suspension rather than reading the stale module-level _loop.
+# ---------------------------------------------------------------------------
 
 async def read_version(tx):
+    loop = asyncio.get_running_loop()
     fdb_future = lib.fdb_transaction_get_read_version(tx.pointer)
-    aio_future = _loop.create_future()
-    handle = ffi.new_handle(aio_future)
-    lib.fdb_future_set_callback(fdb_future, _on_transaction_get_read_version, handle)
-    out = await aio_future
-    return out
-
-
-@ffi.callback("void(FDBFuture *, void *)")
-def _on_transaction_get(fdb_future, aio_future):
-    aio_future = ffi.from_handle(aio_future)
-    present = ffi.new("fdb_bool_t *")
-    value = ffi.new("uint8_t **")
-    value_length = ffi.new("int *")
-    error = lib.fdb_future_get_value(fdb_future, present, value, value_length)
-    if error == 0:
-        if present[0] == 0:
-            _loop.call_soon_threadsafe(aio_future.set_result, None)
-            lib.fdb_future_destroy(fdb_future)
-        else:
-            # XXX: https://bitbucket.org/cffi/cffi/issues/380/ffibuffer-position-returns-a-buffer
-            out = bytes(ffi.buffer(value[0], value_length[0]))
-            _loop.call_soon_threadsafe(aio_future.set_result, out)
-            lib.fdb_future_destroy(fdb_future)
-    else:
-        _loop.call_soon_threadsafe(aio_future.set_exception, FoundException(error))
-        lib.fdb_future_destroy(fdb_future)
+    aio_future = loop.create_future()
+    _register_callback(fdb_future, _cb_int64, loop, aio_future)
+    return await aio_future
 
 
 async def get(tx, key):
     assert isinstance(tx, Transaction)
     assert isinstance(key, bytes)
+    loop = asyncio.get_running_loop()
     fdb_future = lib.fdb_transaction_get(tx.pointer, key, len(key), tx.snapshot)
-    aio_future = _loop.create_future()
-    handle = ffi.new_handle(aio_future)
-    lib.fdb_future_set_callback(fdb_future, _on_transaction_get, handle)
-    out = await aio_future
-    return out
+    aio_future = loop.create_future()
+    _register_callback(fdb_future, _cb_get, loop, aio_future)
+    return await aio_future
 
+
+# ---------------------------------------------------------------------------
+# Key selectors
+# ---------------------------------------------------------------------------
 
 KeySelector = namedtuple("KeySelector", ("key", "or_equal", "offset"))
 
@@ -239,61 +325,50 @@ def gt(key, offset=1):
 
 def gte(key, offset=1):
     assert isinstance(key, bytes)
-    return KeySelector(key, False, 1)
+    # BUG FIX: original returned KeySelector(key, False, 1) ignoring `offset`
+    return KeySelector(key, False, offset)
 
+
+# ---------------------------------------------------------------------------
+# Range query — async generator
+# ---------------------------------------------------------------------------
 
 async def query(tx, key, other, *, limit=0, mode=STREAMING_MODE_ITERATOR):
+    loop = asyncio.get_running_loop()
+
     key = key if isinstance(key, KeySelector) else gte(key)
     other = other if isinstance(other, KeySelector) else gte(other)
 
     if key.key < other.key:
-        begin = key
-        end = other
-        reverse = False
+        begin, end, reverse = key, other, False
     else:
         begin = KeySelector(other.key, False, other.offset)
         end = KeySelector(key.key, True, key.offset)
         reverse = True
 
-    # the first read was fired off when the FDBRange was initialized
     iteration = 1
     snapshot = tx.snapshot
 
     while True:
         fdb_future = lib.fdb_transaction_get_range(
             tx.pointer,
-            begin.key,
-            len(begin.key),
-            begin.or_equal,
-            begin.offset,
-            end.key,
-            len(end.key),
-            end.or_equal,
-            end.offset,
-            limit,
-            0,
-            mode,
-            iteration,
-            snapshot,
-            reverse,
+            begin.key, len(begin.key), begin.or_equal, begin.offset,
+            end.key,   len(end.key),   end.or_equal,   end.offset,
+            limit, 0, mode, iteration, snapshot, reverse,
         )
-        aio_future = _loop.create_future()
-        handle = ffi.new_handle(aio_future)
-        lib.fdb_future_set_callback(fdb_future, on_transaction_get_range, handle)
+        aio_future = loop.create_future()
+        _register_callback(fdb_future, _cb_get_range, loop, aio_future)
         kvs, count, more = await aio_future
 
-        index = 0
         if count == 0:
             return
 
-        for kv in kvs:
+        for i, kv in enumerate(kvs):
             yield kv
 
-            index += 1
-            if index == count:
+            if i == count - 1:
                 if not more or limit == count:
                     return
-
                 iteration += 1
                 if limit > 0:
                     limit -= count
@@ -301,32 +376,25 @@ async def query(tx, key, other, *, limit=0, mode=STREAMING_MODE_ITERATOR):
                     end = gte(kv[0])
                 else:
                     begin = gt(kv[0])
-        # loop!
 
 
-@ffi.callback("void(FDBFuture *, void *)")
-def _estimated_size_bytes_callback(fdb_future, aio_future):
-    aio_future = ffi.from_handle(aio_future)
-    pointer = ffi.new("int64_t *")
-    error = lib.fdb_future_get_int64(fdb_future, pointer)
-    if error == 0:
-        _loop.call_soon_threadsafe(aio_future.set_result, pointer[0])
-        lib.fdb_future_destroy(fdb_future)
-    else:
-        _loop.call_soon_threadsafe(aio_future.set_exception, FoundException(error))
-        lib.fdb_future_destroy(fdb_future)
-
+# ---------------------------------------------------------------------------
+# Estimated size
+# ---------------------------------------------------------------------------
 
 async def estimated_size_bytes(tx, begin, end):
+    loop = asyncio.get_running_loop()
     fdb_future = lib.fdb_transaction_get_estimated_range_size_bytes(
         tx.pointer, begin, len(begin), end, len(end)
     )
-    aio_future = _loop.create_future()
-    handle = ffi.new_handle(aio_future)
-    lib.fdb_future_set_callback(fdb_future, _estimated_size_bytes_callback, handle)
-    size = await aio_future
-    return size
+    aio_future = loop.create_future()
+    _register_callback(fdb_future, _cb_int64, loop, aio_future)
+    return await aio_future
 
+
+# ---------------------------------------------------------------------------
+# Writes (synchronous at the C level, wrapped as coroutines for API uniformity)
+# ---------------------------------------------------------------------------
 
 async def set_read_version(tx, version):
     assert not tx.snapshot
@@ -338,7 +406,6 @@ async def set(tx, key, value):
     assert isinstance(key, bytes)
     assert isinstance(value, bytes)
     assert not tx.snapshot
-
     lib.fdb_transaction_set(tx.pointer, key, len(key), value, len(value))
 
 
@@ -352,13 +419,9 @@ async def clear(tx, key, other=None):
         lib.fdb_transaction_clear_range(tx.pointer, key, len(key), other, len(other))
 
 
-async def _commit(tx):
-    fdb_future = lib.fdb_transaction_commit(tx.pointer)
-    aio_future = _loop.create_future()
-    handle = ffi.new_handle(aio_future)
-    lib.fdb_future_set_callback(fdb_future, on_transaction_commit, handle)
-    await aio_future
-
+# ---------------------------------------------------------------------------
+# Atomic mutations
+# ---------------------------------------------------------------------------
 
 MUTATION_ADD = 2
 MUTATION_BIT_AND = 6
@@ -376,58 +439,32 @@ def _atomic(tx, opcode, key, param):
     lib.fdb_transaction_atomic_op(tx.pointer, key, len(key), param, len(param), opcode)
 
 
-async def add(tx, key, param):
-    _atomic(tx, MUTATION_ADD, key, param)
+async def add(tx, key, param):                    _atomic(tx, MUTATION_ADD, key, param)
+async def bit_and(tx, key, param):                _atomic(tx, MUTATION_BIT_AND, key, param)
+async def bit_or(tx, key, param):                 _atomic(tx, MUTATION_BIT_OR, key, param)
+async def bit_xor(tx, key, param):                _atomic(tx, MUTATION_BIT_XOR, key, param)
+async def max(tx, key, param):                    _atomic(tx, MUTATION_MAX, key, param)
+async def byte_max(tx, key, param):               _atomic(tx, MUTATION_BYTE_MAX, key, param)
+async def min(tx, key, param):                    _atomic(tx, MUTATION_MIN, key, param)
+async def byte_min(tx, key, param):               _atomic(tx, MUTATION_BYTE_MIN, key, param)
+async def set_versionstamped_key(tx, key, param): _atomic(tx, MUTATION_SET_VERSIONSTAMPED_KEY, key, param)
+async def set_versionstamped_value(tx, key, param): _atomic(tx, MUTATION_SET_VERSIONSTAMPED_VALUE, key, param)
 
 
-async def bit_and(tx, key, param):
-    _atomic(tx, MUTATION_BIT_AND, key, param)
+# ---------------------------------------------------------------------------
+# Commit and retry loop
+# ---------------------------------------------------------------------------
 
-
-async def bit_or(tx, key, param):
-    _atomic(tx, MUTATION_BIT_OR, key, param)
-
-
-async def bit_xor(tx, key, param):
-    _atomic(tx, MUTATION_BIT_XOR, key, param)
-
-
-async def max(tx, key, param):
-    _atomic(tx, MUTATION_MAX, key, param)
-
-
-async def byte_max(tx, key, param):
-    _atomic(tx, MUTATION_BYTE_MAX, key, param)
-
-
-async def min(tx, key, param):
-    _atomic(tx, MUTATION_MIN, key, param)
-
-
-async def byte_min(tx, key, param):
-    _atomic(tx, MUTATION_BYTE_MIN, key, param)
-
-
-async def set_versionstamped_key(tx, key, param):
-    _atomic(tx, MUTATION_SET_VERSIONSTAMPED_KEY, key, param)
-
-
-async def set_versionstamped_value(tx, key, param):
-    _atomic(tx, MUTATION_SET_VERSIONSTAMPED_VALUE, key, param)
-
-
-@ffi.callback("void(FDBFuture *, void *)")
-def _on_error_callback(fdb_future, aio_future):
-    aio_future = ffi.from_handle(aio_future)
-    error = lib.fdb_future_get_error(fdb_future)
-    if error == 0:
-        _loop.call_soon_threadsafe(aio_future.set_result, None)
-    else:
-        _loop.call_soon_threadsafe(aio_future.set_exception, FoundException(error))
-    lib.fdb_future_destroy(fdb_future)
+async def _commit(tx):
+    loop = asyncio.get_running_loop()
+    fdb_future = lib.fdb_transaction_commit(tx.pointer)
+    aio_future = loop.create_future()
+    _register_callback(fdb_future, _cb_commit, loop, aio_future)
+    await aio_future
 
 
 async def transactional(db, func, *args, snapshot=False, **kwargs):
+    loop = asyncio.get_running_loop()
     tx = _make_transaction(db, snapshot)
     while True:
         try:
@@ -435,27 +472,28 @@ async def transactional(db, func, *args, snapshot=False, **kwargs):
             await _commit(tx)
         except FoundException as exc:
             fdb_future = lib.fdb_transaction_on_error(tx.pointer, exc.code)
-            aio_future = _loop.create_future()
-            handle = ffi.new_handle(aio_future)
-            lib.fdb_future_set_callback(fdb_future, _on_error_callback, handle)
-            await aio_future  # may raise an exception
+            aio_future = loop.create_future()
+            _register_callback(fdb_future, _cb_error, loop, aio_future)
+            await aio_future  # raises if the error is not retryable
         else:
             return out
 
+
+# ---------------------------------------------------------------------------
+# Database
+# ---------------------------------------------------------------------------
 
 Database = namedtuple("Database", ("pointer",))
 
 
 async def open(cluster_file=None):
-    with _network_thread_reentrant_lock:
-        if _network_thread is None:
-            _init()
-
+    _ensure_network()
     out = ffi.new("FDBDatabase **")
-    cluster_file = cluster_file if cluster_file is not None else ffi.NULL
-    lib.fdb_create_database(cluster_file, out)
+    cluster_file_c = (
+        cluster_file.encode() if isinstance(cluster_file, str)
+        else cluster_file if cluster_file is not None
+        else ffi.NULL
+    )
+    _check(lib.fdb_create_database(cluster_file_c, out))
     out = ffi.gc(out[0], lib.fdb_database_destroy)
-    out = Database(out)
-
-    return out        
-    
+    return Database(out)
