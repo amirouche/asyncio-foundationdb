@@ -1,3 +1,4 @@
+"""Entity-Attribute-Value store backed by FoundationDB."""
 #
 # found/eavstore.py
 #
@@ -29,6 +30,7 @@ EAVSTORE_SUFFIX_INDEX = [b"\x02"]
 
 
 def make(name, prefix):
+    """Create an entity-attribute-value store handle called ``name`` with ``prefix``."""
     out = EAVStore(
         name,
         tuple(list(prefix) + EAVSTORE_SUFFIX_DATA),
@@ -38,6 +40,7 @@ def make(name, prefix):
 
 
 async def create(tx, eavstore, dict, uid=None):
+    """Store ``dict`` and return its uid. If ``uid`` is provided, use it instead of generating one."""
     uid = uuid4() if uid is None else uid
     for key, value in dict.items():
         key = found.pack((eavstore.prefix_data, uid, key))
@@ -51,6 +54,7 @@ async def create(tx, eavstore, dict, uid=None):
 
 
 async def get(tx, eavstore, uid):
+    """Retrieve the dictionary associated with ``uid``. Returns empty dict if not found."""
     out = dict()
     key = found.pack((eavstore.prefix_data, uid))
     async for key, value in found.query(tx, key, found.next_prefix(key)):
@@ -60,6 +64,7 @@ async def get(tx, eavstore, uid):
 
 
 async def remove(tx, eavstore, uid):
+    """Remove the dictionary associated with ``uid``."""
     dict = await get(tx, eavstore, uid)
     for key, value in dict.items():
         key = found.pack(tuple((eavstore.prefix_index, key)))
@@ -69,11 +74,13 @@ async def remove(tx, eavstore, uid):
 
 
 async def update(tx, eavstore, uid, dict):
+    """Replace the dictionary associated with ``uid`` with ``dict``."""
     await remove(tx, eavstore, uid)
     await create(tx, eavstore, dict, uid)
 
 
 async def query(tx, eavstore, key, value):
+    """Yield uids of dictionaries where ``key`` equals ``value``."""
     key = found.pack((eavstore.prefix_index, key, value))
     async for key, _ in found.query(tx, key, found.next_prefix(key)):
         _, _, _, uid = found.unpack(key)

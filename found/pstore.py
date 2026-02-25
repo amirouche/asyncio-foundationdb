@@ -1,3 +1,4 @@
+"""Inverted index store backed by FoundationDB."""
 #
 # found/pstore.py
 #
@@ -50,6 +51,7 @@ PStore = namedtuple(
 
 
 def make(name, prefix):
+    """Create an inverted index store called ``name`` with ``prefix``."""
     prefix = list(prefix)
     prefix_tokens = tuple(prefix + PSTORE_SUFFIX_TOKENS)
     tokens = nstore.make("{}/token".format(name), prefix_tokens, 2)
@@ -70,6 +72,7 @@ def make(name, prefix):
 
 
 async def index(tx, store, docuid, counter):
+    """Associate ``docuid`` with ``counter``, a dict mapping strings to positive integers."""
     # translate keys that are string tokens, into uuid4 bytes with
     # store.tokens
     tokens = dict()
@@ -142,7 +145,7 @@ def _filter(hits):
     return wrapped
 
 
-async def massage(tx, store, candidate, keywords, hits):
+async def _massage(tx, store, candidate, keywords, hits):
     score = 0
     counter = await found.get(tx, found.pack((store.prefix_counters, candidate)))
     # TODO: replace the dictionary and the following for loop with
@@ -159,6 +162,7 @@ async def massage(tx, store, candidate, keywords, hits):
 
 
 async def search(tx, store, keywords, limit=13):
+    """Return a sorted list of at most ``limit`` documents matching ``keywords``."""
     coroutines = (_keywords_to_token(tx, store.tokens, keyword) for keyword in keywords)
     keywords = await asyncio.gather(*coroutines)
     # If a keyword is not present in store.tokens, then there is no
@@ -187,10 +191,10 @@ async def search(tx, store, keywords, limit=13):
     if len(candidates) >= FOUND_PSTORE_SAMPLE_COUNT:
         candidates = random.sample(candidates, FOUND_PSTORE_SAMPLE_COUNT)
 
-    # score, filter and construct hits aka. massage
+    # score, filter and construct hits aka. _massage
     hits = Counter()
 
-    coroutines = (massage(tx, store, c, keywords, hits) for c in candidates)
+    coroutines = (_massage(tx, store, c, keywords, hits) for c in candidates)
     await asyncio.gather(*coroutines)
 
     out = hits.most_common(limit)

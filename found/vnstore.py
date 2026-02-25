@@ -1,3 +1,4 @@
+"""Versioned N-tuple store backed by FoundationDB."""
 # Copyright (C) 2020-2023 Amirouche A. Boubekki
 #
 # https://github.com/amirouche/asyncio-foundationdb
@@ -30,6 +31,7 @@ class VNStoreException(FoundException):
 
 
 def make(name, subspace, items):
+    """Create a versioned tuple store called ``name`` with ``subspace`` and column ``items``."""
     assert isinstance(subspace, (tuple, list))
     assert isinstance(items, (tuple, list))
     name = name
@@ -59,6 +61,7 @@ def make(name, subspace, items):
 
 
 async def change_create(tr, vnstore):
+    """Create a new change and return its uid. Initial significance is ``None``."""
     tr.vars["vnstore_changeid"] = changeid = uuid4()
     # With significance as `None` the change is invisible to
     # VNStore.ask.
@@ -69,6 +72,7 @@ async def change_create(tr, vnstore):
 
 
 async def change_list(tr, vnstore):
+    """Return a list of all changes in ``vnstore``."""
     out = []
     async for binding in nstore.query(
         tr, vnstore.changes, (nstore.var("uid"), "type", "change")
@@ -78,6 +82,7 @@ async def change_list(tr, vnstore):
 
 
 async def change_get(tr, vnstore, changeid):
+    """Return the change as a dict, or ``None`` if it does not exist."""
     out = dict()
     async for binding in nstore.query(
         tr, vnstore.changes, (changeid, nstore.var("key"), nstore.var("value"))
@@ -91,10 +96,12 @@ async def change_get(tr, vnstore, changeid):
 
 
 def change_continue(tr, vnstore, changeid):
+    """Set ``changeid`` as the active change for subsequent add/remove calls."""
     tr.vars["_vnstore_changeid"] = changeid
 
 
 async def change_message(tr, vnstore, changeid, message):
+    """Replace the message of ``changeid`` with ``message``."""
     # Remove existing message if any
     async for binding in nstore.query(
         tr, vnstore.changes, (changeid, "message", nstore.var("message"))
@@ -106,6 +113,7 @@ async def change_message(tr, vnstore, changeid, message):
 
 
 async def change_changes(tr, vnstore, changeid):
+    """Return a list of all tuple modifications associated with ``changeid``."""
     out = []
     pattern = [nstore.v(x) for x in vnstore.names]
     pattern += [changeid, nstore.v("alive?")]
@@ -119,6 +127,7 @@ def pk(*args):
 
 
 async def change_apply(tr, vnstore, changeid):
+    """Apply ``changeid``, setting its significance to a new uuid7."""
     # apply change by settings a verionstamp
     value = await nstore.get(tr, vnstore.changes, changeid, "significance", None)
     # It was already applied
@@ -131,6 +140,7 @@ async def change_apply(tr, vnstore, changeid):
 
 
 async def ask(tr, vnstore, *items):
+    """Return ``True`` if ``items`` is alive in ``vnstore``."""
     assert len(items) == len(vnstore.items), "Incorrect count of ITEMS"
     # Complexity is O(n), where n is the number of times the exact
     # same ITEMS were added and deleted.  In pratice, n=0, n=1 or
@@ -166,6 +176,7 @@ async def get(tr, *items):
 
 
 async def add(tr, vnstore, *items, value=b""):
+    """Add ``items`` to ``vnstore`` under the current active change."""
     # TODO: add support for the value
     assert len(items) == len(vnstore.items)
     assert tr.vars["_vnstore_changeid"]
@@ -175,6 +186,7 @@ async def add(tr, vnstore, *items, value=b""):
 
 
 async def remove(tr, vnstore, *items):
+    """Remove ``items`` from ``vnstore`` under the current active change."""
     assert len(items) == len(vnstore.items)
     if not await ask(tr, vnstore, *items):
         # ITEMS does not exists, nothing to do.
@@ -223,6 +235,7 @@ async def select(tr, vnstore, *pattern, seed=Map()):  # seed is immutable
 
 
 async def where(tr, vnstore, iterator, *pattern):
+    """Bind ``pattern`` against each binding from ``iterator``, yield matching bindings."""
     assert len(pattern) == len(vnstore.items), "invalid item count"
 
     async for bindings in iterator:
@@ -248,6 +261,7 @@ async def where(tr, vnstore, iterator, *pattern):
 
 
 async def query(tx, nstore, pattern, *patterns):
+    """Return bindings matching ``pattern`` and ``patterns`` by chaining select and where."""
     out = select(tx, nstore, *pattern)
     for pattern in patterns:
         out = where(tx, nstore, out, *pattern)
