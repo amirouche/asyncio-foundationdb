@@ -120,6 +120,7 @@ from found.base import set_read_version  # noqa
 from found.base import set_versionstamped_key  # noqa
 from found.base import set_versionstamped_value  # noqa
 from found.base import transactional  # noqa
+from found.base import watch  # noqa
 
 # TODO: from fdb.subspace_impl import Subspace  # noqa
 

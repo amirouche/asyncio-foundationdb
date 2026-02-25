@@ -678,6 +678,34 @@ async def test_set_read_version():
 
 
 @pytest.mark.asyncio
+async def test_watch():
+    db = await open()
+
+    key = b"watch_test_key"
+
+    # Set initial value
+    await found.transactional(db, found.set, key, b"initial")
+
+    # Register the watch (synchronous C call) on a fresh transaction
+    tx = found._make_transaction(db, snapshot=False)
+    watch_future = found.watch(tx, key)    # activates on commit
+    await found.commit(tx)                 # watch now monitors external changes
+
+    # Concurrently modify the key from another transaction
+    async def modify():
+        await asyncio.sleep(0.05)
+        await found.transactional(db, found.set, key, b"modified")
+
+    modify_task = asyncio.create_task(modify())
+
+    # Both the watch and the modification should complete
+    await asyncio.gather(
+        asyncio.wait_for(watch_future, timeout=5.0),
+        modify_task,
+    )
+
+
+@pytest.mark.asyncio
 async def test_clear_single_key():
     db = await open()
 

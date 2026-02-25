@@ -319,6 +319,28 @@ Set an option on `tx`. `option` must be one of the
 `FDB_TR_OPTION_*` integer constants. `value` is optional and must
 be `bytes` when provided.
 
+### `found.watch(tx, key)`
+
+Watch a key for changes.
+
+Registers a watch on `key` (synchronous C call) and returns an
+`asyncio.Future` that resolves to `None` when the key is modified by another
+transaction. The watch only detects external changes after the transaction that
+created it has been committed. `key` must be `bytes`.
+
+```python
+# Register the watch on a fresh transaction
+tx = found._make_transaction(db)
+watch_future = found.watch(tx, key)
+await found.commit(tx)         # activates the watch for external changes
+
+# ... in another task, modify the key ...
+await watch_future             # resolves when the key changes
+```
+
+Unused watch futures should be cancelled (`watch_future.cancel()`) to avoid
+resource exhaustion (default limit: 10,000 active watches per connection).
+
 ### `await found.get_range_split_points(tx, begin, end, chunk_size)`
 
 Get split points for a key range.
