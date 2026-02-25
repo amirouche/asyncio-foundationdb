@@ -57,6 +57,11 @@ fdb._version = VERSION
 
 # Load fdb.impl so that fdb.tuple.Versionstamp.to_bytes() can reference
 # fdb.impl.Value without AttributeError.
+# Workaround: PyPy lacks ctypes.pythonapi; provide a stub so fdb.impl's
+# hasattr() check falls through to its built-in fallback.
+import ctypes
+if not hasattr(ctypes, "pythonapi"):
+    ctypes.pythonapi = type("_stub", (), {})()
 import fdb.impl  # noqa
 
 from fdb.tuple import Versionstamp  # noqa
