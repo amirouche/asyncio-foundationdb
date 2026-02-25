@@ -8,56 +8,29 @@ FoundationDB drivers for asyncio tested with CPython and PyPy 3.9+.
 
 ## Marketing
 
-In the fast-paced digital landscape, FoundationDB is the unsung hero
-of data management. That Key-Value Store serve as the backbone of
-countless applications, providing lightning-fast access to essential
-information. With its simple yet powerful structure, FoundationDB
-effortlessly organizes and retrieve data, making it the go-to choice
-for developers seeking speed and efficiency. Whether you're building a
-dynamic web application, a datalake knowledge base, a robust caching
-system, or a real-time analytics platform, FoundationDB is your trusty
-ally, ensuring seamless data access and enabling innovation at the
-speed of thought. Discover the key to data-driven success with
-FoundationDB – where simplicity meets scalability, and speed meets
-reliability
+**One language. One API. Your data model.**
 
-<!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
-- [Getting started](#getting-started)
-- [ChangeLog](#changelog)
-    - [v0.12.x](#v012x)
-- [`import found`](#import-found)
-- [`from found import bstore`](#from-found-import-bstore)
-- [`from found import nstore`](#from-found-import-nstore)
-- [`from found import eavstore`](#from-found-import-eavstore)
-- [`from found import pstore`](#from-found-import-pstore)
-- [`from found import vnstore`](#from-found-import-vnstore)
-<!-- markdown-toc end -->
+Most Python applications are secretly two programs: the Python part
+you write, and the SQL part you also write, connected by an ORM that
+pretends the gap doesn't exist. When something breaks at the boundary
+— and it will — you need to hold two mental models at once, or find
+someone who speaks both.
 
-Enter the world of data organization and retrieval with FoundationDB,
-the Ordered Key-Value Store. FoundationDB is your solution for
-maintaining structured data in a way that preserves both order and
-simplicity. With the power to efficiently sort and access data,
-FoundationDB is a versatile tool for a wide range of
-applications. From managing time-series data in financial systems, or
-hierarchies, to optimizing search functionality in e-commerce
-platforms, FoundationDB offers an elegant and reliable solution. Take
-control of your data, embrace order, and unlock a new level of
-efficiency with FoundationDB - where data is not just stored, but
-intelligently organized for streamlined success.
+asyncio-foundationdb is a bet that this doesn't have to be true.
 
-FoundationDB, the bedrock of modern data infrastructure, is the
-groundbreaking distributed database system that unlocks new frontiers
-in reliability, scalability, and performance. With a unique
-combination of ACID transactions, distributed architecture, and a
-highly versatile data model, FoundationDB seamlessly handles complex
-workloads while ensuring data integrity. It's the go-to choice for
-organizations seeking a solid foundation for mission-critical
-applications, from e-commerce platforms to cutting-edge IoT
-ecosystems. Harness the power of FoundationDB and experience a world
-where your data is always available, always consistent, and always
-ready to fuel your boldest innovations.
+FoundationDB gives you a foundation (pun intended) that scales from a
+weekend project on a single box to a distributed system handling real
+production load — without changing your data layer. On top of that,
+this library gives you Python-native building blocks: tuple stores,
+blob stores, pattern-matching queries, versioned knowledge graphs. No
+SQL. No ORM. No impedance mismatch.
 
-Build on a solid foundation with FoundationDB.
+You choose your domain model. You express it in Python. You own the
+full stack, in one language, with one place to look when things go
+wrong.
+
+This is not about avoiding complexity. It's about choosing which
+complexity you live with — and keeping it visible.
 
 ## Installation
 
@@ -194,7 +167,10 @@ Deserialize bytes into python objects.
 
 ### `found.Versionstamp(...)`
 
-FIXME.
+Represents a FoundationDB versionstamp. Used with
+`found.pack_with_versionstamp` to create keys or values that will be
+filled in by FoundationDB with a unique, monotonically increasing
+version at commit time.
 
 ### `await found.clear(tx, key, other=None)`
 
@@ -236,41 +212,109 @@ The keyword `mode` can be one the following constant:
 - `found.STREAMING_MODE_LARGE`
 - `found.STREAMING_MODE_SERIAL`
 
+### `await found.estimated_size_bytes(tx, begin, end)`
+
+Estimate the byte size of a key range.
+
+In the database associated with `tx`, return an estimate of the
+byte size of the range from `begin` to `end`. Both `begin` and `end`
+must be `bytes`. The estimate is approximate, especially for ranges
+smaller than 3 MB.
+
 ### `found.next_prefix(key)`
 
-Returns the immediatly next byte sequence that is not prefix of `key`.
+Returns the immediately next byte sequence that is not a prefix of
+`key`. Raises `ValueError` if `key` is made entirely of `0xFF` bytes.
 
 ### `found.lt(key, offset=0)`
 
+Create a key selector that resolves to the last key lexicographically
+less than `key`. `key` must be `bytes`. Use with `found.query`.
+
 ### `found.lte(key, offset=0)`
 
-### `found.gt(key, offset=0)`
+Create a key selector that resolves to the last key lexicographically
+less than or equal to `key`. `key` must be `bytes`. Use with
+`found.query`.
 
-### `found.gte(key, offset=0)`
+### `found.gt(key, offset=1)`
+
+Create a key selector that resolves to the first key lexicographically
+greater than `key`. `key` must be `bytes`. Use with `found.query`.
+
+### `found.gte(key, offset=1)`
+
+Create a key selector that resolves to the first key lexicographically
+greater than or equal to `key`. `key` must be `bytes`. Use with
+`found.query`.
 
 ### `await found.read_version(tx)`
 
-### `found.set_read_version(tx, version)`
+Return the read version of the transaction `tx` as an integer.
 
-### `found.add(tx, key, param)`
+### `await found.set_read_version(tx, version)`
 
-### `found.bit_and(tx, key, param)`
+Set the read version of the transaction `tx` to `version`. The
+transaction must not be a snapshot transaction.
 
-### `found.bit_or(tx, key, param)`
+### `found.co(func)`
 
-### `found.bit_xor(tx, key, param)`
+Decorator that wraps a synchronous function into a coroutine. The
+wrapped function can then be used with `await`.
 
-### `found.max(tx, key, param)`
+### `await found.all(aiogenerator)`
 
-### `found.byte_max(tx, key, param)`
+Collect all items from an async generator into a list and return it.
 
-### `found.min(tx, key, param)`
+### `found.limit(iterator, length)`
 
-### `found.byte_min(tx, key, param)`
+Async generator that yields at most `length` items from `iterator`.
 
-### `found.set_versionstamped_key(tx, key, param)`
+### `await found.add(tx, key, param)`
 
-### `found.set_versionstamped_value(tx, key, param)`
+Perform an atomic add of `param` to the value at `key`.
+
+### `await found.bit_and(tx, key, param)`
+
+Perform an atomic bitwise AND of `param` with the value at `key`.
+
+### `await found.bit_or(tx, key, param)`
+
+Perform an atomic bitwise OR of `param` with the value at `key`.
+
+### `await found.bit_xor(tx, key, param)`
+
+Perform an atomic bitwise XOR of `param` with the value at `key`.
+
+### `await found.max(tx, key, param)`
+
+Atomically set the value at `key` to the larger of the existing value
+and `param`, compared as unsigned integers.
+
+### `await found.byte_max(tx, key, param)`
+
+Atomically set the value at `key` to the lexicographically larger of
+the existing value and `param`.
+
+### `await found.min(tx, key, param)`
+
+Atomically set the value at `key` to the smaller of the existing value
+and `param`, compared as unsigned integers.
+
+### `await found.byte_min(tx, key, param)`
+
+Atomically set the value at `key` to the lexicographically smaller of
+the existing value and `param`.
+
+### `await found.set_versionstamped_key(tx, key, param)`
+
+Set `key` with an embedded versionstamp to `param`. The key must
+contain an incomplete versionstamp.
+
+### `await found.set_versionstamped_value(tx, key, param)`
+
+Set `key` to `param` where `param` contains an embedded versionstamp.
+The value must contain an incomplete versionstamp.
 
 ## `from found import bstore`
 
@@ -383,10 +427,9 @@ unique identifier for dictionaries that have `key` equal to `value`.
 
 Exception specific to `pstore`.
 
-### `pstore.make(name, prefix, pool)`
+### `pstore.make(name, prefix)`
 
-A handle over a `pstore` called `name` with `prefix`, that will use
-`pool`.
+Create a handle over a `pstore` called `name` with `prefix`.
 
 ### `await pstore.index(tx, store, docuid, counter)`
 
@@ -394,7 +437,7 @@ Associates `docuid` with `counter`.
 
 Coroutine that associates the identifier `docuid` with the dict-like
 `counter` inside the database associated with `tx` at `store` for
-later retriaval with `pstore.search`.
+later retrieval with `pstore.search`.
 
 `counter` must be a dict-like mapping string to integers bigger than
 zero.
@@ -423,13 +466,25 @@ Return the unique idenifier of a new change in database.  Its initial
 signifiance is `None` which means it is invisible to other
 transactions, and its message `None`.
 
-### `vnstore.change_continue(tr, vsntore, changeid)`
+### `await vnstore.change_list(tr, vnstore)`
+
+Return a list of all changes in `vnstore`. Each change is a
+dictionary with keys `uid`, `type`, `significance`, and `message`.
+
+### `vnstore.change_continue(tr, vnstore, changeid)`
 
 Against transaction `tr`, and `vnstore`, continue a change `changeid`.
+This sets the active change on the transaction so that subsequent
+`vnstore.add` and `vnstore.remove` calls are associated with it.
 
 ### `await vnstore.change_message(tr, vnstore, changeid, message)`
 
-Replace the exisiting message of `changeid` with `message`
+Replace the existing message of `changeid` with `message`.
+
+### `await vnstore.change_changes(tr, vnstore, changeid)`
+
+Return a list of all tuple modifications (additions and removals)
+associated with `changeid`.
 
 ### `await vnstore.change_apply(tr, vnstore, changeid)`
 
@@ -464,9 +519,20 @@ possible that two changes introduce consistency bugs.
 
 Return `True` if `items` is alive in the space `vnstore`.
 
+### `await vnstore.add(tr, vnstore, *items)`
+
+Add `items` to `vnstore` under the current active change (set via
+`vnstore.change_continue`). Returns `True`.
+
 ### `await vnstore.remove(tr, vnstore, *items)`
 
-Remove `items` from `vnstore`.
+Remove `items` from `vnstore` under the current active change. Returns
+`True` if the items existed and were removed, `False` otherwise.
+
+### `await vnstore.where(tr, vnstore, iterator, *pattern)`
+
+Bind `pattern` against each binding from `iterator`, then yield
+matching bindings from `vnstore`. Used to chain queries together.
 
 ### `await vnstore.query(tr, vnstore, pattern, *patterns)`
 
