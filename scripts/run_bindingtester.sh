@@ -18,14 +18,16 @@ fi
 for i in $(seq 1 "$ITERATIONS"); do
     echo "=== Iteration $i / $ITERATIONS ==="
 
-    echo "--- Scripted tests ---"
-    python "$TESTER" --test-name scripted found
+    for TESTER_NAME in found found_aio; do
+        echo "--- Scripted tests ($TESTER_NAME) ---"
+        python "$TESTER" --test-name scripted "$TESTER_NAME"
 
-    echo "--- API tests (comparison with python) ---"
-    python "$TESTER" --num-ops 1000 --api-version 730 --test-name api --compare python found
+        echo "--- API tests (comparison with python) ($TESTER_NAME) ---"
+        python "$TESTER" --num-ops 1000 --api-version 730 --test-name api --compare python "$TESTER_NAME"
 
-    echo "--- API tests (concurrency 5) ---"
-    python "$TESTER" --num-ops 1000 --api-version 730 --test-name api --concurrency 5 found
+        echo "--- API tests (concurrency 5) ($TESTER_NAME) ---"
+        python "$TESTER" --num-ops 1000 --api-version 730 --test-name api --concurrency 5 "$TESTER_NAME"
+    done
 
     echo "=== Iteration $i complete ==="
 done
