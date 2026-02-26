@@ -504,6 +504,14 @@ Test whether an error `code` matches `predicate`. Returns `True` or
 
 ## `from found import bstore`
 
+`bstore` is a content-addressable blob store. You hand it an arbitrary
+binary payload and it returns a stable uid; store the same bytes twice
+and you get the same uid back without writing a second copy, because
+every blob is hashed with blake2b before storage. Reach for `bstore`
+when your data includes large or repeated binary objects — files,
+images, serialized artifacts — that you want to reference by identity
+rather than by the content itself.
+
 ### `bstore.BStoreException`
 
 Exception specific to `bstore`.
@@ -523,6 +531,16 @@ Retrieve the blob associated with `uid`. Raises `BStoreException`
 if not found.
 
 ## `from found import nstore`
+
+`nstore` is a generic N-tuple store with pattern-matching queries. You
+define a store of fixed width N and add tuples to it; you then query by
+supplying a pattern where any position can be a concrete value or a
+`var`, and the store yields all bindings that satisfy the pattern. It
+maintains a minimal set of index permutations automatically so that any
+query pattern resolves in a single ordered range scan. Reach for
+`nstore` when your data is naturally relational and you want to express
+queries as patterns — think Datalog or a triple store — rather than
+building explicit indexes by hand.
 
 ### `nstore.NStoreException`
 
@@ -580,6 +598,14 @@ matching values in the generic tuple store.
 
 ## `from found import eavstore`
 
+`eavstore` is an entity-attribute-value store for Python dictionaries.
+Each call to `create` stores a dict under a generated uid, and the store
+automatically maintains a reverse index on every attribute-value pair so
+you can look up all entities that share a given key-value combination.
+Reach for `eavstore` when your records have irregular shapes — different
+keys per entity, optional fields — or when you need attribute-level
+lookup without defining a schema up front.
+
 ### `eavstore.make(name, prefix)`
 
 Create a handle over an eavstore called `name` with `prefix`.
@@ -627,6 +653,13 @@ unique identifier for dictionaries that have `key` equal to `value`.
 
 ## `from found import pstore`
 
+`pstore` is an inverted index for keyword search. You index each
+document as a mapping of string terms to positive integer counts; later
+you query with a set of keywords and get back the top-scoring document
+uids, ranked by how well the terms match. Reach for `pstore` when you
+need relevance-ranked full-text or keyword search over documents whose
+primary content lives elsewhere in the database.
+
 ### `pstore.PStoreException`
 
 Exception specific to `pstore`.
@@ -651,6 +684,14 @@ zero.
 Return a sorted list of at most `limit` documents matching `keywords`.
 
 ## `from found import vnstore`
+
+`vnstore` is a versioned N-tuple store. It wraps the same pattern-
+matching model as `nstore` but groups every addition and removal into a
+named change-set; a change is invisible until you explicitly apply it,
+at which point it receives a uuid7 significance that defines its place
+in history. Reach for `vnstore` when you need an auditable log of
+modifications, or when you want to stage a batch of changes for review
+before making them visible to other readers.
 
 ### `vnstore.make(name, prefix, items)`
 
@@ -757,6 +798,13 @@ Return immutable mappings where `vnstore.var` from `pattern`, and
 `patterns` are replaced with objects from `vnstore`.
 
 ## `from found import pool`
+
+`pool` is a low-level utility, not a domain abstraction. It provides a
+single helper that fans an async iterator out to a thread-pool executor
+and streams results back as each completes. Reach for it when you need
+to parallelize CPU-bound or blocking work alongside async database
+operations, and none of the domain stores above is the right layer for
+that parallelism.
 
 ### `await pool.pool_for_each_par_map(loop, pool, f, p, iterator)`
 
