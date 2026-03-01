@@ -158,7 +158,7 @@ def _release_handle(fdb_future):
 # ---------------------------------------------------------------------------
 
 @ffi.callback("void(FDBFuture *, void *)")
-def _cb_commit(fdb_future, handle):
+def _cb_watch(fdb_future, handle):
     loop, aio_future = ffi.from_handle(handle)
     error = lib.fdb_future_get_error(fdb_future)
     _release_handle(fdb_future)
@@ -531,7 +531,7 @@ async def _commit(tx):
     loop = asyncio.get_running_loop()
     fdb_future = lib.fdb_transaction_commit(tx.pointer)
     aio_future = loop.create_future()
-    _register_callback(fdb_future, _cb_commit, loop, aio_future)
+    _register_callback(fdb_future, _cb_watch, loop, aio_future)
     await aio_future
 
 
@@ -696,7 +696,7 @@ def watch(tx, key):
     loop = asyncio.get_running_loop()
     fdb_future = lib.fdb_transaction_watch(tx.pointer, key, len(key))
     aio_future = loop.create_future()
-    _register_callback(fdb_future, _cb_commit, loop, aio_future)
+    _register_callback(fdb_future, _cb_watch, loop, aio_future)
     return aio_future
 
 
