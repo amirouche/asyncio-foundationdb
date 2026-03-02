@@ -90,6 +90,16 @@ asyncio.run(readme())
 
 ## ChangeLog
 
+### v0.14.0
+
+- Add transaction lifecycle hooks: `on_begin`, `on_commit`, `on_post_commit` on `db.hooks`
+- Add `found.TransactionStats` (retries, elapsed, commit_bytes) passed to `on_post_commit`
+- Add `async with found.transaction(db) as tx:` context manager
+- Add native tuple layer (`found.pack`/`found.unpack`) — `foundationdb` package is no longer a runtime dependency
+- Remove `immutables` dependency — bindings dicts replaced with plain `dict`
+- Expand CI matrix to all Python versions (3.9–3.14t, PyPy 3.9–3.11) in binding tester
+- Set `PYTHON_GIL=0` across CI for free-threaded (3.14t) validation
+
 ### v0.13.0
 
 - Upgrade to FoundationDB 7.3 (API version 730)
@@ -141,7 +151,7 @@ is `/etc/foundationdb/fdb.cluster`. Returns a database object.
 
 ### `await found.transactional(db, func, *args, snapshot=False, **kwargs)`
 
-Operate a transaction for `func`. 
+Operate a transaction for `func`.
 
 Coroutine that will operate a transaction against `db` for `func`. If
 `snapshot=True` then the transaction is read-only. `func` will receive
@@ -153,6 +163,51 @@ The function `func` receive transaction object that should be passed
 to other database functions. It has a property `vars` that is a
 dictionary that can be used to cache objects for the extent of the
 transaction.
+
+### `async with found.transaction(db, snapshot=False) as tx:`
+
+Non-retrying context manager for a single transaction.
+
+On clean exit the transaction is committed. On exception the transaction
+is abandoned without committing. The caller is responsible for retry
+logic if needed. Fires the same lifecycle hooks as `transactional`.
+
+### `found.Hooks`
+
+Namedtuple with three lists of async callables:
+
+- `on_begin` — fired after the transaction is created and after each retry
+  (i.e. after `tx.vars.clear()`). Hook signature: `async def hook(tx)`.
+- `on_commit` — fired before commit, still inside the transaction. Any
+  write made by an `on_commit` hook is atomic with the rest of the
+  transaction. Re-runs on retry. Hook signature: `async def hook(tx)`.
+- `on_post_commit` — fired once after a successful durable commit, never
+  on retry. Hook signature: `async def hook(tx, stats)` where `stats` is
+  a `found.TransactionStats`.
+
+### `found.make_hooks()`
+
+Return a fresh `Hooks` instance with empty lists for each lifecycle slot.
+`open()` calls this automatically; you normally interact with the lists on
+`db.hooks` directly.
+
+```python
+db = await found.open()
+
+async def observe(tx, stats):
+    print(stats.retries, stats.elapsed, stats.commit_bytes)
+
+db.hooks.on_post_commit.append(observe)
+```
+
+### `found.TransactionStats`
+
+Namedtuple populated after each successful commit and passed to every
+`on_post_commit` hook:
+
+- `retries` — number of retries before the successful commit (0 on first attempt)
+- `elapsed` — wall time in seconds from `make_transaction` to commit
+- `commit_bytes` — approximate serialized size of the transaction in bytes
 
 ### `await found.get(tx, key)`
 
@@ -582,9 +637,9 @@ returns `None`.
 
 Create a variable called `name` for use with `nstore.query`.
 
-### `nstore.select(tx, nstore, *pattern, seed=Map())`
+### `nstore.select(tx, nstore, *pattern, seed=None)`
 
-Yield immutable bindings that match `pattern`. Each element of
+Yield dict bindings that match `pattern`. Each element of
 `pattern` is either a value or a `nstore.var`. This is the
 low-level primitive used by `nstore.query`.
 
@@ -770,10 +825,10 @@ possible that two changes introduce consistency bugs.
 
 [Contact me for workarounds](mailto:amirouche@hyper.dev)
 
-### `vnstore.select(tr, vnstore, *pattern, seed=Map())`
+### `vnstore.select(tr, vnstore, *pattern, seed=None)`
 
-Yield immutable bindings that match `pattern` against alive tuples
-in `vnstore`. Each element of `pattern` is either a value or a
+Yield dict bindings that match `pattern` against alive tuples in
+`vnstore`. Each element of `pattern` is either a value or a
 `nstore.var`. This is the low-level primitive used by
 `vnstore.query`.
 
