@@ -28,7 +28,7 @@ from uuid import uuid4
 import zstandard as zstd
 
 import found
-from found import nstore
+from found.ext import nstore
 
 
 class PStoreException(found.BaseFoundException):
