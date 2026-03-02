@@ -85,7 +85,7 @@ asyncio.run(readme())
 
 - Upgrade to FoundationDB 7.3 (API version 730)
 - Add binding tester (correctness test suite) with CI workflows, tested under both POSIX threads (`tester_pthread.py`) and asyncio tasks (`tester_aio.py`) concurrency modes
-- Add new public APIs: `get_key`, `get_range`, `commit`, `on_error`, `reset`, `cancel`, `get_committed_version`, `get_approximate_size`, `get_versionstamp`, `add_conflict_range`, `set_option`, `get_range_split_points`
+- Add new public APIs: `get_key`, `commit`, `on_error`, `reset`, `cancel`, `get_committed_version`, `get_approximate_size`, `get_versionstamp`, `add_conflict_range`, `set_option`, `get_range_split_points`
 - Add `append_if_fits`, `compare_and_clear`, `get_client_version`, `get_addresses_for_key`, `database_set_option`, `network_set_option`, `add_network_thread_completion_hook`, `error_predicate`
 - Add docstrings to all public functions and module docstrings to all modules
 - Support Python 3.9+
@@ -235,20 +235,6 @@ In the database associated with `tx`, resolve the given
 `key_selector` and return the resulting key as `bytes`. The
 `key_selector` should be created with `found.lt`, `found.lte`,
 `found.gt`, or `found.gte`.
-
-### `await found.get_range(tx, begin, end, limit=0, reverse=False, mode=STREAMING_MODE_WANT_ALL)`
-
-Fetch a range of key-value pairs as a list.
-
-In the database associated with `tx`, return a list of `(key,
-value)` pairs in the range from `begin` to `end`. Unlike
-`found.query` which is an async generator, `get_range` fetches all
-results into a flat list. `begin` and `end` can be `bytes` or
-`KeySelector` instances.
-
-If `limit=0`, all key-value pairs in the range are returned.
-If `reverse=True`, results are returned in reverse lexicographic
-order.
 
 ### `await found.commit(tx)`
 

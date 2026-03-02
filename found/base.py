@@ -598,47 +598,6 @@ async def get_key(tx, key_selector):
     return await aio_future
 
 
-async def get_range(tx, begin, end, limit=0, reverse=False, mode=STREAMING_MODE_WANT_ALL):
-    """Non-generator range read returning a flat list of (key, value) pairs.
-    begin/end can be bytes or KeySelector instances."""
-    loop = asyncio.get_running_loop()
-    if isinstance(begin, bytes):
-        begin = gte(begin)
-    if isinstance(end, bytes):
-        end = gte(end)
-
-    out = []
-    iteration = 1
-
-    while True:
-        fdb_future = lib.fdb_transaction_get_range(
-            tx.pointer,
-            begin.key, len(begin.key), begin.or_equal, begin.offset,
-            end.key, len(end.key), end.or_equal, end.offset,
-            limit, 0, mode, iteration, tx.snapshot, reverse,
-        )
-        aio_future = loop.create_future()
-        _register_callback(fdb_future, _cb_get_range, loop, aio_future)
-        kvs, count, more = await aio_future
-
-        out.extend(kvs)
-
-        if not more or count == 0:
-            break
-        if limit > 0:
-            limit -= count
-            if limit <= 0:
-                break
-
-        iteration += 1
-        last_key = kvs[-1][0]
-        if reverse:
-            end = gte(last_key)
-        else:
-            begin = gt(last_key)
-
-    return out
-
 
 def add_conflict_range(tx, begin, end, conflict_type):
     """Wraps fdb_transaction_add_conflict_range (synchronous)."""
