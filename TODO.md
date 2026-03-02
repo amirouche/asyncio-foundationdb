@@ -6,17 +6,8 @@
 
 - [ ] **Tenant API** — `fdb_database_open_tenant`, `fdb_tenant_create_transaction`, etc.
   Tenants are already enabled in CI; the Python surface is missing.
-- [ ] **Subspace** — implement the `Subspace` abstraction (stub left in `__init__.py`
-  since the fork: `# TODO: from fdb.subspace_impl import Subspace`)
 - [ ] **Locality API** — `fdb_get_boundary_keys`, complement to the already-present
   `get_range_split_points`
-
-### Ergonomics
-
-- [x] **Transaction context manager** — `async with found.transaction(db) as tx:`
-  as an alternative to the `transactional()` callback pattern for one-off use
-- [x] **Native tuple layer** — implement `pack`/`unpack` natively so the `foundationdb`
-  package (official Python binding) is no longer a runtime dependency
 
 ### Clean-up
 
@@ -28,14 +19,6 @@
     ~8 route handlers that repeat UUID validation, change lookup, and error
     handling. Eliminates ~200 lines of copy-paste.
   - Replace global `CACHE` dict with explicit state passed through lifespan.
-
-### Quality / platform
-
-- [x] **Free-threaded (3.14t) audit** — verify all global mutable state is
-  lock-protected; add a dedicated CI job that runs the binding tester under
-  `PYTHON_GIL=0`
-- [x] **Observability hooks** — per-transaction retry count, latency, and commit
-  size exposed via a callback (Prometheus / loguru integration)
 
 ## New extensions
 
@@ -91,25 +74,6 @@
   structure alongside the score index to answer rank queries in O(log n) while
   keeping concurrent writes consistent. `zstore` (simple sorted set, no rank
   queries) remains worthwhile as a lighter alternative when rank is not needed.
-
-- [x] **Transaction hooks** — three lifecycle callbacks modelled on SRFI-167
-  (https://srfi.schemers.org/srfi-167/srfi-167.html#hooks):
-  - `on_transaction_begin` — fires after `make_transaction`; use for
-    initialising per-transaction state, attaching middleware.
-  - `on_transaction_commit` — fires before commit, still inside the
-    transaction; use for constraint validation, audit logging, and any
-    cross-store consistency work that must be atomic. Rolls back with
-    the transaction on conflict.
-  - `on_transaction_post_commit` — fires after the commit succeeds and is
-    durable; use for side effects that must not roll back: push notifications,
-    waking subscribers, enqueuing background jobs via `qstore`, cache
-    invalidation, webhooks. This is the clean foundation for reactive features
-    (live queries, event-driven pipelines) without a separate message broker —
-    higher-level than the raw `watch()` primitive.
-  Hooks store working state in `tx.vars`; `tx.vars.clear()` on retry (already
-  in place) ensures `on_transaction_begin` and `on_transaction_commit` re-run
-  cleanly on conflict. `on_transaction_post_commit` does not re-run on retry
-  by definition — it only fires once, on success.
 
 - [ ] **`gstore` — graph traversal layer** — BFS/DFS/shortest-path helpers built
   on top of `nstore` rather than a separate storage layout. The triple layout
