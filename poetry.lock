@@ -1186,4 +1186,4 @@ server = ["jinja2", "uvicorn", "zstandard"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9"
-content-hash = "5df110eefae6186fde0b3fc06432454dad174310d0ee126c79e6ccee5c0bb546"
+content-hash = "84c53772ef17d79114d6e1b887de52e246e08380bc353581b0d40d146873ec90"
