@@ -25,8 +25,6 @@ import itertools
 from collections import namedtuple
 from math import factorial
 
-from immutables import Map
-
 import found
 from found.base import FoundException
 
@@ -165,7 +163,7 @@ async def get(tx, nstore, *items):
     return out
 
 
-async def select(tx, nstore, *pattern, seed=Map()):  # seed is immutable
+async def select(tx, nstore, *pattern, seed=None):
     """Yields bindings that match PATTERN"""
     assert len(pattern) == nstore.n, "invalid item count"
     variable = tuple(isinstance(x, Variable) for x in pattern)
@@ -186,10 +184,10 @@ async def select(tx, nstore, *pattern, seed=Map()):  # seed is immutable
         items = found.unpack(key)[len(nstore.prefix) + 1 :]
         # re-order the items
         items = tuple(items[index.index(i)] for i in range(nstore.n))
-        bindings = seed
+        bindings = {} if seed is None else seed
         for i, item in enumerate(pattern):
             if isinstance(item, Variable):
-                bindings = bindings.set(item.name, items[i])
+                bindings = {**bindings, item.name: items[i]}
         yield bindings
 
 

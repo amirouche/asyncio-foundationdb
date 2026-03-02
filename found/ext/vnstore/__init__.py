@@ -9,7 +9,6 @@ from collections import namedtuple
 from urllib.parse import parse_qs as parse_query_string
 from uuid import UUID, uuid4
 
-from immutables import Map
 from jinja2 import Environment, PackageLoader, select_autoescape
 from loguru import logger as log
 from uuid_extensions import uuid7
@@ -193,7 +192,7 @@ async def remove(tr, vnstore, *items):
     return True
 
 
-async def select(tr, vnstore, *pattern, seed=Map()):  # seed is immutable
+async def select(tr, vnstore, *pattern, seed=None):
     """Yields bindings that match PATTERN"""
     assert len(pattern) == len(vnstore.items), "invalid item count"
 
@@ -229,9 +228,7 @@ async def select(tr, vnstore, *pattern, seed=Map()):  # seed is immutable
         if not alive:
             continue
 
-        binding = binding.delete("changeid")
-        binding = binding.delete("alive?")
-        yield binding
+        yield {k: v for k, v in binding.items() if k not in ("changeid", "alive?")}
 
 
 async def where(tr, vnstore, iterator, *pattern):
