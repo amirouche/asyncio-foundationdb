@@ -6,8 +6,9 @@ from fdb.tuple import SingleFloat
 
 import found
 import found.base
-from found import bstore, eavstore, nstore
-from found.nstore import var
+from found.ext import bstore, eavstore, nstore
+from found.ext import vnstore
+from found.ext.nstore import var
 
 
 def test_pack_unpack():
@@ -763,7 +764,7 @@ async def test_peace_search_store():
     import multiprocessing
     from concurrent import futures
 
-    from found import pstore
+    from found.ext import pstore
 
     db = await open()
 
@@ -893,3 +894,265 @@ def test_error_predicate():
     assert found.error_predicate(found.ERROR_PREDICATE_MAYBE_COMMITTED, 1021) is True
     # error code 2000 is not retryable
     assert found.error_predicate(found.ERROR_PREDICATE_RETRYABLE, 2000) is False
+
+
+# vnstore tests
+
+
+v = nstore.v
+
+
+@pytest.mark.asyncio
+async def test_vnstore_empty():
+    ntest = vnstore.make("test-name", ["subspace-42"], ["uid", "key", "value"])
+    assert ntest
+
+
+@pytest.mark.asyncio
+async def test_vnstore_query_zero():
+    db = await open()
+    ntest = vnstore.make("test-name", [42], ["uid", "key", "value"])
+
+    for i in range(10):
+        expected = uuid4()
+
+        async def subject_query(tx):
+            out = await vnstore.query(tx, ntest, (nstore.v("subject"), "title", "hypermove.fr"))
+            out = await found.all(out)
+            return out
+
+        out = await found.transactional(db, subject_query)
+
+        assert not out
+
+        change = await found.transactional(db, vnstore.change_create, ntest)
+
+        async def prepare(tx):
+            vnstore.change_continue(tx, ntest, change)
+            await vnstore.add(tx, ntest, expected, "title", "hypermove")
+            await vnstore.change_apply(tx, ntest, change)
+
+        await found.transactional(db, prepare)
+
+        async def subject_query(tx):
+            out = await vnstore.query(tx, ntest, (nstore.v("subject"), "title", "hypermove"))
+            out = await found.all(out)
+            return out
+
+        out = await found.transactional(db, subject_query)
+
+        assert out[0]["subject"] == expected
+
+        # delete hypermove
+
+        change = await found.transactional(db, vnstore.change_create, ntest)
+
+        async def delete_hypermove(tx):
+            vnstore.change_continue(tx, ntest, change)
+            await vnstore.remove(tx, ntest, expected, "title", "hypermove")
+            await vnstore.change_apply(tx, ntest, change)
+
+        await found.transactional(db, delete_hypermove)
+
+        out = await found.transactional(db, subject_query)
+
+        assert not out
+
+
+@pytest.mark.asyncio
+async def test_vnstore_query():
+    db = await open()
+    ntest = vnstore.make("test-name", [42], ["uid", "key", "value"])
+    euid = uuid4()
+
+    for i in range(10):
+        change = await found.transactional(db, vnstore.change_create, ntest)
+        expected = "Fractal queries for the win"
+
+        async def prepare(tx):
+            vnstore.change_continue(tx, ntest, change)
+            await vnstore.add(tx, ntest, euid, "title", expected)
+            await vnstore.add(tx, ntest, euid, "slug", "fractal-queries")
+            await vnstore.add(
+                tx,
+                ntest,
+                euid,
+                "body",
+                "fractal architecture help ease cognitive performance",
+            )
+            uid = uuid4()
+            await vnstore.add(
+                tx, ntest, uid, "title", "A case for inspecting values at runtime"
+            )
+            await vnstore.add(tx, ntest, uid, "slug", "runtime-inspection")
+            await vnstore.add(
+                tx,
+                ntest,
+                uid,
+                "body",
+                "Runtime inspection help just-in-time user defined compilation",
+            )
+            await vnstore.change_apply(tx, ntest, change)
+
+        await found.transactional(db, prepare)
+
+        async def query_title_by_slug(tx):
+            out = await vnstore.query(
+                tx,
+                ntest,
+                (nstore.v("subject"), "slug", "fractal-queries"),
+                (nstore.v("subject"), "title", nstore.v("title")),
+            )
+            out = await found.all(out)
+            return out
+
+        change = await found.transactional(db, vnstore.change_create, ntest)
+
+        async def delete_expected(tx):
+            vnstore.change_continue(tx, ntest, change)
+            await vnstore.remove(tx, ntest, euid, "title", expected)
+            await vnstore.change_apply(tx, ntest, change)
+
+        await found.transactional(db, delete_expected)
+
+        out = await found.transactional(db, query_title_by_slug)
+
+        assert not out
+
+
+@pytest.mark.asyncio
+async def test_vnstore_change_list():
+    db = await open()
+    ntest = vnstore.make("test-name", [42], ["uid", "key", "value"])
+
+    c1 = await found.transactional(db, vnstore.change_create, ntest)
+    c2 = await found.transactional(db, vnstore.change_create, ntest)
+
+    changes = await found.transactional(db, vnstore.change_list, ntest)
+    uids = [c["uid"] for c in changes]
+    assert c1 in uids
+    assert c2 in uids
+
+
+@pytest.mark.asyncio
+async def test_vnstore_change_message():
+    db = await open()
+    ntest = vnstore.make("test-name", [42], ["uid", "key", "value"])
+
+    changeid = await found.transactional(db, vnstore.change_create, ntest)
+
+    async def set_msg(tx):
+        await vnstore.change_message(tx, ntest, changeid, "hello world")
+
+    await found.transactional(db, set_msg)
+
+    out = await found.transactional(db, vnstore.change_get, ntest, changeid)
+    assert out["message"] == "hello world"
+
+
+@pytest.mark.asyncio
+async def test_vnstore_change_changes():
+    db = await open()
+    ntest = vnstore.make("test-name", [42], ["uid", "key", "value"])
+
+    changeid = await found.transactional(db, vnstore.change_create, ntest)
+
+    async def do_add(tx):
+        vnstore.change_continue(tx, ntest, changeid)
+        await vnstore.add(tx, ntest, "subj1", "key1", "val1")
+        await vnstore.add(tx, ntest, "subj2", "key2", "val2")
+
+    await found.transactional(db, do_add)
+
+    out = await found.transactional(db, vnstore.change_changes, ntest, changeid)
+    assert len(out) == 2
+
+
+@pytest.mark.asyncio
+async def test_vnstore_where():
+    db = await open()
+    ntest = vnstore.make("test-name", [42], ["uid", "key", "value"])
+
+    uid1 = uuid4()
+
+    changeid = await found.transactional(db, vnstore.change_create, ntest)
+
+    async def setup(tx):
+        vnstore.change_continue(tx, ntest, changeid)
+        await vnstore.add(tx, ntest, uid1, "title", "hello")
+        await vnstore.add(tx, ntest, uid1, "tag", "world")
+        await vnstore.change_apply(tx, ntest, changeid)
+
+    await found.transactional(db, setup)
+
+    async def do_query(tx):
+        seed = vnstore.select(tx, ntest, v("uid"), "title", "hello")
+        out = await found.all(vnstore.where(tx, ntest, seed, v("uid"), "tag", v("tag")))
+        return out
+
+    out = await found.transactional(db, do_query)
+    assert len(out) == 1
+    assert out[0]["tag"] == "world"
+
+
+@pytest.mark.asyncio
+async def test_vnstore_change_apply_twice():
+    db = await open()
+    ntest = vnstore.make("test-name", [42], ["uid", "key", "value"])
+
+    changeid = await found.transactional(db, vnstore.change_create, ntest)
+
+    async def do_apply(tx):
+        await vnstore.change_apply(tx, ntest, changeid)
+
+    await found.transactional(db, do_apply)
+
+    # Get significance after first apply
+    out1 = await found.transactional(db, vnstore.change_get, ntest, changeid)
+    sig1 = out1["significance"]
+    assert sig1 is not None
+
+    # Apply again — should be a no-op (significance unchanged)
+    await found.transactional(db, do_apply)
+
+    out2 = await found.transactional(db, vnstore.change_get, ntest, changeid)
+    sig2 = out2["significance"]
+    assert sig1 == sig2
+
+
+@pytest.mark.asyncio
+async def test_vnstore_change_get_nonexistent():
+    db = await open()
+    ntest = vnstore.make("test-name", [42], ["uid", "key", "value"])
+
+    out = await found.transactional(db, vnstore.change_get, ntest, uuid4())
+    assert out is None
+
+
+def test_vnstore_pk(capsys):
+    result = vnstore.pk("a", "b", "c")
+    assert result == "c"
+    captured = capsys.readouterr()
+    assert "('a', 'b', 'c')" in captured.out
+
+
+@pytest.mark.asyncio
+async def test_vnstore_get_not_implemented():
+    with pytest.raises(NotImplementedError):
+        await vnstore.get(None)
+
+
+@pytest.mark.asyncio
+async def test_vnstore_remove_nonexistent():
+    db = await open()
+    ntest = vnstore.make("test-name", [42], ["uid", "key", "value"])
+
+    changeid = await found.transactional(db, vnstore.change_create, ntest)
+
+    async def do_remove(tx):
+        vnstore.change_continue(tx, ntest, changeid)
+        result = await vnstore.remove(tx, ntest, "no-such-uid", "no-key", "no-val")
+        return result
+
+    out = await found.transactional(db, do_remove)
+    assert out is False

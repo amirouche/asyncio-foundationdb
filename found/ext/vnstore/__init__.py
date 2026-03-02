@@ -13,14 +13,13 @@ from uuid import UUID, uuid4
 
 import fdb
 import fdb.tuple
-import pytest
 from immutables import Map
 from jinja2 import Environment, PackageLoader, select_autoescape
 from loguru import logger as log
 from uuid_extensions import uuid7
 
 import found
-from found import nstore
+from found.ext import nstore
 from found.base import FoundException
 
 _VNStore = namedtuple("VNStore", "name subspace items changes tuples names")
@@ -148,25 +147,30 @@ async def ask(tr, vnstore, *items):
     items = list(items)
     items.append(nstore.v("changeid"))
     items.append(nstore.v("alive?"))
-    bindings = nstore.query(tr, vnstore.tuples, items)
-    ok = False
-    # TODO: use pipelining, and use asyncio.gather the block 'for
-    # binding in bindings';
+    bindings = await found.all(nstore.query(tr, vnstore.tuples, items))
 
-    # smallest versoinstamp
-    significance_max = UUID(int=0)
-    async for binding in bindings:
-        changeid = binding["changeid"]
-        is_alive = binding["alive?"]
-        # TODO: Cache significance in the transaction
-        significance = nstore.query(
-            tr, vnstore.changes, (changeid, "significance", nstore.var("significance"))
+    if not bindings:
+        return False
+
+    # Pipeline all significance lookups concurrently
+    async def get_significance(binding):
+        result = await found.all(
+            nstore.query(
+                tr,
+                vnstore.changes,
+                (binding["changeid"], "significance", nstore.var("significance")),
+            )
         )
-        significance = await found.all(significance)
-        significance = significance[0]["significance"]
+        return result[0]["significance"]
+
+    significances = await asyncio.gather(*(get_significance(b) for b in bindings))
+
+    ok = False
+    significance_max = UUID(int=0)
+    for binding, significance in zip(bindings, significances):
         if (significance is not None) and (significance > significance_max):
             significance_max = significance
-            ok = is_alive
+            ok = binding["alive?"]
     return ok
 
 
@@ -215,6 +219,10 @@ async def select(tr, vnstore, *pattern, seed=Map()):  # seed is immutable
     # only made of variables will scan the whole database.  In
     # practice, the user will seldom do time traveling queries, so
     # it should rarely hit this code path.
+    #
+    # NB: if ask() per row becomes a bottleneck, the winning
+    # pattern is to chunk candidates and asyncio.gather the
+    # ask() calls across each chunk.
     query = pattern
     pattern = list(pattern) + [nstore.v("changeid"), nstore.v("alive?")]
     bindings = nstore.select(tr, vnstore.tuples, *pattern, seed=seed)
@@ -243,7 +251,7 @@ async def where(tr, vnstore, iterator, *pattern):
         bound = []
         for item in pattern:
             # if ITEM is variable try to bind
-            if isinstance(item, v):
+            if isinstance(item, nstore.Variable):
                 try:
                     value = bindings[item.name]
                 except KeyError:
@@ -268,283 +276,6 @@ async def query(tx, nstore, pattern, *patterns):
     return out
 
 
-async def _test_open():
-    # XXX: hack around the fact that the loop is cached in found
-    loop = asyncio.get_event_loop()
-    found.base._loop = loop
-
-    db = await found.open()
-
-    async def purge(tx):
-        await found.clear(tx, b"", b"\xff")
-
-    await found.transactional(db, purge)
-
-    return db
-
-
-v = nstore.v
-
-
-@pytest.mark.asyncio
-async def test_noop():
-    assert True
-
-
-@pytest.mark.asyncio
-async def test_empty():
-    ntest = make("test-name", ["subspace-42"], ["uid", "key", "value"])
-    assert ntest
-
-
-@pytest.mark.asyncio
-async def test_query_zero():
-    db = await _test_open()
-    ntest = make("test-name", [42], ["uid", "key", "value"])
-
-    for i in range(10):
-        expected = uuid4()
-
-        async def subject_query(tx):
-            out = await query(tx, ntest, (nstore.v("subject"), "title", "hypermove.fr"))
-            out = await found.all(out)
-            return out
-
-        out = await found.transactional(db, subject_query)
-
-        assert not out
-
-        change = await found.transactional(db, change_create, ntest)
-
-        async def prepare(tx):
-            change_continue(tx, ntest, change)
-            await add(tx, ntest, expected, "title", "hypermove")
-            await change_apply(tx, ntest, change)
-
-        await found.transactional(db, prepare)
-
-        async def subject_query(tx):
-            out = await query(tx, ntest, (nstore.v("subject"), "title", "hypermove"))
-            out = await found.all(out)
-            return out
-
-        out = await found.transactional(db, subject_query)
-
-        assert out[0]["subject"] == expected
-
-        # delete hypermove
-
-        change = await found.transactional(db, change_create, ntest)
-
-        async def delete_hypermove(tx):
-            change_continue(tx, ntest, change)
-            await remove(tx, ntest, expected, "title", "hypermove")
-            await change_apply(tx, ntest, change)
-
-        await found.transactional(db, delete_hypermove)
-
-        out = await found.transactional(db, subject_query)
-
-        assert not out
-
-
-@pytest.mark.asyncio
-async def test_query():
-    db = await _test_open()
-    ntest = make("test-name", [42], ["uid", "key", "value"])
-    euid = uuid4()
-
-    for i in range(10):
-        change = await found.transactional(db, change_create, ntest)
-        expected = "Fractal queries for the win"
-
-        async def prepare(tx):
-            change_continue(tx, ntest, change)
-            await add(tx, ntest, euid, "title", expected)
-            await add(tx, ntest, euid, "slug", "fractal-queries")
-            await add(
-                tx,
-                ntest,
-                euid,
-                "body",
-                "fractal architecture help ease cognitive performance",
-            )
-            uid = uuid4()
-            await add(
-                tx, ntest, uid, "title", "A case for inspecting values at runtime"
-            )
-            await add(tx, ntest, uid, "slug", "runtime-inspection")
-            await add(
-                tx,
-                ntest,
-                uid,
-                "body",
-                "Runtime inspection help just-in-time user defined compilation",
-            )
-            await change_apply(tx, ntest, change)
-
-        await found.transactional(db, prepare)
-
-        async def query_title_by_slug(tx):
-            out = await query(
-                tx,
-                ntest,
-                (nstore.v("subject"), "slug", "fractal-queries"),
-                (nstore.v("subject"), "title", nstore.v("title")),
-            )
-            out = await found.all(out)
-            return out
-
-        change = await found.transactional(db, change_create, ntest)
-
-        async def delete_expected(tx):
-            change_continue(tx, ntest, change)
-            await remove(tx, ntest, euid, "title", expected)
-            await change_apply(tx, ntest, change)
-
-        await found.transactional(db, delete_expected)
-
-        out = await found.transactional(db, query_title_by_slug)
-
-        assert not out
-
-
-@pytest.mark.asyncio
-async def test_change_list():
-    db = await _test_open()
-    ntest = make("test-name", [42], ["uid", "key", "value"])
-
-    c1 = await found.transactional(db, change_create, ntest)
-    c2 = await found.transactional(db, change_create, ntest)
-
-    changes = await found.transactional(db, change_list, ntest)
-    uids = [c["uid"] for c in changes]
-    assert c1 in uids
-    assert c2 in uids
-
-
-@pytest.mark.asyncio
-async def test_change_message():
-    db = await _test_open()
-    ntest = make("test-name", [42], ["uid", "key", "value"])
-
-    changeid = await found.transactional(db, change_create, ntest)
-
-    async def set_msg(tx):
-        await change_message(tx, ntest, changeid, "hello world")
-
-    await found.transactional(db, set_msg)
-
-    out = await found.transactional(db, change_get, ntest, changeid)
-    assert out["message"] == "hello world"
-
-
-@pytest.mark.asyncio
-async def test_change_changes():
-    db = await _test_open()
-    ntest = make("test-name", [42], ["uid", "key", "value"])
-
-    changeid = await found.transactional(db, change_create, ntest)
-
-    async def do_add(tx):
-        change_continue(tx, ntest, changeid)
-        await add(tx, ntest, "subj1", "key1", "val1")
-        await add(tx, ntest, "subj2", "key2", "val2")
-
-    await found.transactional(db, do_add)
-
-    out = await found.transactional(db, change_changes, ntest, changeid)
-    assert len(out) == 2
-
-
-@pytest.mark.asyncio
-async def test_where():
-    db = await _test_open()
-    ntest = make("test-name", [42], ["uid", "key", "value"])
-
-    uid1 = uuid4()
-
-    changeid = await found.transactional(db, change_create, ntest)
-
-    async def setup(tx):
-        change_continue(tx, ntest, changeid)
-        await add(tx, ntest, uid1, "title", "hello")
-        await add(tx, ntest, uid1, "tag", "world")
-        await change_apply(tx, ntest, changeid)
-
-    await found.transactional(db, setup)
-
-    async def do_query(tx):
-        seed = select(tx, ntest, v("uid"), "title", "hello")
-        out = await found.all(where(tx, ntest, seed, v("uid"), "tag", v("tag")))
-        return out
-
-    out = await found.transactional(db, do_query)
-    assert len(out) == 1
-    assert out[0]["tag"] == "world"
-
-
-@pytest.mark.asyncio
-async def test_change_apply_twice():
-    db = await _test_open()
-    ntest = make("test-name", [42], ["uid", "key", "value"])
-
-    changeid = await found.transactional(db, change_create, ntest)
-
-    async def do_apply(tx):
-        await change_apply(tx, ntest, changeid)
-
-    await found.transactional(db, do_apply)
-
-    # Get significance after first apply
-    out1 = await found.transactional(db, change_get, ntest, changeid)
-    sig1 = out1["significance"]
-    assert sig1 is not None
-
-    # Apply again — should be a no-op (significance unchanged)
-    await found.transactional(db, do_apply)
-
-    out2 = await found.transactional(db, change_get, ntest, changeid)
-    sig2 = out2["significance"]
-    assert sig1 == sig2
-
-
-@pytest.mark.asyncio
-async def test_change_get_nonexistent():
-    db = await _test_open()
-    ntest = make("test-name", [42], ["uid", "key", "value"])
-
-    out = await found.transactional(db, change_get, ntest, uuid4())
-    assert out is None
-
-
-def test_pk(capsys):
-    result = pk("a", "b", "c")
-    assert result == "c"
-    captured = capsys.readouterr()
-    assert "('a', 'b', 'c')" in captured.out
-
-
-@pytest.mark.asyncio
-async def test_get_not_implemented():
-    with pytest.raises(NotImplementedError):
-        await get(None)
-
-
-@pytest.mark.asyncio
-async def test_remove_nonexistent():
-    db = await _test_open()
-    ntest = make("test-name", [42], ["uid", "key", "value"])
-
-    changeid = await found.transactional(db, change_create, ntest)
-
-    async def do_remove(tx):
-        change_continue(tx, ntest, changeid)
-        result = await remove(tx, ntest, "no-such-uid", "no-key", "no-val")
-        return result
-
-    out = await found.transactional(db, do_remove)
-    assert out is False
 
 
 # Server
@@ -687,7 +418,7 @@ async def server(scope, receive, send):
 
     if scope["type"] == "lifespan":
         env = Environment(
-            loader=PackageLoader("found"),
+            loader=PackageLoader("found.ext.vnstore"),
             autoescape=select_autoescape(),
         )
         CACHE["jinja"] = env

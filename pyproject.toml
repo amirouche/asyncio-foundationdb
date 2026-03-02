@@ -45,3 +45,10 @@ pytest = "*"
 pytest-asyncio = "*"
 pytest-cov = "*"
 setuptools = "*"
+
+[tool.coverage.run]
+omit = [
+    "found/tester_aio.py",
+    "found/tester_pthread.py",
+    "found/ffibuild.py",
+]
