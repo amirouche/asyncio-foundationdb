@@ -464,7 +464,6 @@ async def estimated_size_bytes(tx, begin, end):
 # ---------------------------------------------------------------------------
 
 async def set_read_version(tx, version):
-    assert not tx.snapshot
     lib.fdb_transaction_set_read_version(tx.pointer, version)
 
 
