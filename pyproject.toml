@@ -18,12 +18,12 @@ dependencies = [
     "loguru",
     "uuid7",
     "typing-extensions>=4.12.0",
+    "more-itertools (>=10.8.0,<11.0.0)",
 ]
 
 [project.optional-dependencies]
 server = [
     "jinja2",
-    "more-itertools",
     "uvicorn",
     "zstandard",
 ]
