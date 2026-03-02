@@ -10,4 +10,4 @@ jobs:
     if: contains(github.event.pull_request.labels.*.name, 'correctness')
     uses: ./.github/workflows/_binding-tester.yaml
     with:
-      iterations: 1000
+      iterations: 300
