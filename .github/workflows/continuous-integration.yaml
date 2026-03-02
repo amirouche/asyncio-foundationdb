@@ -6,6 +6,7 @@ on:
 env:
   GH_TOKEN: ${{ github.token }}
   GIT_OBJECT: ${{ github.head_ref || github.ref_name }}
+  PYTHON_GIL: "0"
 
 jobs:
   check:
