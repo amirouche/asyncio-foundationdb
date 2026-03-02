@@ -117,6 +117,17 @@ OPTION_NEXT_WRITE_NO_WRITE_CONFLICT_RANGE = 30
 
 
 # ---------------------------------------------------------------------------
+# Compatibility helper — replaces the removed found.get_range()
+# ---------------------------------------------------------------------------
+
+async def _get_range(tx, begin, end, *, limit=0, reverse=False, mode=found.base.STREAMING_MODE_ITERATOR):
+    """Collect found.query() into a list, honouring the reverse flag."""
+    if reverse:
+        return await found.all(found.query(tx, end, begin, limit=limit, mode=mode))
+    return await found.all(found.query(tx, begin, end, limit=limit, mode=mode))
+
+
+# ---------------------------------------------------------------------------
 # Tester — reads instructions from FDB and processes them
 # ---------------------------------------------------------------------------
 
@@ -144,7 +155,7 @@ class Tester:
         tr = make_transaction(self.db)
         prefix_begin = fdb.tuple.pack((self.prefix,))
         prefix_end = fdb.tuple.pack((self.prefix,)) + b"\xff"
-        instructions = await found.get_range(tr, prefix_begin, prefix_end)
+        instructions = await _get_range(tr, prefix_begin, prefix_end)
 
         for idx, (key, value) in enumerate(instructions):
             op_tuple = fdb.tuple.unpack(value)
@@ -295,10 +306,10 @@ class Tester:
             elif is_snapshot:
                 tx = self.current_transaction()
                 snap_tx = found.base.Transaction(tx.pointer, tx.db, True, tx.vars)
-                kvs = await found.get_range(snap_tx, begin, end, limit=limit, reverse=bool(reverse), mode=mode)
+                kvs = await _get_range(snap_tx, begin, end, limit=limit, reverse=bool(reverse), mode=mode)
                 self.stack.push(idx, self._pack_range(kvs))
             else:
-                kvs = await found.get_range(self.current_transaction(), begin, end, limit=limit, reverse=bool(reverse), mode=mode)
+                kvs = await _get_range(self.current_transaction(), begin, end, limit=limit, reverse=bool(reverse), mode=mode)
                 self.stack.push(idx, self._pack_range(kvs))
 
         elif op == b"GET_RANGE_STARTS_WITH":
@@ -315,10 +326,10 @@ class Tester:
             elif is_snapshot:
                 tx = self.current_transaction()
                 snap_tx = found.base.Transaction(tx.pointer, tx.db, True, tx.vars)
-                kvs = await found.get_range(snap_tx, begin, end, limit=limit, reverse=bool(reverse), mode=mode)
+                kvs = await _get_range(snap_tx, begin, end, limit=limit, reverse=bool(reverse), mode=mode)
                 self.stack.push(idx, self._pack_range(kvs))
             else:
-                kvs = await found.get_range(self.current_transaction(), begin, end, limit=limit, reverse=bool(reverse), mode=mode)
+                kvs = await _get_range(self.current_transaction(), begin, end, limit=limit, reverse=bool(reverse), mode=mode)
                 self.stack.push(idx, self._pack_range(kvs))
 
         elif op == b"GET_RANGE_SELECTOR":
@@ -343,10 +354,10 @@ class Tester:
             elif is_snapshot:
                 tx = self.current_transaction()
                 snap_tx = found.base.Transaction(tx.pointer, tx.db, True, tx.vars)
-                kvs = await found.get_range(snap_tx, begin_sel, end_sel, limit=limit, reverse=bool(reverse), mode=mode)
+                kvs = await _get_range(snap_tx, begin_sel, end_sel, limit=limit, reverse=bool(reverse), mode=mode)
                 self.stack.push(idx, self._pack_range(kvs, prefix))
             else:
-                kvs = await found.get_range(self.current_transaction(), begin_sel, end_sel, limit=limit, reverse=bool(reverse), mode=mode)
+                kvs = await _get_range(self.current_transaction(), begin_sel, end_sel, limit=limit, reverse=bool(reverse), mode=mode)
                 self.stack.push(idx, self._pack_range(kvs, prefix))
 
         # --- Version operations ---
@@ -601,7 +612,7 @@ class Tester:
             tr = make_transaction(self.db)
             begin = prefix
             end = found.next_prefix(prefix)
-            kvs = await found.get_range(tr, begin, end, limit=1)
+            kvs = await _get_range(tr, begin, end, limit=1)
             if len(kvs) == 0:
                 return
             await asyncio.sleep(0.1)
@@ -654,13 +665,13 @@ class Tester:
 
     async def _do_database_get_range(self, idx, begin, end, limit, reverse, mode):
         async def op(tx):
-            return await found.get_range(tx, begin, end, limit=limit, reverse=bool(reverse), mode=mode)
+            return await _get_range(tx, begin, end, limit=limit, reverse=bool(reverse), mode=mode)
         kvs = await self._db_transact(op)
         self.stack.push(idx, self._pack_range(kvs))
 
     async def _do_database_get_range_selector(self, idx, begin_sel, end_sel, limit, reverse, mode, prefix):
         async def op(tx):
-            return await found.get_range(tx, begin_sel, end_sel, limit=limit, reverse=bool(reverse), mode=mode)
+            return await _get_range(tx, begin_sel, end_sel, limit=limit, reverse=bool(reverse), mode=mode)
         kvs = await self._db_transact(op)
         self.stack.push(idx, self._pack_range(kvs, prefix))
 
