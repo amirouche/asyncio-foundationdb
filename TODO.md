@@ -31,10 +31,10 @@
 
 ### Quality / platform
 
-- [ ] **Free-threaded (3.14t) audit** — verify all global mutable state is
+- [x] **Free-threaded (3.14t) audit** — verify all global mutable state is
   lock-protected; add a dedicated CI job that runs the binding tester under
   `PYTHON_GIL=0`
-- [ ] **Observability hooks** — per-transaction retry count, latency, and commit
+- [x] **Observability hooks** — per-transaction retry count, latency, and commit
   size exposed via a callback (Prometheus / loguru integration)
 
 ## New extensions
@@ -92,7 +92,7 @@
   keeping concurrent writes consistent. `zstore` (simple sorted set, no rank
   queries) remains worthwhile as a lighter alternative when rank is not needed.
 
-- [ ] **Transaction hooks** — three lifecycle callbacks modelled on SRFI-167
+- [x] **Transaction hooks** — three lifecycle callbacks modelled on SRFI-167
   (https://srfi.schemers.org/srfi-167/srfi-167.html#hooks):
   - `on_transaction_begin` — fires after `make_transaction`; use for
     initialising per-transaction state, attaching middleware.
