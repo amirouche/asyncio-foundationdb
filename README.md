@@ -90,7 +90,7 @@ asyncio.run(readme())
 
 ## ChangeLog
 
-### v0.14.0
+### v0.13.0
 
 - Add transaction lifecycle hooks: `on_begin`, `on_commit`, `on_post_commit` on `db.hooks`
 - Add `found.TransactionStats` (retries, elapsed, commit_bytes) passed to `on_post_commit`
@@ -99,9 +99,6 @@ asyncio.run(readme())
 - Remove `immutables` dependency — bindings dicts replaced with plain `dict`
 - Expand CI matrix to all Python versions (3.9–3.14t, PyPy 3.9–3.11) in binding tester
 - Set `PYTHON_GIL=0` across CI for free-threaded (3.14t) validation
-
-### v0.13.0
-
 - Upgrade to FoundationDB 7.3 (API version 730)
 - Add binding tester (correctness test suite) with CI workflows, tested under both POSIX threads (`tester_pthread.py`) and asyncio tasks (`tester_aio.py`) concurrency modes
 - Add new public APIs: `get_key`, `commit`, `on_error`, `reset`, `cancel`, `get_committed_version`, `get_approximate_size`, `get_versionstamp`, `add_conflict_range`, `set_option`, `get_range_split_points`
