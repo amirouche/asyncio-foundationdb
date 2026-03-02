@@ -19,6 +19,7 @@ import traceback
 
 import fdb
 import fdb.tuple
+import fdb.impl  # required: fdb.tuple.Versionstamp.to_bytes() references fdb.impl.Value
 
 import found
 from found.base import (

@@ -25,7 +25,6 @@ source = { editable = "." }
 dependencies = [
     { name = "aiostream" },
     { name = "cffi" },
-    { name = "foundationdb" },
     { name = "immutables" },
     { name = "loguru" },
     { name = "more-itertools" },
@@ -43,6 +42,7 @@ server = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "foundationdb" },
     { name = "pytest", version = "8.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "pytest", version = "9.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "pytest-asyncio", version = "1.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
@@ -56,7 +56,6 @@ dev = [
 requires-dist = [
     { name = "aiostream" },
     { name = "cffi" },
-    { name = "foundationdb", specifier = ">=7.3,<7.4" },
     { name = "immutables" },
     { name = "jinja2", marker = "extra == 'server'" },
     { name = "loguru" },
@@ -70,6 +69,7 @@ provides-extras = ["server"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "foundationdb", specifier = ">=7.3,<7.4" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
