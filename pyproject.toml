@@ -27,16 +27,6 @@ server = [
     "uvicorn",
     "zstandard",
 ]
-dev = [
-    "bandit>=1.9; python_version>='3.10'",
-    "black",
-    "isort",
-    "pylama",
-    "pytest",
-    "pytest-asyncio",
-    "pytest-cov",
-    "setuptools",
-]
 
 [build-system]
 requires = ["poetry-core", "setuptools", "cffi"]
