@@ -634,7 +634,7 @@ async def get_range_split_points(tx, begin, end, chunk_size):
     return await aio_future
 
 
-def watch(tx, key):
+async def watch(tx, key):
     """Wraps fdb_transaction_watch.
 
     Registers a watch on key immediately (synchronous C call) and returns an
@@ -644,7 +644,7 @@ def watch(tx, key):
     The watch only detects external changes after the transaction that created
     it has been committed. Typical usage:
 
-        watch_future = found.watch(tx, key)
+        watch_future = await found.watch(tx, key)
         await found.commit(tx)            # activates the watch
         # ... in another task, modify the key ...
         await watch_future                # waits until the key changes

@@ -684,7 +684,7 @@ async def test_watch():
 
     # Register the watch (synchronous C call) on a fresh transaction
     tx = found.base._make_transaction(db, snapshot=False)
-    watch_future = found.watch(tx, key)    # activates on commit
+    watch_future = await found.watch(tx, key)    # activates on commit
     await found.commit(tx)                 # watch now monitors external changes
 
     # Concurrently modify the key from another transaction
