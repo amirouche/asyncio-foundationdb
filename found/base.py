@@ -182,12 +182,11 @@ def _cb_get(fdb_future, handle):
             out = bytes(ffi.buffer(value[0], value_length[0]))
         else:
             out = None
-        _release_handle(fdb_future)
-        lib.fdb_future_destroy(fdb_future)
+    _release_handle(fdb_future)
+    lib.fdb_future_destroy(fdb_future)
+    if error == 0:
         loop.call_soon_threadsafe(aio_future.set_result, out)
     else:
-        _release_handle(fdb_future)
-        lib.fdb_future_destroy(fdb_future)
         loop.call_soon_threadsafe(aio_future.set_exception, FoundException(error))
 
 
@@ -213,12 +212,11 @@ def _cb_get_range(fdb_future, handle):
             value = bytes(ffi.buffer(ffi.cast("char *", value_ptr), value_length))
             out.append((key, value))
         result = (out, count[0], bool(more[0]))
-        _release_handle(fdb_future)
-        lib.fdb_future_destroy(fdb_future)
+    _release_handle(fdb_future)
+    lib.fdb_future_destroy(fdb_future)
+    if error == 0:
         loop.call_soon_threadsafe(aio_future.set_result, result)
     else:
-        _release_handle(fdb_future)
-        lib.fdb_future_destroy(fdb_future)
         loop.call_soon_threadsafe(aio_future.set_exception, FoundException(error))
 
 
@@ -246,12 +244,11 @@ def _cb_get_key(fdb_future, handle):
     error = lib.fdb_future_get_key(fdb_future, key, key_length)
     if error == 0:
         out = bytes(ffi.buffer(key[0], key_length[0]))
-        _release_handle(fdb_future)
-        lib.fdb_future_destroy(fdb_future)
+    _release_handle(fdb_future)
+    lib.fdb_future_destroy(fdb_future)
+    if error == 0:
         loop.call_soon_threadsafe(aio_future.set_result, out)
     else:
-        _release_handle(fdb_future)
-        lib.fdb_future_destroy(fdb_future)
         loop.call_soon_threadsafe(aio_future.set_exception, FoundException(error))
 
 
@@ -275,12 +272,11 @@ def _cb_get_key_array(fdb_future, handle):
                 memory = ffi.buffer(ffi.addressof(k), 12)
                 key_ptr, key_length = struct.unpack("=qi", memory)
                 out.append(bytes(ffi.buffer(ffi.cast("char *", key_ptr), key_length)))
-        _release_handle(fdb_future)
-        lib.fdb_future_destroy(fdb_future)
+    _release_handle(fdb_future)
+    lib.fdb_future_destroy(fdb_future)
+    if error == 0:
         loop.call_soon_threadsafe(aio_future.set_result, out)
     else:
-        _release_handle(fdb_future)
-        lib.fdb_future_destroy(fdb_future)
         loop.call_soon_threadsafe(aio_future.set_exception, FoundException(error))
 
 
@@ -295,12 +291,11 @@ def _cb_get_string_array(fdb_future, handle):
         out = []
         for i in range(count[0]):
             out.append(ffi.string(strings[0][i]).decode("utf-8"))
-        _release_handle(fdb_future)
-        lib.fdb_future_destroy(fdb_future)
+    _release_handle(fdb_future)
+    lib.fdb_future_destroy(fdb_future)
+    if error == 0:
         loop.call_soon_threadsafe(aio_future.set_result, out)
     else:
-        _release_handle(fdb_future)
-        lib.fdb_future_destroy(fdb_future)
         loop.call_soon_threadsafe(aio_future.set_exception, FoundException(error))
 
 
