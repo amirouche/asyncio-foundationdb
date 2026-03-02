@@ -52,7 +52,12 @@ To use the built-in HTTP server (powered by [uvicorn](https://www.uvicorn.org/))
 pip install asyncio-foundationdb[server]
 ```
 
-This pulls in `uvicorn`, `jinja2`, `zstandard`, and `more-itertools`.
+This pulls in `uvicorn`, `jinja2`, and `zstandard`. It also registers the
+`found-vnstore` console script:
+
+```
+found-vnstore   # starts the vnstore ASGI server on 127.0.0.1:8000
+```
 
 ## Example
 
@@ -89,6 +94,18 @@ asyncio.run(readme())
 ```
 
 ## ChangeLog
+
+### Unreleased
+
+- Split `found.ext.vnstore` into store logic (`__init__.py`) and ASGI server
+  (`server.py`) so the store can be imported without `jinja2` installed
+- Fix broken ASGI lifespan handler — now correctly awaits startup/shutdown
+  events and sends `lifespan.startup.complete` / `lifespan.shutdown.complete`
+- Replace global `CACHE` dict with `scope["state"]` for proper per-process
+  ASGI state isolation
+- Eliminate seven copies of UUID validation + change lookup with a shared
+  `with_change` helper
+- Add `found-vnstore` console script (requires `pip install asyncio-foundationdb[server]`)
 
 ### v0.13.0
 
@@ -852,6 +869,68 @@ matching bindings from `vnstore`. Used to chain queries together.
 
 Return immutable mappings where `vnstore.var` from `pattern`, and
 `patterns` are replaced with objects from `vnstore`.
+
+## `from found.ext.vnstore import server`
+
+`server` is an ASGI application that exposes a `vnstore` instance over HTTP.
+It requires the `server` optional-dependency group (`jinja2`, `uvicorn`).
+
+### Running the server
+
+```
+pip install asyncio-foundationdb[server]
+found-vnstore
+```
+
+The server listens on `127.0.0.1:8000` by default.  The store is initialised
+during the ASGI lifespan startup event and shared across all requests through
+`scope["state"]`.
+
+### `server(scope, receive, send)`
+
+Standard three-argument ASGI callable.  Pass it directly to any ASGI runner:
+
+```
+uvicorn found.ext.vnstore.server:server --lifespan on
+```
+
+### `server.main()`
+
+Entry point used by the `found-vnstore` console script.  Calls
+`uvicorn.run("found.ext.vnstore.server:server", host="127.0.0.1", port=8000,
+lifespan="on")`.
+
+### Routes
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/` | Index page |
+| `GET` | `/history/` | List all changes |
+| `GET` | `/history/change/` | New-change form |
+| `POST` | `/history/change/` | Create a change |
+| `GET` | `/history/u/{hex}/` | Change detail |
+| `GET` | `/history/u/{hex}/add/` | Add-tuple form |
+| `POST` | `/history/u/{hex}/add/` | Add a tuple to the change |
+| `GET` | `/history/u/{hex}/remove/` | Remove-tuple form |
+| `POST` | `/history/u/{hex}/remove/` | Remove a tuple from the change |
+| `GET` | `/history/u/{hex}/apply/` | Apply-change confirmation |
+| `POST` | `/history/u/{hex}/apply/` | Apply the change |
+| `GET` | `/navigate/` | Pattern-match query (up to 42 results) |
+
+### Value encoding
+
+Form fields use a compact text encoding recognised by `server.fromstring` /
+`server.tostring`:
+
+| Prefix | Python type | Example |
+|--------|-------------|---------|
+| *(none)* | `str` | `hello` |
+| `_` | `uuid4()` (fresh) | `_` |
+| `#none` | `None` | `#none` |
+| `#true` / `#false` | `bool` | `#true` |
+| `#u…` | `UUID` | `#uDEADBEEF…` |
+| `#i…` | `int` | `#i42` |
+| `#f…` | `float` | `#f3.14` |
 
 ## `from found import pool`
 

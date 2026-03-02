@@ -26,6 +26,9 @@ server = [
     "zstandard",
 ]
 
+[project.scripts]
+found-vnstore = "found.ext.vnstore.server:main"
+
 [project.urls]
 Repository = "https://github.com/amirouche/asyncio-foundationdb"
 
