@@ -90,7 +90,11 @@ class _NetworkThread(threading.Thread):
 
 
 def _ensure_network():
-    """Start the FDB network thread exactly once (thread-safe)."""
+    """Start the FDB network thread exactly once (thread-safe).
+
+    Safe with multiprocessing: fork() requires re-calling open() in the
+    child; spawn() starts clean.
+    """
     global _network_thread
     with _network_thread_lock:
         if _network_thread is not None:
@@ -204,7 +208,8 @@ def _cb_get_range(fdb_future, handle):
         copy = kvs[0][0:count[0]]
         for kv in copy:
             # Manual struct unpacking — CFFI does not respect FDBKeyValue's
-            # actual packing on all platforms (see original XXX comment).
+            # actual packing on all platforms.
+            # https://bitbucket.org/cffi/cffi/issues/364/make-packing-configureable
             # Layout: key_ptr(8) key_len(4) value_ptr(8) value_len(4) = 24
             memory = ffi.buffer(ffi.addressof(kv), 24)
             key_ptr, key_length, value_ptr, value_length = struct.unpack(
