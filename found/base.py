@@ -336,7 +336,7 @@ STREAMING_MODE_SERIAL = 4
 Transaction = namedtuple("Transaction", ("pointer", "db", "snapshot", "vars"))
 
 
-def _make_transaction(db, snapshot=False):
+def make_transaction(db, snapshot=False):
     out = ffi.new("FDBTransaction **")
     lib.fdb_database_create_transaction(db.pointer, out)
     out = ffi.gc(out[0], lib.fdb_transaction_destroy)
@@ -665,7 +665,7 @@ async def get_addresses_for_key(tx, key):
 
 async def transactional(db, func, *args, snapshot=False, **kwargs):
     loop = asyncio.get_running_loop()
-    tx = _make_transaction(db, snapshot)
+    tx = make_transaction(db, snapshot)
     while True:
         try:
             out = await func(tx, *args, **kwargs)

@@ -117,6 +117,7 @@ from found.base import gt  # noqa
 from found.base import gte  # noqa
 from found.base import lt  # noqa
 from found.base import lte  # noqa
+from found.base import make_transaction  # noqa
 from found.base import max  # noqa
 from found.base import min  # noqa
 from found.base import network_set_option  # noqa
