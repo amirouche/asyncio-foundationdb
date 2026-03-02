@@ -526,9 +526,16 @@ async def byte_max(tx, key, param):               _atomic(tx, MUTATION_BYTE_MAX,
 async def min(tx, key, param):                    _atomic(tx, MUTATION_MIN, key, param)
 async def byte_min(tx, key, param):               _atomic(tx, MUTATION_BYTE_MIN, key, param)
 async def append_if_fits(tx, key, param):          _atomic(tx, MUTATION_APPEND_IF_FITS, key, param)
-async def compare_and_clear(tx, key, param):       _atomic(tx, MUTATION_COMPARE_AND_CLEAR, key, param)
-async def set_versionstamped_key(tx, key, param): _atomic(tx, MUTATION_SET_VERSIONSTAMPED_KEY, key, param)
-async def set_versionstamped_value(tx, key, param): _atomic(tx, MUTATION_SET_VERSIONSTAMPED_VALUE, key, param)
+async def compare_and_clear(tx, key, param):
+    _atomic(tx, MUTATION_COMPARE_AND_CLEAR, key, param)
+
+
+async def set_versionstamped_key(tx, key, param):
+    _atomic(tx, MUTATION_SET_VERSIONSTAMPED_KEY, key, param)
+
+
+async def set_versionstamped_value(tx, key, param):
+    _atomic(tx, MUTATION_SET_VERSIONSTAMPED_VALUE, key, param)
 
 
 # ---------------------------------------------------------------------------

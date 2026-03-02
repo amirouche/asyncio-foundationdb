@@ -6,8 +6,7 @@ from fdb.tuple import SingleFloat
 
 import found
 import found.base
-from found.ext import bstore, eavstore, nstore
-from found.ext import vnstore
+from found.ext import bstore, eavstore, nstore, vnstore
 from found.ext.nstore import var
 
 
@@ -761,9 +760,6 @@ def test_next_prefix_all_ff():
 
 @pytest.mark.asyncio
 async def test_peace_search_store():
-    import multiprocessing
-    from concurrent import futures
-
     from found.ext import pstore
 
     db = await open()
