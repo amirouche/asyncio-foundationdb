@@ -122,7 +122,7 @@ async def test_next_prefix():
 
     # check
     async def query0(tx):
-        everything = found.query(tx, b"", b"\xFF")
+        everything = found.query(tx, b"", b"\xff")
         everything = await found.all(everything)
         assert len(everything) == 4
 
@@ -160,14 +160,10 @@ async def test_get_range_split_points():
 
     # populate with a small amount of data (keeps DB size below estimation noise)
     for i in range(10):
-        await found.transactional(
-            db, found.set, found.pack((i,)), b"\x00" * 100
-        )
+        await found.transactional(db, found.set, found.pack((i,)), b"\x00" * 100)
 
     # chunk_size of 1 byte asks FDB for as many split points as possible
-    out = await found.transactional(
-        db, found.get_range_split_points, begin, end, 1
-    )
+    out = await found.transactional(db, found.get_range_split_points, begin, end, 1)
 
     # split points may be empty for small data sets — verify shape only
     assert isinstance(out, list)
@@ -183,27 +179,23 @@ async def test_estimated_size_bytes():
 
     # initial check
 
-    out = await found.transactional(db, found.estimated_size_bytes, b"\x00", b"\xFF")
+    out = await found.transactional(db, found.estimated_size_bytes, b"\x00", b"\xff")
     assert out == 0
 
     # populate with a small set of keys and check
 
     for i in range(10):
-        await found.transactional(
-            db, found.set, bytes((i,)), b"\xFF" * found.MAX_SIZE_VALUE
-        )
+        await found.transactional(db, found.set, bytes((i,)), b"\xff" * found.MAX_SIZE_VALUE)
 
-    out = await found.transactional(db, found.estimated_size_bytes, b"\x00", b"\xFF")
+    out = await found.transactional(db, found.estimated_size_bytes, b"\x00", b"\xff")
     # below 3 MB the estimated size is less accurate, only check it is positive
     assert 0 < out
 
     # populate with a large set of keys and check
     for i in range(100):
-        await found.transactional(
-            db, found.set, bytes((i,)), b"\xFF" * found.MAX_SIZE_VALUE
-        )
+        await found.transactional(db, found.set, bytes((i,)), b"\xff" * found.MAX_SIZE_VALUE)
 
-    out = await found.transactional(db, found.estimated_size_bytes, b"\x00", b"\xFF")
+    out = await found.transactional(db, found.estimated_size_bytes, b"\x00", b"\xff")
     # estimated size hence approximate check
     assert abs(out - (found.MAX_SIZE_VALUE * 100)) < found.MAX_SIZE_VALUE
 
@@ -230,9 +222,7 @@ async def test_nstore_simple_single_item_db_subject_lookup():
     await found.transactional(db, prepare)
 
     async def query(tx):
-        out = await found.all(
-            nstore.select(tx, ntest, var("subject"), "title", "hyper.dev")
-        )
+        out = await found.all(nstore.select(tx, ntest, var("subject"), "title", "hyper.dev"))
         return out
 
     out = await found.transactional(db, query)
@@ -285,9 +275,7 @@ async def test_nstore_simple_multiple_items_db_subject_lookup():
         await nstore.add(tx, ntest, uuid4(), "title", "blog.copernic.com")
 
     async def query(tx):
-        out = await found.all(
-            nstore.select(tx, ntest, var("subject"), "title", "hyper.dev")
-        )
+        out = await found.all(nstore.select(tx, ntest, var("subject"), "title", "hyper.dev"))
         return out
 
     await found.transactional(db, prepare)
@@ -346,9 +334,7 @@ async def test_nstore_seed_subject_variable():
         await nstore.add(tx, ntest, hypersocial, "keyword", "hacker")
 
     async def query(tx):
-        out = await found.all(
-            nstore.select(tx, ntest, var("subject"), "keyword", "corporate")
-        )
+        out = await found.all(nstore.select(tx, ntest, var("subject"), "keyword", "corporate"))
         return out
 
     await found.transactional(db, prepare)
@@ -381,9 +367,7 @@ async def test_nstore_seed_subject_lookup():
         await nstore.add(tx, ntest, hypersocial, "keyword", "hacker")
 
     async def query(tx):
-        out = await found.all(
-            nstore.select(tx, ntest, copernic, var("key"), var("value"))
-        )
+        out = await found.all(nstore.select(tx, ntest, copernic, var("key"), var("value")))
         return out
 
     await found.transactional(db, prepare)
@@ -450,9 +434,7 @@ async def test_nstore_subject_variable():
     async def query(tx):
         query = nstore.select(tx, ntest, var("blog"), "title", "hyper.dev")
         query = nstore.where(tx, ntest, query, var("post"), "blog", var("blog"))
-        out = await found.all(
-            nstore.where(tx, ntest, query, var("post"), "title", var("title"))
-        )
+        out = await found.all(nstore.where(tx, ntest, query, var("post"), "title", var("title")))
         return out
 
     await found.transactional(db, prepare)
@@ -506,7 +488,7 @@ async def test_bstore_small():
 
     store = bstore.make("bstore-test", (42,))
 
-    expected = b"\xBE\xEF"
+    expected = b"\xbe\xef"
 
     uid = await found.transactional(db, bstore.get_or_create, store, expected)
     out = await found.transactional(db, bstore.get, store, uid)
@@ -520,7 +502,7 @@ async def test_bstore_large():
 
     store = bstore.make("bstore-test", (42,))
 
-    expected = b"\xBE\xEF" * found.MAX_SIZE_VALUE
+    expected = b"\xbe\xef" * found.MAX_SIZE_VALUE
 
     uid = await found.transactional(db, bstore.get_or_create, store, expected)
     out = await found.transactional(db, bstore.get, store, uid)
@@ -534,7 +516,7 @@ async def test_bstore_idempotent():
 
     store = bstore.make("bstore-test", (42,))
 
-    blob = b"\xBE\xEF" * found.MAX_SIZE_VALUE
+    blob = b"\xbe\xef" * found.MAX_SIZE_VALUE
 
     expected = await found.transactional(db, bstore.get_or_create, store, blob)
     out = await found.transactional(db, bstore.get_or_create, store, blob)
@@ -684,8 +666,8 @@ async def test_watch():
 
     # Register the watch (synchronous C call) on a fresh transaction
     tx = found.base.make_transaction(db, snapshot=False)
-    watch_future = await found.watch(tx, key)    # activates on commit
-    await found.commit(tx)                 # watch now monitors external changes
+    watch_future = await found.watch(tx, key)  # activates on commit
+    await found.commit(tx)  # watch now monitors external changes
 
     # Concurrently modify the key from another transaction
     async def modify():
@@ -851,6 +833,7 @@ async def test_compare_and_clear():
 
 def test_get_client_version():
     import re
+
     version = found.get_client_version()
     assert isinstance(version, str)
     assert re.search(r"\d+\.\d+", version), f"unexpected version string: {version!r}"
@@ -879,6 +862,7 @@ async def test_database_set_option():
     db = await open()
     # FDB_DB_OPTION_TRANSACTION_TIMEOUT = 500
     import struct
+
     found.database_set_option(db, 500, struct.pack("<q", 5000))
 
 
@@ -977,9 +961,7 @@ async def test_vnstore_query():
                 "fractal architecture help ease cognitive performance",
             )
             uid = uuid4()
-            await vnstore.add(
-                tx, ntest, uid, "title", "A case for inspecting values at runtime"
-            )
+            await vnstore.add(tx, ntest, uid, "title", "A case for inspecting values at runtime")
             await vnstore.add(tx, ntest, uid, "slug", "runtime-inspection")
             await vnstore.add(
                 tx,

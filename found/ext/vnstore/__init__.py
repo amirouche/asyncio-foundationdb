@@ -1,4 +1,5 @@
 """Versioned N-tuple store backed by FoundationDB."""
+
 # Copyright (C) 2020-2023 Amirouche A. Boubekki
 #
 # https://github.com/amirouche/asyncio-foundationdb
@@ -68,9 +69,7 @@ async def change_create(tr, vnstore):
 async def change_list(tr, vnstore):
     """Return a list of all changes in ``vnstore``."""
     out = []
-    async for binding in nstore.query(
-        tr, vnstore.changes, (nstore.var("uid"), "type", "change")
-    ):
+    async for binding in nstore.query(tr, vnstore.changes, (nstore.var("uid"), "type", "change")):
         out.append(await change_get(tr, vnstore, binding.get("uid")))
     return out
 
@@ -100,9 +99,7 @@ async def change_message(tr, vnstore, changeid, message):
     async for binding in nstore.query(
         tr, vnstore.changes, (changeid, "message", nstore.var("message"))
     ):
-        await nstore.remove(
-            tr, vnstore.changes, changeid, "message", binding["message"]
-        )
+        await nstore.remove(tr, vnstore.changes, changeid, "message", binding["message"])
     await nstore.add(tr, vnstore.changes, changeid, "message", message)
 
 
@@ -126,7 +123,7 @@ async def change_apply(tr, vnstore, changeid):
     value = await nstore.get(tr, vnstore.changes, changeid, "significance", None)
     # It was already applied
     if value is None:
-        log.warning('Trying to apply an already applied change: {}', changeid)
+        log.warning("Trying to apply an already applied change: {}", changeid)
         return
     await nstore.remove(tr, vnstore.changes, changeid, "significance", None)
     significance = uuid7()
@@ -271,8 +268,6 @@ async def query(tx, nstore, pattern, *patterns):
     return out
 
 
-
-
 # Server
 
 CACHE = dict()
@@ -408,6 +403,7 @@ def tostring(value):
         return value
     raise NotImplementedError(value)
 
+
 async def server(scope, receive, send):
     log.debug("ASGI scope: {}", scope)
 
@@ -442,9 +438,7 @@ async def server(scope, receive, send):
         return
 
     if path == "/history/" and method == "GET":
-        changes = await found.transactional(
-            CACHE["database"], change_list, CACHE["store"]
-        )
+        changes = await found.transactional(CACHE["database"], change_list, CACHE["store"])
         html = await jinja("history-list.html", dict(changes=changes))
         await reply_html(send, html)
         return
@@ -488,9 +482,7 @@ async def server(scope, receive, send):
             return
 
         change = UUID(hex=change)
-        out = await found.transactional(
-            CACHE["database"], change_get, CACHE["store"], change
-        )
+        out = await found.transactional(CACHE["database"], change_get, CACHE["store"], change)
         if not out:
             await reply_bad_request(send, "No such change: {}".format(change.hex))
             return
@@ -516,9 +508,7 @@ async def server(scope, receive, send):
             return
 
         change = UUID(hex=change)
-        out = await found.transactional(
-            CACHE["database"], change_get, CACHE["store"], change
-        )
+        out = await found.transactional(CACHE["database"], change_get, CACHE["store"], change)
         if not out:
             await reply_bad_request(send, "No such change: {}".format(change.hex))
             return
@@ -545,9 +535,7 @@ async def server(scope, receive, send):
             return
 
         change = UUID(hex=change)
-        out = await found.transactional(
-            CACHE["database"], change_get, CACHE["store"], change
-        )
+        out = await found.transactional(CACHE["database"], change_get, CACHE["store"], change)
         if not out:
             await reply_bad_request(send, "No such change: {}".format(change.hex))
             return
@@ -599,9 +587,7 @@ async def server(scope, receive, send):
             return
 
         change = UUID(hex=change)
-        out = await found.transactional(
-            CACHE["database"], change_get, CACHE["store"], change
-        )
+        out = await found.transactional(CACHE["database"], change_get, CACHE["store"], change)
         if not out:
             await reply_bad_request(send, "No such change: {}".format(change.hex))
             return
@@ -628,9 +614,7 @@ async def server(scope, receive, send):
             return
 
         change = UUID(hex=change)
-        out = await found.transactional(
-            CACHE["database"], change_get, CACHE["store"], change
-        )
+        out = await found.transactional(CACHE["database"], change_get, CACHE["store"], change)
         if not out:
             await reply_bad_request(send, "No such change: {}".format(change.hex))
             return
@@ -682,9 +666,7 @@ async def server(scope, receive, send):
             return
 
         change = UUID(hex=change)
-        out = await found.transactional(
-            CACHE["database"], change_get, CACHE["store"], change
-        )
+        out = await found.transactional(CACHE["database"], change_get, CACHE["store"], change)
         if not out:
             await reply_bad_request(send, "No such change: {}".format(change.hex))
             return
@@ -711,9 +693,7 @@ async def server(scope, receive, send):
             return
 
         change = UUID(hex=change)
-        out = await found.transactional(
-            CACHE["database"], change_get, CACHE["store"], change
-        )
+        out = await found.transactional(CACHE["database"], change_get, CACHE["store"], change)
         if not out:
             await reply_bad_request(send, "No such change: {}".format(change.hex))
             return
@@ -723,16 +703,16 @@ async def server(scope, receive, send):
         await reply_redirect(send, "/history/u/{}/".format(change.hex))
         return
     if path == "/navigate/" and method == "GET":
-        body = scope['query_string'].decode("utf8")
+        body = scope["query_string"].decode("utf8")
         try:
             body = parse_query_string(body)
         except Exception:
             await reply_bad_request(send, "Invalid form format")
             return
 
-        uid = body.get("uid", [''])[0]
-        key = body.get("key", [''])[0]
-        value = body.get("value", [''])[0]
+        uid = body.get("uid", [""])[0]
+        key = body.get("key", [""])[0]
+        value = body.get("value", [""])[0]
 
         try:
             uidx = fromstring(uid)
@@ -745,27 +725,28 @@ async def server(scope, receive, send):
             return
 
         async def do(tx, uid, key, value):
-            out = await query(
-                tx,
-                CACHE['store'],
-                (uid, key, value)
-            )
+            out = await query(tx, CACHE["store"], (uid, key, value))
             out = await found.all(found.limit(out, 42))
             return out
 
-        if uidx == '':
-            uidx = nstore.var('uid')
-        if keyx == '':
-            keyx = nstore.var('key')
-        if valuex == '':
-            valuex = nstore.var('value')
+        if uidx == "":
+            uidx = nstore.var("uid")
+        if keyx == "":
+            keyx = nstore.var("key")
+        if valuex == "":
+            valuex = nstore.var("value")
 
-        out = await found.transactional(CACHE['database'], do, uidx, keyx, valuex)
+        out = await found.transactional(CACHE["database"], do, uidx, keyx, valuex)
         html = await jinja(
             "navigate.html",
             dict(
-                changes=out, uid=uid, key=key, value=value,
-                tostring=tostring, isinstance=isinstance, UUID=UUID,
+                changes=out,
+                uid=uid,
+                key=key,
+                value=value,
+                tostring=tostring,
+                isinstance=isinstance,
+                UUID=UUID,
             ),
         )
         await reply_html(send, html)

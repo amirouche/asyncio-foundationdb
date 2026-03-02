@@ -1,4 +1,5 @@
 """Inverted index store backed by FoundationDB."""
+
 #
 # found/pstore.py
 #
@@ -45,9 +46,7 @@ PSTORE_SUFFIX_TOKENS = [b"\x01"]
 PSTORE_SUFFIX_INDEX = [b"\x02"]
 PSTORE_SUFFIX_COUNTERS = [b"\x03"]
 
-PStore = namedtuple(
-    "PStore", ("name", "tokens", "prefix_index", "prefix_counters", "pool")
-)
+PStore = namedtuple("PStore", ("name", "tokens", "prefix_index", "prefix_counters", "pool"))
 
 
 def make(name, prefix):

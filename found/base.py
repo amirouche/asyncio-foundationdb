@@ -25,6 +25,7 @@ assert struct.calcsize("P") == 8, "found requires a 64-bit Python interpreter"
 # Exceptions
 # ---------------------------------------------------------------------------
 
+
 class BaseFoundException(Exception):
     pass
 
@@ -44,6 +45,7 @@ class FoundException(BaseFoundException):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def next_prefix(key):
     """Compute the smallest bytes sequence that does not start with key."""
@@ -163,6 +165,7 @@ def _release_handle(fdb_future):
 # early as possible, and we don't risk it being accessed after Python resumes.
 # ---------------------------------------------------------------------------
 
+
 @ffi.callback("void(FDBFuture *, void *)")
 def _cb_watch(fdb_future, handle):
     loop, aio_future = ffi.from_handle(handle)
@@ -205,16 +208,14 @@ def _cb_get_range(fdb_future, handle):
     error = lib.fdb_future_get_keyvalue_array(fdb_future, kvs, count, more)
     if error == 0:
         out = []
-        copy = kvs[0][0:count[0]]
+        copy = kvs[0][0 : count[0]]
         for kv in copy:
             # Manual struct unpacking — CFFI does not respect FDBKeyValue's
             # actual packing on all platforms.
             # https://bitbucket.org/cffi/cffi/issues/364/make-packing-configureable
             # Layout: key_ptr(8) key_len(4) value_ptr(8) value_len(4) = 24
             memory = ffi.buffer(ffi.addressof(kv), 24)
-            key_ptr, key_length, value_ptr, value_length = struct.unpack(
-                "=qiqi", memory
-            )
+            key_ptr, key_length, value_ptr, value_length = struct.unpack("=qiqi", memory)
             key = bytes(ffi.buffer(ffi.cast("char *", key_ptr), key_length))
             value = bytes(ffi.buffer(ffi.cast("char *", value_ptr), value_length))
             out.append((key, value))
@@ -275,7 +276,7 @@ def _cb_get_key_array(fdb_future, handle):
     if error == 0:
         out = []
         if count[0] > 0:
-            copy = keys[0][0:count[0]]
+            copy = keys[0][0 : count[0]]
             for k in copy:
                 # Layout with pack(4): key_ptr(8) key_len(4) = 12 bytes
                 memory = ffi.buffer(ffi.addressof(k), 12)
@@ -355,6 +356,7 @@ def make_transaction(db, snapshot=False):
 # of suspension rather than reading the stale module-level _loop.
 # ---------------------------------------------------------------------------
 
+
 async def read_version(tx):
     loop = asyncio.get_running_loop()
     fdb_future = lib.fdb_transaction_get_read_version(tx.pointer)
@@ -405,6 +407,7 @@ def gte(key, offset=1):
 # Range query — async generator
 # ---------------------------------------------------------------------------
 
+
 async def query(tx, key, other, *, limit=0, reverse=None, mode=STREAMING_MODE_ITERATOR):
     loop = asyncio.get_running_loop()
 
@@ -429,9 +432,20 @@ async def query(tx, key, other, *, limit=0, reverse=None, mode=STREAMING_MODE_IT
     while True:
         fdb_future = lib.fdb_transaction_get_range(
             tx.pointer,
-            begin.key, len(begin.key), begin.or_equal, begin.offset,
-            end.key,   len(end.key),   end.or_equal,   end.offset,
-            limit, 0, mode, iteration, snapshot, reverse,
+            begin.key,
+            len(begin.key),
+            begin.or_equal,
+            begin.offset,
+            end.key,
+            len(end.key),
+            end.or_equal,
+            end.offset,
+            limit,
+            0,
+            mode,
+            iteration,
+            snapshot,
+            reverse,
         )
         aio_future = loop.create_future()
         _register_callback(fdb_future, _cb_get_range, loop, aio_future)
@@ -459,6 +473,7 @@ async def query(tx, key, other, *, limit=0, reverse=None, mode=STREAMING_MODE_IT
 # Estimated size
 # ---------------------------------------------------------------------------
 
+
 async def estimated_size_bytes(tx, begin, end):
     loop = asyncio.get_running_loop()
     fdb_future = lib.fdb_transaction_get_estimated_range_size_bytes(
@@ -472,6 +487,7 @@ async def estimated_size_bytes(tx, begin, end):
 # ---------------------------------------------------------------------------
 # Writes (synchronous at the C level, wrapped as coroutines for API uniformity)
 # ---------------------------------------------------------------------------
+
 
 async def set_read_version(tx, version):
     lib.fdb_transaction_set_read_version(tx.pointer, version)
@@ -517,15 +533,42 @@ def _atomic(tx, opcode, key, param):
     lib.fdb_transaction_atomic_op(tx.pointer, key, len(key), param, len(param), opcode)
 
 
-async def add(tx, key, param):                    _atomic(tx, MUTATION_ADD, key, param)
-async def bit_and(tx, key, param):                _atomic(tx, MUTATION_BIT_AND, key, param)
-async def bit_or(tx, key, param):                 _atomic(tx, MUTATION_BIT_OR, key, param)
-async def bit_xor(tx, key, param):                _atomic(tx, MUTATION_BIT_XOR, key, param)
-async def max(tx, key, param):                    _atomic(tx, MUTATION_MAX, key, param)
-async def byte_max(tx, key, param):               _atomic(tx, MUTATION_BYTE_MAX, key, param)
-async def min(tx, key, param):                    _atomic(tx, MUTATION_MIN, key, param)
-async def byte_min(tx, key, param):               _atomic(tx, MUTATION_BYTE_MIN, key, param)
-async def append_if_fits(tx, key, param):          _atomic(tx, MUTATION_APPEND_IF_FITS, key, param)
+async def add(tx, key, param):
+    _atomic(tx, MUTATION_ADD, key, param)
+
+
+async def bit_and(tx, key, param):
+    _atomic(tx, MUTATION_BIT_AND, key, param)
+
+
+async def bit_or(tx, key, param):
+    _atomic(tx, MUTATION_BIT_OR, key, param)
+
+
+async def bit_xor(tx, key, param):
+    _atomic(tx, MUTATION_BIT_XOR, key, param)
+
+
+async def max(tx, key, param):
+    _atomic(tx, MUTATION_MAX, key, param)
+
+
+async def byte_max(tx, key, param):
+    _atomic(tx, MUTATION_BYTE_MAX, key, param)
+
+
+async def min(tx, key, param):
+    _atomic(tx, MUTATION_MIN, key, param)
+
+
+async def byte_min(tx, key, param):
+    _atomic(tx, MUTATION_BYTE_MIN, key, param)
+
+
+async def append_if_fits(tx, key, param):
+    _atomic(tx, MUTATION_APPEND_IF_FITS, key, param)
+
+
 async def compare_and_clear(tx, key, param):
     _atomic(tx, MUTATION_COMPARE_AND_CLEAR, key, param)
 
@@ -541,6 +584,7 @@ async def set_versionstamped_value(tx, key, param):
 # ---------------------------------------------------------------------------
 # Commit and retry loop
 # ---------------------------------------------------------------------------
+
 
 async def commit(tx):
     """Commit the transaction, waiting for FDB to confirm durability."""
@@ -602,8 +646,10 @@ async def get_key(tx, key_selector):
     loop = asyncio.get_running_loop()
     fdb_future = lib.fdb_transaction_get_key(
         tx.pointer,
-        key_selector.key, len(key_selector.key),
-        key_selector.or_equal, key_selector.offset,
+        key_selector.key,
+        len(key_selector.key),
+        key_selector.or_equal,
+        key_selector.offset,
         tx.snapshot,
     )
     aio_future = loop.create_future()
@@ -611,12 +657,13 @@ async def get_key(tx, key_selector):
     return await aio_future
 
 
-
 def add_conflict_range(tx, begin, end, conflict_type):
     """Wraps fdb_transaction_add_conflict_range (synchronous)."""
-    _check(lib.fdb_transaction_add_conflict_range(
-        tx.pointer, begin, len(begin), end, len(end), conflict_type
-    ))
+    _check(
+        lib.fdb_transaction_add_conflict_range(
+            tx.pointer, begin, len(begin), end, len(end), conflict_type
+        )
+    )
 
 
 def set_option(tx, option, value=None):
@@ -708,8 +755,10 @@ async def open(cluster_file=None):
     _ensure_network()
     out = ffi.new("FDBDatabase **")
     cluster_file_c = (
-        cluster_file.encode() if isinstance(cluster_file, str)
-        else cluster_file if cluster_file is not None
+        cluster_file.encode()
+        if isinstance(cluster_file, str)
+        else cluster_file
+        if cluster_file is not None
         else ffi.NULL
     )
     _check(lib.fdb_create_database(cluster_file_c, out))
@@ -720,6 +769,7 @@ async def open(cluster_file=None):
 # ---------------------------------------------------------------------------
 # Database options
 # ---------------------------------------------------------------------------
+
 
 def database_set_option(db, option, value=None):
     """Wraps fdb_database_set_option (synchronous)."""
@@ -732,6 +782,7 @@ def database_set_option(db, option, value=None):
 # ---------------------------------------------------------------------------
 # Network options and hooks
 # ---------------------------------------------------------------------------
+
 
 def network_set_option(option, value=None):
     """Wraps fdb_network_set_option (synchronous). Must be called before network start."""
@@ -756,14 +807,17 @@ def add_network_thread_completion_hook(callback):
     with _completion_hooks_lock:
         idx = len(_completion_hooks)
         _completion_hooks.append(callback)
-    _check(lib.fdb_add_network_thread_completion_hook(
-        _completion_hook_trampoline, ffi.cast("void *", idx)
-    ))
+    _check(
+        lib.fdb_add_network_thread_completion_hook(
+            _completion_hook_trampoline, ffi.cast("void *", idx)
+        )
+    )
 
 
 # ---------------------------------------------------------------------------
 # Client version and error predicates
 # ---------------------------------------------------------------------------
+
 
 def get_client_version():
     """Return the FDB client library version string."""

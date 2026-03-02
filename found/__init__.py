@@ -64,6 +64,7 @@ import ctypes as _ctypes  # noqa: E402
 if not hasattr(_ctypes, "pythonapi"):
     _ctypes.pythonapi = type("_stub", (), {})()
     import fdb.impl  # noqa
+
     del _ctypes.pythonapi
 else:
     import fdb.impl  # noqa
@@ -151,6 +152,7 @@ async def all(aiogenerator):
     async for item in aiogenerator:
         out.append(item)
     return out
+
 
 async def limit(iterator, length):
     async for item in iterator:
