@@ -15,6 +15,11 @@ if [ ! -f "$TESTER" ]; then
     exit 1
 fi
 
+# Ensure the project root is on PYTHONPATH so subprocesses spawned by bindingtester
+# (e.g. `python found/tester_pthread.py`) can import `found` via plain path lookup,
+# bypassing the setuptools editable-install finder which breaks in deep subprocess chains.
+export PYTHONPATH="${PYTHONPATH:+${PYTHONPATH}:}$(pwd)"
+
 for i in $(seq 1 "$ITERATIONS"); do
     echo "=== Iteration $i / $ITERATIONS ==="
 

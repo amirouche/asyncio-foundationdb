@@ -35,9 +35,8 @@ jobs:
       - run: python --version
       - run: cd found && sudo make debian
       - run: pip install --upgrade pip
-      - run: pip install poetry
+      - run: pip install uv
       - run: cd found && make init
-      - run: cd found && poetry run python readme.py
-      - run: cd found && poetry run make check
-      - run: poetry config pypi-token.pypi ${{ secrets.PYPI }}
-      - run: cd found && poetry publish --build --skip-existing
+      - run: cd found && uv run python readme.py
+      - run: cd found && make check
+      - run: cd found && uv build --wheel && uv publish --token ${{ secrets.PYPI }} --skip-existing dist/*
