@@ -6,27 +6,46 @@ on:
 env:
   GH_TOKEN: ${{ github.token }}
   GIT_OBJECT: ${{ github.head_ref || github.ref_name }}
-  PYTHON_GIL: "0"
 
 jobs:
   check:
     strategy:
       fail-fast: false
       matrix:
-        python-version:
-          - "3.9"
-          - "3.10"
-          - "3.11"
-          - "3.12"
-          - "3.13"
-          - "3.14"
-          - "3.14t"
-          - "pypy-3.9"
-          - "pypy-3.10"
-          - "pypy-3.11"
-        os:
-          - ubuntu-latest
-    runs-on:  ${{ matrix.os }}
+        include:
+          - python-version: "3.9"
+            os: ubuntu-latest
+            python_gil: "1"
+          - python-version: "3.10"
+            os: ubuntu-latest
+            python_gil: "1"
+          - python-version: "3.11"
+            os: ubuntu-latest
+            python_gil: "1"
+          - python-version: "3.12"
+            os: ubuntu-latest
+            python_gil: "1"
+          - python-version: "3.13"
+            os: ubuntu-latest
+            python_gil: "1"
+          - python-version: "3.14"
+            os: ubuntu-latest
+            python_gil: "1"
+          - python-version: "3.14t"
+            os: ubuntu-latest
+            python_gil: "0"
+          - python-version: "pypy-3.9"
+            os: ubuntu-latest
+            python_gil: "1"
+          - python-version: "pypy-3.10"
+            os: ubuntu-latest
+            python_gil: "1"
+          - python-version: "pypy-3.11"
+            os: ubuntu-latest
+            python_gil: "1"
+    env:
+      PYTHON_GIL: ${{ matrix.python_gil }}
+    runs-on: ${{ matrix.os }}
     name: ${{ matrix.python-version }} on ${{ matrix.os }}
     steps:
       - run: gh repo clone amirouche/asyncio-foundationdb -- found
