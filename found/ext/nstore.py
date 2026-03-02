@@ -15,6 +15,7 @@ Every add() writes to all C(n, n//2) permutations; every select() uses exactly o
 
 Reference: https://math.stackexchange.com/questions/3146568/
 """
+
 #
 # Copyright (C) 2015-2022  Amirouche Boubekki <amirouche@hyper.dev>
 #
@@ -118,9 +119,7 @@ Variable = var = v = namedtuple("Variable", ("name",))
 
 def is_permutation_prefix(combination, index):
     index = stringify(index)
-    out = any(
-        index.startswith(stringify(x)) for x in itertools.permutations(combination)
-    )
+    out = any(index.startswith(stringify(x)) for x in itertools.permutations(combination))
     return out
 
 

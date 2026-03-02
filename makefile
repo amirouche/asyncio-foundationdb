@@ -69,11 +69,15 @@ lock: ## Lock dependencies
 	uv export --no-dev > requirements.txt
 	uv export --only-group dev > requirements.dev.txt
 
-cosmit: ## Format and auto-fix code
+_format:
 	uv run ruff format $(MAIN)
 	uv run ruff check --fix $(MAIN)
 
-wip: cosmit ## clean up code, and commit wip
+cosmit: _format ## Format, auto-fix, and commit as "cosmit"
+	git add .
+	git commit -m "cosmit"
+
+wip: _format ## Format, auto-fix, and commit as "wip"
 	git add .
 	git commit -m "wip"
 

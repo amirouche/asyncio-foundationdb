@@ -1,4 +1,5 @@
 """Content-addressable blob store backed by FoundationDB."""
+
 #
 # found/bstore.py
 #
@@ -47,9 +48,7 @@ BStore = namedtuple(
 def make(name, prefix):
     """Create a blob store handle called ``name`` with ``prefix``."""
     prefix = list(prefix)
-    out = BStore(
-        name, tuple(prefix + BSTORE_SUFFIX_HASH), tuple(prefix + BSTORE_SUFFIX_BLOB)
-    )
+    out = BStore(name, tuple(prefix + BSTORE_SUFFIX_HASH), tuple(prefix + BSTORE_SUFFIX_BLOB))
     return out
 
 

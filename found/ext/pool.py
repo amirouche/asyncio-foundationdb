@@ -1,4 +1,5 @@
 """Thread pool helpers for parallel map operations."""
+
 #
 # This source file is part of the asyncio-foundationdb open source project
 #
@@ -41,9 +42,7 @@ async def pool_for_each_par_map(loop, pool, f, p, iterator):
             assert len(tasks) <= pool._max_workers
             if not tasks:
                 break
-            finished, unfinished = await asyncio.wait(
-                tasks, return_when=asyncio.FIRST_COMPLETED
-            )
+            finished, unfinished = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
             for finish in finished:
                 out = finish.result()
                 f(out)
