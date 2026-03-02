@@ -59,10 +59,13 @@ fdb._version = VERSION
 # fdb.impl.Value without AttributeError.
 # Workaround: PyPy lacks ctypes.pythonapi; provide a stub so fdb.impl's
 # hasattr() check falls through to its built-in fallback.
-import ctypes
-if not hasattr(ctypes, "pythonapi"):
-    ctypes.pythonapi = type("_stub", (), {})()
-import fdb.impl  # noqa
+import ctypes as _ctypes
+if not hasattr(_ctypes, "pythonapi"):
+    _ctypes.pythonapi = type("_stub", (), {})()
+    import fdb.impl  # noqa
+    del _ctypes.pythonapi
+else:
+    import fdb.impl  # noqa
 
 from fdb.tuple import Versionstamp  # noqa
 from fdb.tuple import has_incomplete_versionstamp  # noqa
@@ -83,7 +86,6 @@ from found.base import CONFLICT_RANGE_TYPE_READ  # noqa
 from found.base import CONFLICT_RANGE_TYPE_WRITE  # noqa
 from found.base import KeySelector  # noqa
 from found.base import Transaction  # noqa
-from found.base import _make_transaction  # noqa
 from found.base import ERROR_PREDICATE_MAYBE_COMMITTED  # noqa
 from found.base import ERROR_PREDICATE_RETRYABLE  # noqa
 from found.base import ERROR_PREDICATE_RETRYABLE_NOT_COMMITTED  # noqa
