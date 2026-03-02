@@ -1,4 +1,20 @@
-"""Generic N-tuple store backed by FoundationDB."""
+"""Generic N-tuple store backed by FoundationDB.
+
+Any query pattern (any combination of bound and unbound tuple positions) resolves
+in a single ordered range scan. The store maintains the mathematically minimal set
+of index permutations to achieve this.
+
+By Dilworth's theorem, covering the boolean lattice of all query patterns by the
+minimal number of maximal chains requires exactly C(n, n//2) permutations — the
+central binomial coefficient:
+
+    n=3 (triplestore)  → C(3, 1) = 3 indices
+    n=4 (quadstore)    → C(4, 2) = 6 indices
+
+Every add() writes to all C(n, n//2) permutations; every select() uses exactly one.
+
+Reference: https://math.stackexchange.com/questions/3146568/
+"""
 #
 # Copyright (C) 2015-2022  Amirouche Boubekki <amirouche@hyper.dev>
 #
@@ -17,7 +33,10 @@ from found.base import FoundException
 # Compute the minimal set of indices required to bind any n-pattern in
 # one hop.
 #
-# Based on https://stackoverflow.com/a/55148433/140837
+# By Dilworth's theorem, covering the boolean lattice by the minimal number
+# of maximal chains requires C(n, n//2) permutations (central binomial
+# coefficient). Algorithm via https://stackoverflow.com/a/55148433/140837
+# and https://math.stackexchange.com/questions/3146568/
 
 
 def bc(n, k):

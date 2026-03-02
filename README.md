@@ -537,6 +537,15 @@ query pattern resolves in a single ordered range scan. Reach for
 queries as patterns — think Datalog or a triple store — rather than
 building explicit indexes by hand.
 
+**Index count.** By Dilworth's theorem, covering the boolean lattice of
+all query patterns by the minimal number of maximal chains requires
+exactly C(n, n//2) permutations — the central binomial coefficient.
+In practice: a triplestore (`n=3`) needs **3 indices**; a quadstore
+(`n=4`) needs **6 indices**. Every `add` writes to all of them; every
+`select` uses exactly one. See
+[the derivation](https://math.stackexchange.com/questions/3146568/)
+for details.
+
 ### `nstore.NStoreException`
 
 Exception specific to `nstore`.
