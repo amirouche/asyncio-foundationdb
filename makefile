@@ -36,14 +36,14 @@ check-correctness: ## Run binding tester correctness suite
 	uv run bash scripts/run_bindingtester.sh $(ITERATIONS)
 
 check: ## Run tests
-	uv run python -m pytest -vvv --exitfirst --capture=no $(MAIN)/*.py
+	uv run python -m pytest -vvv --exitfirst --capture=no $(MAIN)/tests.py
 	uv run ruff check $(MAIN)
 
 check-fast: ## Run tests, fail fast
 	uv run python -m pytest -x -vvv --capture=no $(MAIN)
 
 check-coverage: ## Code coverage
-	uv run python -m pytest --quiet --cov-report=term --cov-report=html --cov=$(MAIN) $(MAIN)/*.py
+	uv run python -m pytest --quiet --cov-report=term --cov-report=html --cov=$(MAIN) $(MAIN)/tests.py
 
 lint: ## Lint the code
 	uv run ruff check $(MAIN)

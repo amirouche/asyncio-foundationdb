@@ -122,8 +122,6 @@ from found.base import transaction  # noqa
 from found.base import transactional  # noqa
 from found.base import watch  # noqa
 
-# TODO: from fdb.subspace_impl import Subspace  # noqa
-
 
 def co(func):
     async def wrapper(*args, **kwargs):
