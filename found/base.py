@@ -5,7 +5,7 @@
 # Forked from https://github.com/amirouche/asyncio-foundationdb
 #
 # Copyright 2013-2018 Apple Inc. and the FoundationDB project authors
-# Copyright 2018-2026 Amirouche Boubekki <amirouchhe.boubekki@gmail.com>
+# Copyright 2018-2026 Amirouche Boubekki <amirouche.boubekki@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0
 #
@@ -17,6 +17,8 @@ import threading
 from collections import namedtuple
 
 from found._fdb import ffi, lib
+
+assert struct.calcsize("P") == 8, "found requires a 64-bit Python interpreter"
 
 
 # ---------------------------------------------------------------------------
@@ -93,7 +95,7 @@ def _ensure_network():
     with _network_thread_lock:
         if _network_thread is not None:
             return
-        lib.fdb_setup_network()
+        _check(lib.fdb_setup_network())
         _network_thread = _NetworkThread()
         _network_thread.start()
 
@@ -256,6 +258,7 @@ def _cb_get_key(fdb_future, handle):
 def _cb_get_key_array(fdb_future, handle):
     """Callback for fdb_future_get_key_array — returns a list of bytes keys.
 
+    Requires a 64-bit Python interpreter (pointer size == 8 bytes).
     FDBKey is #pragma pack(4): pointer(8) + int(4) = 12 bytes, no trailing pad.
     We unpack manually (same strategy as _cb_get_range / FDBKeyValue) to avoid
     any CFFI-vs-compiler layout disagreement."""
