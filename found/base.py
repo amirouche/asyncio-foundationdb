@@ -228,7 +228,8 @@ def _cb_int64(fdb_future, handle):
     loop, aio_future = ffi.from_handle(handle)
     pointer = ffi.new("int64_t *")
     error = lib.fdb_future_get_int64(fdb_future, pointer)
-    result = pointer[0]
+    if error == 0:
+        result = pointer[0]
     _release_handle(fdb_future)
     lib.fdb_future_destroy(fdb_future)
     if error == 0:
