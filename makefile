@@ -30,14 +30,14 @@ check-correctness: ## Run binding tester correctness suite
 	poetry run bash scripts/run_bindingtester.sh $(ITERATIONS)
 
 check: ## Run tests
-	poetry run pytest -vvv --exitfirst --capture=no $(MAIN)/*.py
+	poetry run python -m pytest -vvv --exitfirst --capture=no $(MAIN)/*.py
 	if command -v bandit > /dev/null; then bandit --skip=B101,B311 -r $(MAIN); fi
 
 check-fast: ## Run tests, fail fast
-	pytest -x -vvv --capture=no $(MAIN)
+	poetry run python -m pytest -x -vvv --capture=no $(MAIN)
 
 check-coverage: ## Code coverage
-	pytest --quiet --cov-report=term --cov-report=html --cov=$(MAIN) $(MAIN)/*.py
+	poetry run python -m pytest --quiet --cov-report=term --cov-report=html --cov=$(MAIN) $(MAIN)/*.py
 
 lint: ## Lint the code
 	pylama $(MAIN)
