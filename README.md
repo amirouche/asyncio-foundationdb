@@ -95,7 +95,7 @@ asyncio.run(readme())
 
 ## ChangeLog
 
-### Unreleased
+### v0.13.0
 
 - Split `found.ext.vnstore` into store logic (`__init__.py`) and ASGI server
   (`server.py`) so the store can be imported without `jinja2` installed
@@ -106,9 +106,6 @@ asyncio.run(readme())
 - Eliminate seven copies of UUID validation + change lookup with a shared
   `with_change` helper
 - Add `found-vnstore` console script (requires `pip install asyncio-foundationdb[server]`)
-
-### v0.13.0
-
 - Add transaction lifecycle hooks: `on_begin`, `on_commit`, `on_post_commit` on `db.hooks`
 - Add `found.TransactionStats` (retries, elapsed, commit_bytes) passed to `on_post_commit`
 - Add `async with found.transaction(db) as tx:` context manager
