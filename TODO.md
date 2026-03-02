@@ -13,9 +13,9 @@
 
 ### Ergonomics
 
-- [ ] **Transaction context manager** — `async with found.transaction(db) as tx:`
+- [x] **Transaction context manager** — `async with found.transaction(db) as tx:`
   as an alternative to the `transactional()` callback pattern for one-off use
-- [ ] **Native tuple layer** — implement `pack`/`unpack` natively so the `foundationdb`
+- [x] **Native tuple layer** — implement `pack`/`unpack` natively so the `foundationdb`
   package (official Python binding) is no longer a runtime dependency
 
 ### Clean-up
