@@ -2,7 +2,6 @@ import asyncio
 from uuid import uuid4
 
 import pytest
-from fdb.tuple import SingleFloat
 
 import found
 import found.base
@@ -12,11 +11,33 @@ from found.ext.nstore import var
 
 def test_pack_unpack():
     value = (
-        (uuid4(), None, SingleFloat(3.1415), b"x42", 1, -1, 3.1415, -3.1415, ("abc",)),
+        (None, False, True, b"x42", 1, -1, 3.1415, -3.1415, ("abc",)),
         ("d", "e", "f"),
         2.718281828459045,
-    )  # noqa
+    )
     assert found.unpack(found.pack(value)) == value
+
+
+def test_versionstamp_pack_roundtrip():
+    vs = found.Versionstamp(b"\x01" * 10, 7)
+    packed = found.pack((vs, b"after"))
+    result = found.unpack(packed)
+    assert result[0] == vs
+    assert result[1] == b"after"
+
+
+def test_pack_with_versionstamp():
+    vs = found.Versionstamp.incomplete(user_version=3)
+    packed = found.pack_with_versionstamp((b"prefix", vs, b"suffix"))
+    # last 4 bytes are the LE offset
+    import struct
+
+    offset = struct.unpack("<I", packed[-4:])[0]
+    key = packed[:-4]
+    # the byte at offset-1 should be the VERSIONSTAMP_CODE (0x0A)
+    from found.tuple import VERSIONSTAMP_CODE
+
+    assert key[offset - 1] == VERSIONSTAMP_CODE
 
 
 async def open():
@@ -28,6 +49,34 @@ async def open():
     await found.transactional(db, purge)
 
     return db
+
+
+@pytest.mark.asyncio
+async def test_transaction_context_manager_commit():
+    db = await open()
+    async with found.transaction(db) as tx:
+        await found.set(tx, found.pack((b"ctx",)), b"val")
+
+    async def check(tx):
+        return await found.get(tx, found.pack((b"ctx",)))
+
+    assert await found.transactional(db, check) == b"val"
+
+
+@pytest.mark.asyncio
+async def test_transaction_context_manager_no_commit_on_exception():
+    db = await open()
+    try:
+        async with found.transaction(db) as tx:
+            await found.set(tx, found.pack((b"ctx2",)), b"val")
+            raise RuntimeError("abort")
+    except RuntimeError:
+        pass
+
+    async def check(tx):
+        return await found.get(tx, found.pack((b"ctx2",)))
+
+    assert await found.transactional(db, check) is None
 
 
 @pytest.mark.asyncio
