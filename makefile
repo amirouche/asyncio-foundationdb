@@ -16,8 +16,8 @@ debian: ## Install foundationdb, requires sudo
 	dpkg -i fdb-server.deb
 
 init: ## Prepare the host sytem for development
-	pip install poetry poetry-plugin-export
-	poetry install --all-extras
+	pip install uv
+	uv sync --all-extras --all-groups
 	@echo "\033[95m\n\nYou may now run 'make check'.\n\033[0m"
 
 database-clear:
@@ -26,21 +26,21 @@ database-clear:
 ITERATIONS?=1
 
 check-correctness: ## Run binding tester correctness suite
-	poetry run bash scripts/setup_bindingtester.sh
-	poetry run bash scripts/run_bindingtester.sh $(ITERATIONS)
+	uv run bash scripts/setup_bindingtester.sh
+	uv run bash scripts/run_bindingtester.sh $(ITERATIONS)
 
 check: ## Run tests
-	poetry run python -m pytest -vvv --exitfirst --capture=no $(MAIN)/*.py
-	if command -v bandit > /dev/null; then bandit --skip=B101,B311 -r $(MAIN); fi
+	uv run python -m pytest -vvv --exitfirst --capture=no $(MAIN)/*.py
+	uv run bandit --skip=B101,B311 -r $(MAIN)
 
 check-fast: ## Run tests, fail fast
-	poetry run python -m pytest -x -vvv --capture=no $(MAIN)
+	uv run python -m pytest -x -vvv --capture=no $(MAIN)
 
 check-coverage: ## Code coverage
-	poetry run python -m pytest --quiet --cov-report=term --cov-report=html --cov=$(MAIN) $(MAIN)/*.py
+	uv run python -m pytest --quiet --cov-report=term --cov-report=html --cov=$(MAIN) $(MAIN)/*.py
 
 lint: ## Lint the code
-	pylama $(MAIN)
+	uv run pylama $(MAIN)
 
 doc: ## Build the documentation
 	cd doc && make html
@@ -59,13 +59,13 @@ serve: ## Run the server
 	uvicorn --reload --lifespan on --log-level warning --reload $(MAIN).vnstore:server
 
 lock: ## Lock dependencies
-	poetry lock
-	poetry export > requirements.txt
-	poetry export --only=dev > requirements.dev.txt
+	uv lock
+	uv export --no-dev > requirements.txt
+	uv export --only-group dev > requirements.dev.txt
 
 wip: ## clean up code, and commit wip
-	black $(MAIN)
-	isort --profile black $(MAIN)
+	uv run black $(MAIN)
+	uv run isort --profile black $(MAIN)
 	git add .
 	git commit -m "wip"
 
@@ -74,5 +74,5 @@ release: ## Release package on pypi
 	make lock
 	make init
 	make check
-	python3 -m build --wheel
-	python3 -m twine upload dist/*
+	uv build --wheel
+	uv publish dist/*
