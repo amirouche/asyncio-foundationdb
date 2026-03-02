@@ -14,11 +14,6 @@ import found
 from found.base import FoundException
 
 
-def pk(*args):
-    print(*args)
-    return args[-1]
-
-
 # Compute the minimal set of indices required to bind any n-pattern in
 # one hop.
 #

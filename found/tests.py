@@ -20,10 +20,6 @@ def test_pack_unpack():
 
 
 async def open():
-    # XXX: hack around the fact that the loop is cached in found
-    loop = asyncio.get_event_loop()
-    found.base._loop = loop
-
     db = await found.open()
 
     async def purge(tx):
