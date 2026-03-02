@@ -111,7 +111,6 @@ from found.base import get_approximate_size  # noqa
 from found.base import get_client_version  # noqa
 from found.base import get_committed_version  # noqa
 from found.base import get_key  # noqa
-from found.base import get_range  # noqa
 from found.base import get_range_split_points  # noqa
 from found.base import get_versionstamp  # noqa
 from found.base import gt  # noqa
