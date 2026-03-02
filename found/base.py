@@ -725,6 +725,7 @@ def network_set_option(option, value=None):
 
 
 _completion_hooks = []
+_completion_hooks_lock = threading.Lock()
 
 
 @ffi.callback("void(void *)")
@@ -735,8 +736,9 @@ def _completion_hook_trampoline(param):
 
 def add_network_thread_completion_hook(callback):
     """Register a callback to be invoked when the network thread exits."""
-    idx = len(_completion_hooks)
-    _completion_hooks.append(callback)
+    with _completion_hooks_lock:
+        idx = len(_completion_hooks)
+        _completion_hooks.append(callback)
     _check(lib.fdb_add_network_thread_completion_hook(
         _completion_hook_trampoline, ffi.cast("void *", idx)
     ))
