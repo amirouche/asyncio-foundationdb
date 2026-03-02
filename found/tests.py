@@ -1196,8 +1196,12 @@ async def test_hooks_fire_in_order():
     async def on_commit(tx):
         log.append("commit")
 
-    async def on_post_commit(tx):
+    async def on_post_commit(tx, stats):
         log.append("post_commit")
+        assert isinstance(stats, found.TransactionStats)
+        assert stats.retries == 0
+        assert stats.elapsed >= 0
+        assert stats.commit_bytes >= 0
 
     db.hooks.on_begin.append(on_begin)
     db.hooks.on_commit.append(on_commit)
@@ -1223,8 +1227,11 @@ async def test_hooks_retry_semantics():
     async def on_commit(tx):
         log.append("commit")
 
-    async def on_post_commit(tx):
+    async def on_post_commit(tx, stats):
         log.append("post_commit")
+        assert stats.retries == 1
+        assert stats.elapsed >= 0
+        assert stats.commit_bytes >= 0
 
     db.hooks.on_begin.append(on_begin)
     db.hooks.on_commit.append(on_commit)

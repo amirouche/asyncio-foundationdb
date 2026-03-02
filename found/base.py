@@ -14,6 +14,7 @@ import asyncio
 import atexit
 import struct
 import threading
+import time
 from collections import namedtuple
 from contextlib import asynccontextmanager
 
@@ -343,6 +344,8 @@ STREAMING_MODE_SERIAL = 4
 Transaction = namedtuple("Transaction", ("pointer", "db", "snapshot", "vars"))
 
 Hooks = namedtuple("Hooks", ("on_begin", "on_commit", "on_post_commit"))
+
+TransactionStats = namedtuple("TransactionStats", ("retries", "elapsed", "commit_bytes"))
 
 
 def make_hooks():
@@ -743,6 +746,8 @@ async def get_addresses_for_key(tx, key):
 async def transactional(db, func, *args, snapshot=False, **kwargs):
     loop = asyncio.get_running_loop()
     tx = make_transaction(db, snapshot)
+    retries = 0
+    start = time.monotonic()
 
     for hook in db.hooks.on_begin:
         await hook(tx)
@@ -752,18 +757,21 @@ async def transactional(db, func, *args, snapshot=False, **kwargs):
             out = await func(tx, *args, **kwargs)
             for hook in db.hooks.on_commit:
                 await hook(tx)
+            commit_bytes = await get_approximate_size(tx) if db.hooks.on_post_commit else 0
             await commit(tx)
         except FoundException as exc:
             fdb_future = lib.fdb_transaction_on_error(tx.pointer, exc.code)
             aio_future = loop.create_future()
             _register_callback(fdb_future, _cb_error, loop, aio_future)
             await aio_future  # raises if not retryable
+            retries += 1
             tx.vars.clear()
             for hook in db.hooks.on_begin:
                 await hook(tx)
         else:
+            stats = TransactionStats(retries, time.monotonic() - start, commit_bytes)
             for hook in db.hooks.on_post_commit:
-                await hook(tx)
+                await hook(tx, stats)
             return out
 
 
@@ -776,18 +784,21 @@ async def transaction(db, snapshot=False):
     is responsible for retry logic if needed.
     """
     tx = make_transaction(db, snapshot)
+    start = time.monotonic()
     for hook in db.hooks.on_begin:
         await hook(tx)
     try:
         yield tx
         for hook in db.hooks.on_commit:
             await hook(tx)
+        commit_bytes = await get_approximate_size(tx) if db.hooks.on_post_commit else 0
         await commit(tx)
     except BaseException:
         raise
     else:
+        stats = TransactionStats(0, time.monotonic() - start, commit_bytes)
         for hook in db.hooks.on_post_commit:
-            await hook(tx)
+            await hook(tx, stats)
 
 
 # ---------------------------------------------------------------------------
