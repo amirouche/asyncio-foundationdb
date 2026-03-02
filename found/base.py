@@ -680,6 +680,7 @@ async def transactional(db, func, *args, snapshot=False, **kwargs):
             aio_future = loop.create_future()
             _register_callback(fdb_future, _cb_error, loop, aio_future)
             await aio_future  # raises if the error is not retryable
+            tx.vars.clear()
         else:
             return out
 
