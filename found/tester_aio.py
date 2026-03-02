@@ -121,10 +121,8 @@ OPTION_NEXT_WRITE_NO_WRITE_CONFLICT_RANGE = 30
 # ---------------------------------------------------------------------------
 
 async def _get_range(tx, begin, end, *, limit=0, reverse=False, mode=found.base.STREAMING_MODE_ITERATOR):
-    """Collect found.query() into a list, honouring the reverse flag."""
-    if reverse:
-        return await found.all(found.query(tx, end, begin, limit=limit, mode=mode))
-    return await found.all(found.query(tx, begin, end, limit=limit, mode=mode))
+    """Collect found.query() into a list with explicit reverse control."""
+    return await found.all(found.query(tx, begin, end, limit=limit, reverse=bool(reverse), mode=mode))
 
 
 # ---------------------------------------------------------------------------

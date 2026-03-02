@@ -405,18 +405,23 @@ def gte(key, offset=1):
 # Range query — async generator
 # ---------------------------------------------------------------------------
 
-async def query(tx, key, other, *, limit=0, mode=STREAMING_MODE_ITERATOR):
+async def query(tx, key, other, *, limit=0, reverse=None, mode=STREAMING_MODE_ITERATOR):
     loop = asyncio.get_running_loop()
 
     key = key if isinstance(key, KeySelector) else gte(key)
     other = other if isinstance(other, KeySelector) else gte(other)
 
-    if key.key < other.key:
-        begin, end, reverse = key, other, False
+    if reverse is None:
+        # Infer direction from key ordering (original behaviour)
+        if key.key < other.key:
+            begin, end, reverse = key, other, False
+        else:
+            begin = KeySelector(other.key, False, other.offset)
+            end = KeySelector(key.key, True, key.offset)
+            reverse = True
     else:
-        begin = KeySelector(other.key, False, other.offset)
-        end = KeySelector(key.key, True, key.offset)
-        reverse = True
+        # Explicit reverse: pass key selectors through unchanged
+        begin, end = key, other
 
     iteration = 1
     snapshot = tx.snapshot
