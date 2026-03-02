@@ -342,6 +342,18 @@ STREAMING_MODE_SERIAL = 4
 
 Transaction = namedtuple("Transaction", ("pointer", "db", "snapshot", "vars"))
 
+Hooks = namedtuple("Hooks", ("on_begin", "on_commit", "on_post_commit"))
+
+
+def make_hooks():
+    """Return a fresh Hooks instance with empty lists for each lifecycle slot.
+
+    on_begin       — async callables, fired after make_transaction and after each retry
+    on_commit      — async callables, fired before commit, still inside the transaction
+    on_post_commit — async callables, fired after a successful durable commit, exactly once
+    """
+    return Hooks(on_begin=[], on_commit=[], on_post_commit=[])
+
 
 def make_transaction(db, snapshot=False):
     out = ffi.new("FDBTransaction **")
@@ -731,17 +743,27 @@ async def get_addresses_for_key(tx, key):
 async def transactional(db, func, *args, snapshot=False, **kwargs):
     loop = asyncio.get_running_loop()
     tx = make_transaction(db, snapshot)
+
+    for hook in db.hooks.on_begin:
+        await hook(tx)
+
     while True:
         try:
             out = await func(tx, *args, **kwargs)
+            for hook in db.hooks.on_commit:
+                await hook(tx)
             await commit(tx)
         except FoundException as exc:
             fdb_future = lib.fdb_transaction_on_error(tx.pointer, exc.code)
             aio_future = loop.create_future()
             _register_callback(fdb_future, _cb_error, loop, aio_future)
-            await aio_future  # raises if the error is not retryable
+            await aio_future  # raises if not retryable
             tx.vars.clear()
+            for hook in db.hooks.on_begin:
+                await hook(tx)
         else:
+            for hook in db.hooks.on_post_commit:
+                await hook(tx)
             return out
 
 
@@ -754,18 +776,25 @@ async def transaction(db, snapshot=False):
     is responsible for retry logic if needed.
     """
     tx = make_transaction(db, snapshot)
+    for hook in db.hooks.on_begin:
+        await hook(tx)
     try:
         yield tx
+        for hook in db.hooks.on_commit:
+            await hook(tx)
         await commit(tx)
     except BaseException:
         raise
+    else:
+        for hook in db.hooks.on_post_commit:
+            await hook(tx)
 
 
 # ---------------------------------------------------------------------------
 # Database
 # ---------------------------------------------------------------------------
 
-Database = namedtuple("Database", ("pointer",))
+Database = namedtuple("Database", ("pointer", "hooks"))
 
 
 async def open(cluster_file=None):
@@ -780,7 +809,7 @@ async def open(cluster_file=None):
     )
     _check(lib.fdb_create_database(cluster_file_c, out))
     out = ffi.gc(out[0], lib.fdb_database_destroy)
-    return Database(out)
+    return Database(out, make_hooks())
 
 
 # ---------------------------------------------------------------------------
