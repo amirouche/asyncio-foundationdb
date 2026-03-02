@@ -45,6 +45,14 @@ Then install asyncio drivers `asyncio-foundationdb`:
 pip install asyncio-foundationdb
 ```
 
+To use the built-in HTTP server (powered by [uvicorn](https://www.uvicorn.org/)):
+
+```
+pip install asyncio-foundationdb[server]
+```
+
+This pulls in `uvicorn`, `jinja2`, `zstandard`, and `more-itertools`.
+
 ## Example
 
 ```python
