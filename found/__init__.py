@@ -20,8 +20,6 @@
 # limitations under the License.
 #
 
-import fdb
-
 from found._fdb import lib
 
 __VERSION__ = (0, 13, 0)
@@ -52,28 +50,11 @@ elif code != 0:
     raise RuntimeError("FoundationDB API error ({})".format(code))
 
 
-# Required to use fdb.tuple.pack and fdb.tuple.unpack
-fdb._version = VERSION
-
-# Load fdb.impl so that fdb.tuple.Versionstamp.to_bytes() can reference
-# fdb.impl.Value without AttributeError.
-# Workaround: PyPy lacks ctypes.pythonapi; provide a stub so fdb.impl's
-# hasattr() check falls through to its built-in fallback.
-import ctypes as _ctypes  # noqa: E402
-
-if not hasattr(_ctypes, "pythonapi"):
-    _ctypes.pythonapi = type("_stub", (), {})()
-    import fdb.impl  # noqa
-
-    del _ctypes.pythonapi
-else:
-    import fdb.impl  # noqa
-
-from fdb.tuple import Versionstamp  # noqa
-from fdb.tuple import has_incomplete_versionstamp  # noqa
-from fdb.tuple import pack  # noqa
-from fdb.tuple import pack_with_versionstamp  # noqa
-from fdb.tuple import unpack  # noqa
+from found.tuple import Versionstamp  # noqa
+from found.tuple import has_incomplete_versionstamp  # noqa
+from found.tuple import pack  # noqa
+from found.tuple import pack_with_versionstamp  # noqa
+from found.tuple import unpack  # noqa
 
 from found.base import STREAMING_MODE_EXACT  # noqa
 from found.base import STREAMING_MODE_ITERATOR  # noqa
@@ -134,6 +115,7 @@ from found.base import set_option  # noqa
 from found.base import set_read_version  # noqa
 from found.base import set_versionstamped_key  # noqa
 from found.base import set_versionstamped_value  # noqa
+from found.base import transaction  # noqa
 from found.base import transactional  # noqa
 from found.base import watch  # noqa
 

@@ -15,6 +15,7 @@ import atexit
 import struct
 import threading
 from collections import namedtuple
+from contextlib import asynccontextmanager
 
 from found._fdb import ffi, lib
 
@@ -742,6 +743,22 @@ async def transactional(db, func, *args, snapshot=False, **kwargs):
             tx.vars.clear()
         else:
             return out
+
+
+@asynccontextmanager
+async def transaction(db, snapshot=False):
+    """Non-retrying async context manager for a single transaction.
+
+    On clean exit the transaction is committed. On exception it is re-raised
+    without committing (FDB destroys the transaction automatically). The caller
+    is responsible for retry logic if needed.
+    """
+    tx = make_transaction(db, snapshot)
+    try:
+        yield tx
+        await commit(tx)
+    except BaseException:
+        raise
 
 
 # ---------------------------------------------------------------------------

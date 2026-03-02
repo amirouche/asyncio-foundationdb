@@ -13,7 +13,6 @@ requires-python = ">=3.9"
 dependencies = [
     "aiostream",
     "cffi",
-    "foundationdb>=7.3,<7.4",
     "immutables",
     "loguru",
     "uuid7",
@@ -40,6 +39,7 @@ include = ["found*"]
 
 [dependency-groups]
 dev = [
+    "foundationdb>=7.3,<7.4",
     "pytest",
     "pytest-asyncio",
     "pytest-cov",
