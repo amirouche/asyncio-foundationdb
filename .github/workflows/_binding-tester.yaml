@@ -10,11 +10,26 @@ on:
 env:
   GH_TOKEN: ${{ github.token }}
   GIT_OBJECT: ${{ github.head_ref || github.ref_name }}
+  PYTHON_GIL: "0"
 
 jobs:
   binding-tester:
     runs-on: ubuntu-latest
-    name: Binding Tester (Python 3.11)
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.9"
+          - "3.10"
+          - "3.11"
+          - "3.12"
+          - "3.13"
+          - "3.14"
+          - "3.14t"
+          - "pypy-3.9"
+          - "pypy-3.10"
+          - "pypy-3.11"
+    name: Binding Tester (Python ${{ matrix.python-version }})
     steps:
       - run: gh repo clone amirouche/asyncio-foundationdb -- found
       - run: cd found && git checkout $GIT_OBJECT
@@ -22,7 +37,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
           architecture: x64
 
       - run: python --version
