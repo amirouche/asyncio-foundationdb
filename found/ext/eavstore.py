@@ -40,7 +40,7 @@ def make(name, prefix):
 
 
 async def create(tx, eavstore, dict, uid=None):
-    """Store ``dict`` and return its uid. If ``uid`` is provided, use it instead of generating one."""
+    """Store ``dict`` and return its uid. If ``uid`` is provided, use it instead of generating one."""  # noqa: E501
     uid = uuid4() if uid is None else uid
     for key, value in dict.items():
         key = found.pack((eavstore.prefix_data, uid, key))

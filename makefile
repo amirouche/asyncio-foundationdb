@@ -18,7 +18,13 @@ debian: ## Install foundationdb, requires sudo
 init: ## Prepare the host sytem for development
 	pip install uv
 	uv sync --all-extras --all-groups
+	make hooks
 	@echo "\033[95m\n\nYou may now run 'make check'.\n\033[0m"
+
+hooks: ## Install git pre-commit and pre-push hooks
+	@printf '#!/bin/sh\nmake check\n' > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+	@printf '#!/bin/sh\nmake lint\n' > .git/hooks/pre-push && chmod +x .git/hooks/pre-push
+	@echo "Installed .git/hooks/pre-commit (make check) and .git/hooks/pre-push (make lint)"
 
 database-clear:
 	fdbcli --exec "writemode on; clearrange \x00 \xFF;"
@@ -31,7 +37,7 @@ check-correctness: ## Run binding tester correctness suite
 
 check: ## Run tests
 	uv run python -m pytest -vvv --exitfirst --capture=no $(MAIN)/*.py
-	uv run bandit --skip=B101,B311 -r $(MAIN)
+	uv run ruff check $(MAIN)
 
 check-fast: ## Run tests, fail fast
 	uv run python -m pytest -x -vvv --capture=no $(MAIN)
@@ -40,7 +46,7 @@ check-coverage: ## Code coverage
 	uv run python -m pytest --quiet --cov-report=term --cov-report=html --cov=$(MAIN) $(MAIN)/*.py
 
 lint: ## Lint the code
-	uv run pylama $(MAIN)
+	uv run ruff check $(MAIN)
 
 doc: ## Build the documentation
 	cd doc && make html
@@ -63,9 +69,11 @@ lock: ## Lock dependencies
 	uv export --no-dev > requirements.txt
 	uv export --only-group dev > requirements.dev.txt
 
-wip: ## clean up code, and commit wip
-	uv run black $(MAIN)
-	uv run isort --profile black $(MAIN)
+cosmit: ## Format and auto-fix code
+	uv run ruff format $(MAIN)
+	uv run ruff check --fix $(MAIN)
+
+wip: cosmit ## clean up code, and commit wip
 	git add .
 	git commit -m "wip"
 

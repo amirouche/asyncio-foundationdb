@@ -29,7 +29,6 @@ from immutables import Map
 import found
 from found.base import FoundException
 
-
 # Compute the minimal set of indices required to bind any n-pattern in
 # one hop.
 #

@@ -4,23 +4,18 @@
 # https://github.com/amirouche/asyncio-foundationdb
 #
 import asyncio
-import json
-import os
-import sys
 from collections import namedtuple
 from urllib.parse import parse_qs as parse_query_string
 from uuid import UUID, uuid4
 
-import fdb
-import fdb.tuple
 from immutables import Map
 from jinja2 import Environment, PackageLoader, select_autoescape
 from loguru import logger as log
 from uuid_extensions import uuid7
 
 import found
-from found.ext import nstore
 from found.base import FoundException
+from found.ext import nstore
 
 _VNStore = namedtuple("VNStore", "name subspace items changes tuples names")
 
@@ -440,7 +435,7 @@ async def server(scope, receive, send):
 
     # Do not use match to support old CPython.
     # TODO: consider pampy.
-    
+
     if path == "/" and method == "GET":
         html = await jinja("index.html", dict())
         await reply_html(send, html)
@@ -738,7 +733,7 @@ async def server(scope, receive, send):
         uid = body.get("uid", [''])[0]
         key = body.get("key", [''])[0]
         value = body.get("value", [''])[0]
-        
+
         try:
             uidx = fromstring(uid)
             keyx = fromstring(key)
@@ -764,12 +759,18 @@ async def server(scope, receive, send):
             keyx = nstore.var('key')
         if valuex == '':
             valuex = nstore.var('value')
-        
+
         out = await found.transactional(CACHE['database'], do, uidx, keyx, valuex)
-        html = await jinja("navigate.html", dict(changes=out, uid=uid, key=key, value=value, tostring=tostring, isinstance=isinstance, UUID=UUID))
+        html = await jinja(
+            "navigate.html",
+            dict(
+                changes=out, uid=uid, key=key, value=value,
+                tostring=tostring, isinstance=isinstance, UUID=UUID,
+            ),
+        )
         await reply_html(send, html)
         return
-    
+
     await not_found(send)
 
 
