@@ -526,17 +526,13 @@ async def set_versionstamped_value(tx, key, param): _atomic(tx, MUTATION_SET_VER
 # Commit and retry loop
 # ---------------------------------------------------------------------------
 
-async def _commit(tx):
+async def commit(tx):
+    """Commit the transaction, waiting for FDB to confirm durability."""
     loop = asyncio.get_running_loop()
     fdb_future = lib.fdb_transaction_commit(tx.pointer)
     aio_future = loop.create_future()
     _register_callback(fdb_future, _cb_watch, loop, aio_future)
     await aio_future
-
-
-async def commit(tx):
-    """Public commit — same as _commit."""
-    await _commit(tx)
 
 
 async def on_error(tx, code):
@@ -674,7 +670,7 @@ async def transactional(db, func, *args, snapshot=False, **kwargs):
     while True:
         try:
             out = await func(tx, *args, **kwargs)
-            await _commit(tx)
+            await commit(tx)
         except FoundException as exc:
             fdb_future = lib.fdb_transaction_on_error(tx.pointer, exc.code)
             aio_future = loop.create_future()
