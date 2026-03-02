@@ -68,7 +68,9 @@ from found.base import FoundException  # noqa
 from found.base import CONFLICT_RANGE_TYPE_READ  # noqa
 from found.base import CONFLICT_RANGE_TYPE_WRITE  # noqa
 from found.base import KeySelector  # noqa
+from found.base import Hooks  # noqa
 from found.base import Transaction  # noqa
+from found.base import make_hooks  # noqa
 from found.base import ERROR_PREDICATE_MAYBE_COMMITTED  # noqa
 from found.base import ERROR_PREDICATE_RETRYABLE  # noqa
 from found.base import ERROR_PREDICATE_RETRYABLE_NOT_COMMITTED  # noqa

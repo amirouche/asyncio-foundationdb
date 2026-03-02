@@ -1183,3 +1183,60 @@ async def test_vnstore_remove_nonexistent():
 
     out = await found.transactional(db, do_remove)
     assert out is False
+
+
+@pytest.mark.asyncio
+async def test_hooks_fire_in_order():
+    db = await open()
+    log = []
+
+    async def on_begin(tx):
+        log.append("begin")
+
+    async def on_commit(tx):
+        log.append("commit")
+
+    async def on_post_commit(tx):
+        log.append("post_commit")
+
+    db.hooks.on_begin.append(on_begin)
+    db.hooks.on_commit.append(on_commit)
+    db.hooks.on_post_commit.append(on_post_commit)
+
+    async def do_work(tx):
+        log.append("work")
+
+    await found.transactional(db, do_work)
+
+    assert log == ["begin", "work", "commit", "post_commit"]
+
+
+@pytest.mark.asyncio
+async def test_hooks_retry_semantics():
+    db = await open()
+    log = []
+    calls = [0]
+
+    async def on_begin(tx):
+        log.append("begin")
+
+    async def on_commit(tx):
+        log.append("commit")
+
+    async def on_post_commit(tx):
+        log.append("post_commit")
+
+    db.hooks.on_begin.append(on_begin)
+    db.hooks.on_commit.append(on_commit)
+    db.hooks.on_post_commit.append(on_post_commit)
+
+    async def do_work(tx):
+        log.append("work")
+        calls[0] += 1
+        if calls[0] == 1:
+            raise found.FoundException(1007)  # transaction_too_old — retryable
+
+    await found.transactional(db, do_work)
+
+    # on_begin and on_commit re-run on retry; on_post_commit fires exactly once
+    assert log == ["begin", "work", "begin", "work", "commit", "post_commit"]
