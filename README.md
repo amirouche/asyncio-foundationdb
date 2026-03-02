@@ -26,7 +26,8 @@ full stack, in one language, with one place to look when things go
 wrong.
 
 This is not about avoiding complexity. It's about choosing which
-complexity you live with — and keeping it visible.
+complexity you live with — and keeping it visible. [Why I built
+this.](WHY.md)
 
 ## Links
 
