@@ -251,7 +251,7 @@ Commit the transaction.
 
 Explicitly commit the transaction `tx`. This is done automatically
 by `found.transactional`, but is useful when managing transactions
-manually with `found._make_transaction`.
+manually with `found.make_transaction`.
 
 ### `await found.on_error(tx, code)`
 
@@ -326,7 +326,7 @@ created it has been committed. `key` must be `bytes`.
 
 ```python
 # Register the watch on a fresh transaction
-tx = found._make_transaction(db)
+tx = found.make_transaction(db)
 watch_future = found.watch(tx, key)
 await found.commit(tx)         # activates the watch for external changes
 

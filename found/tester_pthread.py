@@ -25,7 +25,7 @@ from found.base import (
     CONFLICT_RANGE_TYPE_READ,
     CONFLICT_RANGE_TYPE_WRITE,
     KeySelector,
-    _make_transaction,
+    make_transaction,
 )
 
 
@@ -136,13 +136,13 @@ class Tester:
         return self.transactions[self.tr_name]
 
     def new_transaction(self):
-        self.transactions[self.tr_name] = _make_transaction(self.db)
+        self.transactions[self.tr_name] = make_transaction(self.db)
 
     async def run(self):
         self.new_transaction()
 
         # Read all instructions
-        tr = _make_transaction(self.db)
+        tr = make_transaction(self.db)
         prefix_begin = fdb.tuple.pack((self.prefix,))
         prefix_end = fdb.tuple.pack((self.prefix,)) + b"\xff"
         instructions = await found.get_range(tr, prefix_begin, prefix_end)
@@ -224,7 +224,7 @@ class Tester:
             name = await self.stack.pop_value()
             self.tr_name = name
             if name not in self.transactions:
-                self.transactions[name] = _make_transaction(self.db)
+                self.transactions[name] = make_transaction(self.db)
 
         elif op == b"ON_ERROR":
             code = await self.stack.pop_value()
@@ -599,7 +599,7 @@ class Tester:
     async def _wait_empty(self, prefix):
         """Poll until no keys exist with the given prefix."""
         while True:
-            tr = _make_transaction(self.db)
+            tr = make_transaction(self.db)
             begin = prefix
             end = found.next_prefix(prefix)
             kvs = await found.get_range(tr, begin, end, limit=1)
@@ -618,7 +618,7 @@ class Tester:
         batch_size = 100
         for i in range(0, len(entries), batch_size):
             batch = entries[i : i + batch_size]
-            tr = _make_transaction(self.db)
+            tr = make_transaction(self.db)
             for j, (stack_idx, value) in enumerate(batch):
                 key = prefix + fdb.tuple.pack((i + j, stack_idx))
                 packed = fdb.tuple.pack((value,))[:40000]
@@ -629,7 +629,7 @@ class Tester:
 
     async def _db_transact(self, func):
         """Run func(tx) with automatic retry on retryable errors."""
-        tx = _make_transaction(self.db)
+        tx = make_transaction(self.db)
         while True:
             try:
                 result = await func(tx)
