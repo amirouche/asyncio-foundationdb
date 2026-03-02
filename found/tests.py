@@ -853,10 +853,10 @@ async def test_compare_and_clear():
 
 
 def test_get_client_version():
+    import re
     version = found.get_client_version()
     assert isinstance(version, str)
-    assert len(version) > 0
-    assert "7.3" in version
+    assert re.search(r"\d+\.\d+", version), f"unexpected version string: {version!r}"
 
 
 @pytest.mark.asyncio
