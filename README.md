@@ -95,6 +95,13 @@ asyncio.run(readme())
 
 ## ChangeLog
 
+### v0.13.2
+
+#### CI
+
+- Fix PyPI release: run `auditwheel repair` after building Linux wheels to produce
+  `manylinux_2_17_*` platform tags instead of the rejected plain `linux_*` tags
+
 ### v0.13.1
 
 #### CI
