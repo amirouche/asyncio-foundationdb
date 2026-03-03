@@ -127,6 +127,110 @@ def test_fdb_unpack_found_pack():
         )
 
 
+# ---------------------------------------------------------------------------
+# Direct encoding assertions — pin specific byte values so regressions in
+# found/tuple.py are immediately obvious without requiring fdb.tuple present.
+# ---------------------------------------------------------------------------
+
+from found.tuple import (  # noqa: E402
+    BYTES_CODE,
+    DOUBLE_CODE,
+    FALSE_CODE,
+    INT_ZERO_CODE,
+    NESTED_CODE,
+    NULL_CODE,
+    STRING_CODE,
+    TRUE_CODE,
+    UUID_CODE,
+    VERSIONSTAMP_CODE,
+)
+
+
+def test_type_codes():
+    """Each type must start with the correct FDB type-code byte."""
+    assert found.pack((None,))[0] == NULL_CODE        # 0x00
+    assert found.pack((b"x",))[0] == BYTES_CODE       # 0x01
+    assert found.pack(("x",))[0] == STRING_CODE       # 0x02
+    assert found.pack((False,))[0] == FALSE_CODE      # 0x26
+    assert found.pack((True,))[0] == TRUE_CODE        # 0x27
+    assert found.pack((0,))[0] == INT_ZERO_CODE       # 0x14
+    assert found.pack((1.0,))[0] == DOUBLE_CODE       # 0x21
+    assert found.pack((_uuid_mod.UUID(int=0),))[0] == UUID_CODE          # 0x30
+    assert found.pack((found.Versionstamp(b"\x00" * 10, 0),))[0] == VERSIONSTAMP_CODE  # 0x33
+    assert found.pack(((),))[0] == NESTED_CODE        # 0x05
+
+
+def test_integer_encoding_size():
+    """Variable-length integer encoding must use the minimum necessary bytes."""
+    # positive integers: code byte + n value bytes
+    assert len(found.pack((0,))) == 1        # 0x14 only
+    assert len(found.pack((1,))) == 2        # 0x15 + 1 byte
+    assert len(found.pack((255,))) == 2      # 0x15 + 1 byte
+    assert len(found.pack((256,))) == 3      # 0x16 + 2 bytes
+    assert len(found.pack((65535,))) == 3    # 0x16 + 2 bytes
+    assert len(found.pack((65536,))) == 4    # 0x17 + 3 bytes
+    assert len(found.pack((2**32,))) == 6    # 0x19 + 5 bytes
+    assert len(found.pack((2**63 - 1,))) == 9   # 0x1c + 8 bytes
+    # negative integers: same widths
+    assert len(found.pack((-1,))) == 2       # 0x13 + 1 byte
+    assert len(found.pack((-255,))) == 2     # 0x13 + 1 byte
+    assert len(found.pack((-256,))) == 3     # 0x12 + 2 bytes
+    assert len(found.pack((-65536,))) == 4   # 0x11 + 3 bytes
+
+
+def test_integer_encoding_bytes():
+    """Spot-check specific known byte sequences for key integer values."""
+    assert found.pack((0,)) == b"\x14"
+    assert found.pack((1,)) == b"\x15\x01"
+    assert found.pack((255,)) == b"\x15\xff"
+    assert found.pack((256,)) == b"\x16\x01\x00"
+    assert found.pack((-1,)) == b"\x13\xfe"
+    assert found.pack((-255,)) == b"\x13\x00"
+    assert found.pack((-256,)) == b"\x12\xfe\xff"
+
+
+def test_large_integer_encoding():
+    """Integers at and beyond the 8-byte boundary use the 0x1d/0x0b ext codes."""
+    from found.tuple import NEG_INT_START, POS_INT_END
+
+    # 2^64 - 1 is the boundary: fdb encodes it via POS_INT_END (0x1d)
+    raw = found.pack((2**64 - 1,))
+    assert raw[0] == POS_INT_END
+    assert found.unpack(raw) == (2**64 - 1,)
+
+    # -(2^64 - 1) via NEG_INT_START (0x0b)
+    raw = found.pack((-(2**64 - 1),))
+    assert raw[0] == NEG_INT_START
+    assert found.unpack(raw) == (-(2**64 - 1),)
+
+    # Confirm cross-compatibility with fdb for large integers
+    for v in (2**64 - 1, 2**64, -(2**64 - 1), -(2**64)):
+        assert found.pack((v,)) == fdb_tuple.pack((v,))
+        assert found.unpack(fdb_tuple.pack((v,))) == (v,)
+
+
+def test_pack_lexicographic_order():
+    """packed tuples must compare in the same order as their Python values."""
+    # integers
+    ints = [-256, -255, -1, 0, 1, 255, 256, 2**16, 2**32, 2**63]
+    packed = [found.pack((v,)) for v in ints]
+    assert packed == sorted(packed), "integer encoding must be lexicographically ordered"
+
+    # strings
+    strs = ["", "a", "aa", "b", "z"]
+    packed = [found.pack((s,)) for s in strs]
+    assert packed == sorted(packed), "string encoding must be lexicographically ordered"
+
+    # bytes
+    blobs = [b"", b"\x00", b"\x00\xff", b"\x01", b"\xff"]
+    packed = [found.pack((b,)) for b in blobs]
+    assert packed == sorted(packed), "bytes encoding must be lexicographically ordered"
+
+    # mixed-type ordering: None < bytes < str < int (within their type-code ranges)
+    cross = [found.pack((None,)), found.pack((b"",)), found.pack(("",)), found.pack((0,))]
+    assert cross == sorted(cross), "cross-type order must follow type-code ordering"
+
+
 async def open():
     db = await found.open()
 
