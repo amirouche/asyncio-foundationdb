@@ -5,8 +5,11 @@ MAIN=$(shell basename $(PWD))
 help: ## This help.
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST) | sort
 
-FDB_CLIENT="https://github.com/apple/foundationdb/releases/download/7.3.69/foundationdb-clients_7.3.69-1_amd64.deb"
-FDB_SERVER="https://github.com/apple/foundationdb/releases/download/7.3.69/foundationdb-server_7.3.69-1_amd64.deb"
+FDB_VERSION = 7.3.69
+FDB_ARCH    = $(shell uname -m | sed 's/x86_64/amd64/')
+FDB_BASE    = https://github.com/apple/foundationdb/releases/download/$(FDB_VERSION)
+FDB_CLIENT  = $(FDB_BASE)/foundationdb-clients_$(FDB_VERSION)-1_$(FDB_ARCH).deb
+FDB_SERVER  = $(FDB_BASE)/foundationdb-server_$(FDB_VERSION)-1_$(FDB_ARCH).deb
 
 debian: ## Install foundationdb, requires sudo
 	rm -rf fdb-clients.deb fdb-server.deb

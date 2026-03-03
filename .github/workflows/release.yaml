@@ -1,42 +1,67 @@
 name: Release
 
-on: workflow_dispatch
+on:
+  push:
+    tags:
+      - 'v*'
 
 env:
   GH_TOKEN: ${{ github.token }}
-  GIT_OBJECT: ${{ github.head_ref || github.ref_name }}
 
 jobs:
-  check:
+  build:
     strategy:
       fail-fast: false
       matrix:
-        python-version:
-          - 3.8
-          - 3.9
-          - "3.10"
-          - "3.11"
-          - "3.12"
-          - "pypy-3.8"
-          - "pypy-3.9"
-          - "pypy-3.10"
-        os:
-          - ubuntu-latest
-    runs-on:  ${{ matrix.os }}
-    name: ${{ matrix.python-version }} on ${{ matrix.os }}
+        include:
+          - os: ubuntu-latest
+            arch: x86_64
+          - os: ubuntu-24.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.os }}
+    name: Build wheel (${{ matrix.arch }})
     steps:
-      - run: gh repo clone amirouche/asyncio-foundationdb -- found
-      - run: cd found && git checkout $GIT_OBJECT
+      - uses: actions/checkout@v4
+
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v6
         with:
-           python-version: ${{ matrix.python-version }}
-           architecture: x64
-      - run: python --version
-      - run: cd found && sudo make debian
-      - run: pip install --upgrade pip
-      - run: pip install uv
-      - run: cd found && make init
-      - run: cd found && uv run python readme.py
-      - run: cd found && make check
-      - run: cd found && uv build --wheel && uv publish --token ${{ secrets.PYPI }} --skip-existing dist/*
+          python-version: "3.12"
+
+      - name: Install FoundationDB
+        run: sudo make debian
+
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip > /dev/null
+          pip install uv
+          make init
+
+      - name: Run tests
+        run: make check
+
+      - name: Build wheel
+        run: uv build --wheel
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ matrix.arch }}
+          path: dist/*.whl
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    name: Publish to PyPI
+    steps:
+      - name: Download wheels
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wheel-*
+          path: dist
+          merge-multiple: true
+
+      - name: Publish
+        run: |
+          pip install uv
+          uv publish dist/* --token ${{ secrets.PYPI }}
