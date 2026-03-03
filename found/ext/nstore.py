@@ -112,7 +112,7 @@ class NStoreException(FoundException):
     pass
 
 
-Variable = var = v = namedtuple("Variable", ("name",))
+Variable = var = namedtuple("Variable", ("name",))
 
 
 def is_permutation_prefix(combination, index):

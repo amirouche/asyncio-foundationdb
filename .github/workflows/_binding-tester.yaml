@@ -51,7 +51,7 @@ jobs:
       - name: Install dependencies
         run: |
           python3 -m pip install --upgrade pip > /dev/null
-          python3 -m pip install poetry > /dev/null
+          pip install uv
           cd found && make init
 
       - name: Run correctness suite
