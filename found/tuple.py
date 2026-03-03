@@ -24,7 +24,6 @@ from bisect import bisect_left
 __all__ = [
     "pack",
     "unpack",
-    "next_prefix",
     "Versionstamp",
     "pack_with_versionstamp",
     "has_incomplete_versionstamp",
@@ -280,12 +279,6 @@ def unpack(key):
         r, pos = _decode(key, pos)
         res.append(r)
     return tuple(res)
-
-
-def next_prefix(x):
-    """Return the smallest bytes sequence that does not start with x."""
-    x = x.rstrip(b"\xff")
-    return x[:-1] + bytes((x[-1] + 1,))
 
 
 def has_incomplete_versionstamp(t):

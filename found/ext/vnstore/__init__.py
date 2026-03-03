@@ -26,8 +26,6 @@ def make(name, subspace, items):
     """Create a versioned tuple store called ``name`` with ``subspace`` and column ``items``."""
     assert isinstance(subspace, (tuple, list))
     assert isinstance(items, (tuple, list))
-    name = name
-    subspace = subspace
     items = list(items)
     # A change can have two key:
     #
@@ -107,11 +105,6 @@ async def change_changes(tr, vnstore, changeid):
     pattern += [changeid, nstore.var("alive?")]
     out = await found.all(nstore.query(tr, vnstore.tuples, pattern))
     return out
-
-
-def pk(*args):
-    print(args)
-    return args[-1]
 
 
 async def change_apply(tr, vnstore, changeid):
