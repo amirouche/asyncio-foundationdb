@@ -32,12 +32,9 @@ jobs:
             python_gil: "1"
           - python-version: "3.14t"
             python_gil: "0"
-          - python-version: "pypy-3.9"
-            python_gil: "1"
-          - python-version: "pypy-3.10"
-            python_gil: "1"
-          - python-version: "pypy-3.11"
-            python_gil: "1"
+          # PyPy omitted: the FDB binding tester's fdb/impl.py accesses
+          # ctypes.pythonapi which does not exist on PyPy, causing an
+          # AttributeError before the tester can start.
     env:
       PYTHON_GIL: ${{ matrix.python_gil }}
     name: Binding Tester (Python ${{ matrix.python-version }})
