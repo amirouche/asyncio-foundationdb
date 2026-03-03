@@ -1,7 +1,10 @@
 import asyncio
+import uuid as _uuid_mod
 from uuid import uuid4
 
+import fdb.impl  # noqa: F401 — side-effect: registers fdb.tuple.Versionstamp internals
 import pytest
+from fdb import tuple as fdb_tuple
 
 import found
 import found.base
@@ -34,10 +37,94 @@ def test_pack_with_versionstamp():
 
     offset = struct.unpack("<I", packed[-4:])[0]
     key = packed[:-4]
-    # the byte at offset-1 should be the VERSIONSTAMP_CODE (0x0A)
+    # the byte at offset-1 should be the VERSIONSTAMP_CODE
     from found.tuple import VERSIONSTAMP_CODE
 
     assert key[offset - 1] == VERSIONSTAMP_CODE
+
+
+# ---------------------------------------------------------------------------
+# Byte-for-byte compatibility with the official fdb.tuple encoding
+# ---------------------------------------------------------------------------
+
+_FDB_COMPAT_CASES = [
+    # scalars
+    (None,),
+    (False,),
+    (True,),
+    # bytes
+    (b"",),
+    (b"hello",),
+    (b"a\x00b",),  # null byte escaping
+    # strings
+    ("",),
+    ("hello",),
+    ("a\x00b",),  # null byte escaping
+    # integers — zero, positive, negative; crossing each byte-width boundary
+    (0,),
+    (1,),
+    (255,),
+    (256,),
+    (65535,),
+    (65536,),
+    (2**31,),
+    (2**32,),
+    (2**63,),
+    (-1,),
+    (-255,),
+    (-256,),
+    (-65535,),
+    (-65536,),
+    (-(2**63),),
+    # floats
+    (0.0,),
+    (3.14,),
+    (-3.14,),
+    (float("inf"),),
+    (float("-inf"),),
+    # uuid
+    (_uuid_mod.UUID("12345678-1234-5678-1234-567812345678"),),
+    # nested tuples
+    ((),),
+    ((1, 2),),
+    ((None,),),
+    ((b"x", "y", 3),),
+    # mixed multi-element tuple
+    (None, False, True, b"x42", 1, -1, 3.1415, -3.1415, (("abc",),)),
+]
+
+
+def test_pack_matches_fdb_tuple():
+    """found.pack output must be byte-for-byte identical to fdb.tuple.pack."""
+    for t in _FDB_COMPAT_CASES:
+        expected = fdb_tuple.pack(t)
+        actual = found.pack(t)
+        assert actual == expected, (
+            f"pack mismatch for {t!r}: "
+            f"fdb={expected.hex()!r} found={actual.hex()!r}"
+        )
+
+
+def test_unpack_matches_fdb_tuple():
+    """found.unpack must decode bytes produced by fdb.tuple.pack identically."""
+    for t in _FDB_COMPAT_CASES:
+        raw = fdb_tuple.pack(t)
+        fdb_result = fdb_tuple.unpack(raw)
+        found_result = found.unpack(raw)
+        assert found_result == fdb_result, (
+            f"unpack mismatch for {t!r}: "
+            f"fdb={fdb_result!r} found={found_result!r}"
+        )
+
+
+def test_fdb_unpack_found_pack():
+    """fdb.tuple.unpack must accept bytes produced by found.pack."""
+    for t in _FDB_COMPAT_CASES:
+        raw = found.pack(t)
+        fdb_result = fdb_tuple.unpack(raw)
+        assert fdb_result == t, (
+            f"cross-decode mismatch for {t!r}: fdb decoded as {fdb_result!r}"
+        )
 
 
 async def open():

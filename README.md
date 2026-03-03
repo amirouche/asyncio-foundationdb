@@ -109,7 +109,9 @@ asyncio.run(readme())
 - Add transaction lifecycle hooks: `on_begin`, `on_commit`, `on_post_commit` on `db.hooks`
 - Add `found.TransactionStats` (retries, elapsed, commit_bytes) passed to `on_post_commit`
 - Add `async with found.transaction(db) as tx:` context manager
-- Add native tuple layer (`found.pack`/`found.unpack`) — `foundationdb` package is no longer a runtime dependency
+- Add native tuple layer (`found.pack`/`found.unpack`) — `foundationdb` package is no longer a runtime dependency.
+  The encoding is byte-for-byte identical to `fdb.tuple.pack` / `fdb.tuple.unpack`, so keys written by
+  `found ≤ 0.12` (which delegated to `fdb.tuple`) remain readable without any migration.
 - Remove `immutables` dependency — bindings dicts replaced with plain `dict`
 - Expand CI matrix to all Python versions (3.9–3.14t, PyPy 3.9–3.11) in binding tester
 - Set `PYTHON_GIL=0` across CI for free-threaded (3.14t) validation
@@ -563,7 +565,7 @@ Test whether an error `code` matches `predicate`. Returns `True` or
 - `found.ERROR_PREDICATE_MAYBE_COMMITTED` (50001)
 - `found.ERROR_PREDICATE_RETRYABLE_NOT_COMMITTED` (50002)
 
-## `from found import bstore`
+## `from found.ext import bstore`
 
 `bstore` is a content-addressable blob store. You hand it an arbitrary
 binary payload and it returns a stable uid; store the same bytes twice
@@ -591,7 +593,7 @@ already exists, return the existing uid without storing a duplicate.
 Retrieve the blob associated with `uid`. Raises `BStoreException`
 if not found.
 
-## `from found import nstore`
+## `from found.ext import nstore`
 
 `nstore` is a generic N-tuple store with pattern-matching queries. You
 define a store of fixed width N and add tuples to it; you then query by
@@ -666,7 +668,7 @@ mappings that match `pattern` and `patterns`. Both `pattern` and
 `patterns` may contain `nstore.var` that will be replaced with
 matching values in the generic tuple store.
 
-## `from found import eavstore`
+## `from found.ext import eavstore`
 
 `eavstore` is an entity-attribute-value store for Python dictionaries.
 Each call to `create` stores a dict under a generated uid, and the store
@@ -721,7 +723,7 @@ Lookup dictionaries according to specification.
 In the database associated with `tx`, as part of `eavstore`, generates
 unique identifier for dictionaries that have `key` equal to `value`.
 
-## `from found import pstore`
+## `from found.ext import pstore`
 
 `pstore` is an inverted index for keyword search. You index each
 document as a mapping of string terms to positive integer counts; later
@@ -753,7 +755,7 @@ zero.
 
 Return a sorted list of at most `limit` documents matching `keywords`.
 
-## `from found import vnstore`
+## `from found.ext import vnstore`
 
 `vnstore` is a versioned N-tuple store. It wraps the same pattern-
 matching model as `nstore` but groups every addition and removal into a
@@ -929,7 +931,7 @@ Form fields use a compact text encoding recognised by `server.fromstring` /
 | `#i…` | `int` | `#i42` |
 | `#f…` | `float` | `#f3.14` |
 
-## `from found import pool`
+## `from found.ext import pool`
 
 `pool` is a low-level utility, not a domain abstraction. It provides a
 single helper that fans an async iterator out to a thread-pool executor
