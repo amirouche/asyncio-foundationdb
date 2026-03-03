@@ -95,6 +95,12 @@ asyncio.run(readme())
 
 ## ChangeLog
 
+### v0.13.1
+
+#### CI
+
+- Drop deprecated `macos-13` (x86_64) runner from release workflow; `macos-latest` (arm64) only
+
 ### v0.13.0
 
 Requires Python 3.9+. Upgrade to FoundationDB 7.3 (API version 730).

@@ -63,16 +63,8 @@ jobs:
 
   wheel-macos:
     needs: verify-on-main
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-13
-            arch: x86_64
-          - os: macos-latest
-            arch: arm64
-    runs-on: ${{ matrix.os }}
-    name: Build wheel (macos-${{ matrix.arch }})
+    runs-on: macos-latest
+    name: Build wheel (macos-arm64)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v6
@@ -82,7 +74,7 @@ jobs:
       - run: pip install uv && uv build --wheel
       - uses: actions/upload-artifact@v4
         with:
-          name: wheel-macos-${{ matrix.arch }}
+          name: wheel-macos-arm64
           path: dist/*.whl
 
   publish:
