@@ -97,37 +97,61 @@ asyncio.run(readme())
 
 ### v0.13.0
 
-- Split `found.ext.vnstore` into store logic (`__init__.py`) and ASGI server
-  (`server.py`) so the store can be imported without `jinja2` installed
-- Fix broken ASGI lifespan handler — now correctly awaits startup/shutdown
-  events and sends `lifespan.startup.complete` / `lifespan.shutdown.complete`
-- Replace global `CACHE` dict with `scope["state"]` for proper per-process
-  ASGI state isolation
-- Eliminate seven copies of UUID validation + change lookup with a shared
-  `with_change` helper
-- Add `found-vnstore` console script (requires `pip install asyncio-foundationdb[server]`)
-- Add transaction lifecycle hooks: `on_begin`, `on_commit`, `on_post_commit` on `db.hooks`
-- Add `found.TransactionStats` (retries, elapsed, commit_bytes) passed to `on_post_commit`
-- Add `async with found.transaction(db) as tx:` context manager
-- Add native tuple layer (`found.pack`/`found.unpack`) — `foundationdb` package is no longer a runtime dependency.
-  The encoding is byte-for-byte identical to `fdb.tuple.pack` / `fdb.tuple.unpack`, so keys written by
-  `found ≤ 0.12` (which delegated to `fdb.tuple`) remain readable without any migration.
-- Remove `immutables` dependency — bindings dicts replaced with plain `dict`
-- Expand CI matrix to all Python versions (3.9–3.14t, PyPy 3.9–3.11) in binding tester
-- Set `PYTHON_GIL=0` across CI for free-threaded (3.14t) validation
-- Upgrade to FoundationDB 7.3 (API version 730)
-- Add binding tester (correctness test suite) with CI workflows, tested under both POSIX threads (`tester_pthread.py`) and asyncio tasks (`tester_aio.py`) concurrency modes
-- Add new public APIs: `get_key`, `commit`, `on_error`, `reset`, `cancel`, `get_committed_version`, `get_approximate_size`, `get_versionstamp`, `add_conflict_range`, `set_option`, `get_range_split_points`
-- Add `append_if_fits`, `compare_and_clear`, `get_client_version`, `get_addresses_for_key`, `database_set_option`, `network_set_option`, `add_network_thread_completion_hook`, `error_predicate`
-- Add docstrings to all public functions and module docstrings to all modules
-- Support Python 3.9+
-- Refactor base.py to use `asyncio.get_running_loop()` instead of deprecated `asyncio.get_event_loop()`
+Requires Python 3.9+. Upgrade to FoundationDB 7.3 (API version 730).
+
+#### Breaking changes
+
+- `found.get_range` removed — use `found.query(tx, begin, end)` (async generator)
+- `nstore.v` alias removed — use `nstore.var`
+- `foundationdb` package is no longer a runtime dependency; install it manually
+  if you rely on `fdb.tuple` directly
+
+#### New features
+
+- Native tuple layer: `found.pack` / `found.unpack`, byte-for-byte compatible with
+  `fdb.tuple.pack` / `fdb.tuple.unpack`; keys written by `found ≤ 0.12` remain
+  readable without any migration
+- Transaction lifecycle hooks: `on_begin`, `on_commit`, `on_post_commit` on `db.hooks`
+- `found.TransactionStats` (retries, elapsed, commit_bytes) passed to `on_post_commit`
+- `async with found.transaction(db) as tx:` — non-retrying context manager; commits on
+  clean exit, fires the same `on_begin` / `on_commit` / `on_post_commit` hooks as
+  `transactional()`; caller is responsible for retry logic
+- New public APIs: `get_key`, `commit`, `on_error`, `reset`, `cancel`,
+  `get_committed_version`, `get_approximate_size`, `get_versionstamp`,
+  `add_conflict_range`, `set_option`, `get_range_split_points`, `append_if_fits`,
+  `compare_and_clear`, `get_client_version`, `get_addresses_for_key`,
+  `database_set_option`, `network_set_option`, `add_network_thread_completion_hook`,
+  `error_predicate`
+- Split `found.ext.vnstore` into store (`__init__.py`) and ASGI server (`server.py`)
+  — store can be imported without `jinja2`
+- `found-vnstore` console script (`pip install asyncio-foundationdb[server]`)
+- Docstrings on all public functions and module docstrings on all modules
+
+#### Fixes
+
 - Fix `gte()` ignoring the `offset` parameter
-- Fix assert bug in readme.py example
+- Fix `watch()` must be awaited from a running event loop (made async)
+- Fix `transactional()` not clearing `tx.vars` between retries
+- Fix `_cb_int64` result extraction not guarded behind error check
+- Fix broken ASGI lifespan handler — now sends `lifespan.startup.complete` /
+  `lifespan.shutdown.complete` correctly
+- Fix `set_read_version()` overly restrictive snapshot assertion
+- Replace global `CACHE` with `scope["state"]` in vnstore ASGI server
+- Eliminate repeated UUID validation with shared `with_change` helper
 - Check `fdb_create_database()` return code for errors
-- Make ffibuild.py portable (use `FDB_INCLUDE_DIR` / `FDB_LIB_DIR` env vars)
-- Clean up pyproject.toml for Poetry 2.x compatibility
-- Upgrade bandit to 1.9+ for Python 3.14 compatibility
+- Make ffibuild.py portable via `FDB_INCLUDE_DIR` / `FDB_LIB_DIR` env vars
+- Use `asyncio.get_running_loop()` instead of deprecated `asyncio.get_event_loop()`
+
+#### CI / Infrastructure
+
+- Binding tester correctness suite in two concurrency modes: POSIX threads
+  (`tester_pthread.py`) and asyncio tasks (`tester_aio.py`)
+- CI matrix: Python 3.9–3.14t + PyPy 3.9–3.11 across both unit tests and binding tester
+- Free-threaded Python (3.14t) validated with `PYTHON_GIL=0`
+- Release workflow: multi-arch wheels (Linux x86_64+aarch64, macOS x86_64+arm64)
+  plus sdist, triggered only on tags from `main`
+- Replace Poetry with uv; replace black/isort/pylama/bandit with ruff
+- Remove `immutables` dependency
 
 ### v0.12.0
 
