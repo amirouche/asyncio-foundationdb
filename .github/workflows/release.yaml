@@ -9,7 +9,36 @@ env:
   GH_TOKEN: ${{ github.token }}
 
 jobs:
-  build:
+  verify-on-main:
+    runs-on: ubuntu-latest
+    name: Verify tag is on main
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check tagged commit is reachable from main
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor ${{ github.sha }} origin/main
+
+  sdist:
+    needs: verify-on-main
+    runs-on: ubuntu-latest
+    name: Build sdist
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install uv
+      - run: uv build --sdist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+
+  wheel-linux:
+    needs: verify-on-main
     strategy:
       fail-fast: false
       matrix:
@@ -19,49 +48,51 @@ jobs:
           - os: ubuntu-24.04-arm
             arch: aarch64
     runs-on: ${{ matrix.os }}
-    name: Build wheel (${{ matrix.arch }})
+    name: Build wheel (linux-${{ matrix.arch }})
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-
-      - name: Install FoundationDB
-        run: sudo make debian
-
-      - name: Install dependencies
-        run: |
-          python3 -m pip install --upgrade pip > /dev/null
-          pip install uv
-          make init
-
-      - name: Run tests
-        run: make check
-
-      - name: Build wheel
-        run: uv build --wheel
-
-      - name: Upload wheel
-        uses: actions/upload-artifact@v4
+      - run: sudo make debian
+      - run: pip install uv && uv build --wheel
+      - uses: actions/upload-artifact@v4
         with:
-          name: wheel-${{ matrix.arch }}
+          name: wheel-linux-${{ matrix.arch }}
+          path: dist/*.whl
+
+  wheel-macos:
+    needs: verify-on-main
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-13
+            arch: x86_64
+          - os: macos-latest
+            arch: arm64
+    runs-on: ${{ matrix.os }}
+    name: Build wheel (macos-${{ matrix.arch }})
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: sudo make macos
+      - run: pip install uv && uv build --wheel
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel-macos-${{ matrix.arch }}
           path: dist/*.whl
 
   publish:
-    needs: build
+    needs: [sdist, wheel-linux, wheel-macos]
     runs-on: ubuntu-latest
     name: Publish to PyPI
     steps:
-      - name: Download wheels
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
-          pattern: wheel-*
+          pattern: '*'
           path: dist
           merge-multiple: true
-
-      - name: Publish
-        run: |
-          pip install uv
-          uv publish dist/* --token ${{ secrets.PYPI }}
+      - run: pip install uv && uv publish dist/* --token ${{ secrets.PYPI }}

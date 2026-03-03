@@ -5,18 +5,28 @@ MAIN=$(shell basename $(PWD))
 help: ## This help.
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST) | sort
 
-FDB_VERSION = 7.3.69
-FDB_ARCH    = $(shell uname -m | sed 's/x86_64/amd64/')
-FDB_BASE    = https://github.com/apple/foundationdb/releases/download/$(FDB_VERSION)
-FDB_CLIENT  = $(FDB_BASE)/foundationdb-clients_$(FDB_VERSION)-1_$(FDB_ARCH).deb
-FDB_SERVER  = $(FDB_BASE)/foundationdb-server_$(FDB_VERSION)-1_$(FDB_ARCH).deb
+FDB_VERSION    = 7.3.69
+FDB_BASE       = https://github.com/apple/foundationdb/releases/download/$(FDB_VERSION)
+# Linux: uname -m returns x86_64 or aarch64; Debian packages use amd64/aarch64
+FDB_DEB_ARCH   = $(shell uname -m | sed 's/x86_64/amd64/')
+FDB_CLIENT     = $(FDB_BASE)/foundationdb-clients_$(FDB_VERSION)-1_$(FDB_DEB_ARCH).deb
+FDB_SERVER     = $(FDB_BASE)/foundationdb-server_$(FDB_VERSION)-1_$(FDB_DEB_ARCH).deb
+# macOS: uname -m returns x86_64 or arm64; pkg names match exactly
+FDB_MACOS_ARCH = $(shell uname -m)
+FDB_MACOS_PKG  = FoundationDB-$(FDB_VERSION)_$(FDB_MACOS_ARCH).pkg
 
-debian: ## Install foundationdb, requires sudo
+debian: ## Install foundationdb on Linux (x86_64 or aarch64), requires sudo
 	rm -rf fdb-clients.deb fdb-server.deb
 	wget -q $(FDB_CLIENT) -O fdb-clients.deb
 	dpkg -i fdb-clients.deb
 	wget -q $(FDB_SERVER) -O fdb-server.deb
 	dpkg -i fdb-server.deb
+
+macos: ## Install foundationdb on macOS (x86_64 or arm64), requires sudo
+	rm -rf fdb.pkg
+	curl -fsSL $(FDB_BASE)/$(FDB_MACOS_PKG) -o fdb.pkg
+	installer -pkg fdb.pkg -target /
+	rm fdb.pkg
 
 init: ## Prepare the host sytem for development
 	pip install uv
