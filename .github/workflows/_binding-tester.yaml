@@ -10,7 +10,6 @@ on:
 env:
   GH_TOKEN: ${{ github.token }}
   GIT_OBJECT: ${{ github.head_ref || github.ref_name }}
-  PYTHON_GIL: "0"
 
 jobs:
   binding-tester:
@@ -18,17 +17,29 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version:
-          - "3.9"
-          - "3.10"
-          - "3.11"
-          - "3.12"
-          - "3.13"
-          - "3.14"
-          - "3.14t"
-          - "pypy-3.9"
-          - "pypy-3.10"
-          - "pypy-3.11"
+        include:
+          - python-version: "3.9"
+            python_gil: "1"
+          - python-version: "3.10"
+            python_gil: "1"
+          - python-version: "3.11"
+            python_gil: "1"
+          - python-version: "3.12"
+            python_gil: "1"
+          - python-version: "3.13"
+            python_gil: "1"
+          - python-version: "3.14"
+            python_gil: "1"
+          - python-version: "3.14t"
+            python_gil: "0"
+          - python-version: "pypy-3.9"
+            python_gil: "1"
+          - python-version: "pypy-3.10"
+            python_gil: "1"
+          - python-version: "pypy-3.11"
+            python_gil: "1"
+    env:
+      PYTHON_GIL: ${{ matrix.python_gil }}
     name: Binding Tester (Python ${{ matrix.python-version }})
     steps:
       - run: gh repo clone amirouche/asyncio-foundationdb -- found
