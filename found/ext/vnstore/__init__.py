@@ -103,8 +103,8 @@ async def change_message(tr, vnstore, changeid, message):
 async def change_changes(tr, vnstore, changeid):
     """Return a list of all tuple modifications associated with ``changeid``."""
     out = []
-    pattern = [nstore.v(x) for x in vnstore.names]
-    pattern += [changeid, nstore.v("alive?")]
+    pattern = [nstore.var(x) for x in vnstore.names]
+    pattern += [changeid, nstore.var("alive?")]
     out = await found.all(nstore.query(tr, vnstore.tuples, pattern))
     return out
 
@@ -134,8 +134,8 @@ async def ask(tr, vnstore, *items):
     # same ITEMS were added and deleted.  In pratice, n=0, n=1 or
     # n=2, and of course it always possible that it is more...
     items = list(items)
-    items.append(nstore.v("changeid"))
-    items.append(nstore.v("alive?"))
+    items.append(nstore.var("changeid"))
+    items.append(nstore.var("alive?"))
     bindings = await found.all(nstore.query(tr, vnstore.tuples, items))
 
     if not bindings:
@@ -213,7 +213,7 @@ async def select(tr, vnstore, *pattern, seed=None):
     # pattern is to chunk candidates and asyncio.gather the
     # ask() calls across each chunk.
     query = pattern
-    pattern = list(pattern) + [nstore.v("changeid"), nstore.v("alive?")]
+    pattern = list(pattern) + [nstore.var("changeid"), nstore.var("alive?")]
     bindings = nstore.select(tr, vnstore.tuples, *pattern, seed=seed)
     async for binding in bindings:
         if not binding["alive?"]:

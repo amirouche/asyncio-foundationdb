@@ -1015,7 +1015,7 @@ def test_error_predicate():
 # vnstore tests
 
 
-v = nstore.v
+
 
 
 @pytest.mark.asyncio
@@ -1033,7 +1033,7 @@ async def test_vnstore_query_zero():
         expected = uuid4()
 
         async def subject_query(tx):
-            out = await vnstore.query(tx, ntest, (nstore.v("subject"), "title", "hypermove.fr"))
+            out = await vnstore.query(tx, ntest, (nstore.var("subject"), "title", "hypermove.fr"))
             out = await found.all(out)
             return out
 
@@ -1051,7 +1051,7 @@ async def test_vnstore_query_zero():
         await found.transactional(db, prepare)
 
         async def subject_query(tx):
-            out = await vnstore.query(tx, ntest, (nstore.v("subject"), "title", "hypermove"))
+            out = await vnstore.query(tx, ntest, (nstore.var("subject"), "title", "hypermove"))
             out = await found.all(out)
             return out
 
@@ -1114,8 +1114,8 @@ async def test_vnstore_query():
             out = await vnstore.query(
                 tx,
                 ntest,
-                (nstore.v("subject"), "slug", "fractal-queries"),
-                (nstore.v("subject"), "title", nstore.v("title")),
+                (nstore.var("subject"), "slug", "fractal-queries"),
+                (nstore.var("subject"), "title", nstore.var("title")),
             )
             out = await found.all(out)
             return out
@@ -1200,8 +1200,10 @@ async def test_vnstore_where():
     await found.transactional(db, setup)
 
     async def do_query(tx):
-        seed = vnstore.select(tx, ntest, v("uid"), "title", "hello")
-        out = await found.all(vnstore.where(tx, ntest, seed, v("uid"), "tag", v("tag")))
+        seed = vnstore.select(tx, ntest, nstore.var("uid"), "title", "hello")
+        out = await found.all(
+            vnstore.where(tx, ntest, seed, nstore.var("uid"), "tag", nstore.var("tag"))
+        )
         return out
 
     out = await found.transactional(db, do_query)
