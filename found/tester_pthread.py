@@ -12,10 +12,17 @@
 #
 
 import asyncio
+import ctypes
 import struct
 import sys
 import threading
 import traceback
+
+# PyPy's ctypes does not expose pythonapi; provide a stub so fdb.impl's
+# hasattr(ctypes.pythonapi, "Py_IncRef") check falls through to its built-in
+# set-based callback pinning fallback.
+if not hasattr(ctypes, "pythonapi"):
+    ctypes.pythonapi = type("_stub", (), {})()
 
 import fdb
 import fdb.tuple

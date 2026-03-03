@@ -44,6 +44,15 @@ if grep -q '1e[0-9]' "$TEST_UTIL" 2>/dev/null; then
     echo "Patched test_util.py (float literals in randint calls)"
 fi
 
+# Fix PyPy compatibility: ctypes.pythonapi does not exist on PyPy, so
+# `hasattr(ctypes.pythonapi, ...)` raises AttributeError instead of returning False.
+# Rewrite the check to guard ctypes.pythonapi access itself.
+IMPL_PY="$FDB_SRC_PYTHON/impl.py"
+if grep -q 'hasattr(ctypes.pythonapi' "$IMPL_PY" 2>/dev/null; then
+    sed -i 's/if hasattr(ctypes\.pythonapi, "Py_IncRef"):/if hasattr(ctypes, "pythonapi") and hasattr(ctypes.pythonapi, "Py_IncRef"):/' "$IMPL_PY"
+    echo "Patched impl.py (PyPy ctypes.pythonapi guard)"
+fi
+
 # Patch known_testers.py to register `found`
 KNOWN_TESTERS="$FDB_DIR/bindings/bindingtester/known_testers.py"
 if ! grep -q "'found'" "$KNOWN_TESTERS"; then
