@@ -1,11 +1,8 @@
-# found/tuple.py — native tuple layer for found
-#
-# The lexode encode/decode core (pack, unpack, next_prefix and helpers) is
-# reproduced verbatim from:
-#   https://github.com/amirouche/lexode  (lexode 0.3.0)
+# found/tuple.py — native tuple layer, encoding-compatible with the official
+# FoundationDB Python binding (fdb.tuple / fdb.impl).
 #
 # Copyright 2013-2018 Apple Inc. and the FoundationDB project authors
-# Copyright 2018-2022 Amirouche Boubekki <amirouche@hyper.dev>
+# Copyright 2018-2026 Amirouche Boubekki <amirouche@hyper.dev>
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
 # use this file except in compliance with the License.  You may obtain a copy
@@ -22,6 +19,7 @@
 
 import struct
 import uuid as _uuid_mod
+from bisect import bisect_left
 
 __all__ = [
     "pack",
@@ -33,39 +31,36 @@ __all__ = [
     # type-code constants (re-exported for introspection)
     "NULL_CODE",
     "BYTES_CODE",
-    "FALSE_CODE",
-    "TRUE_CODE",
-    "INTEGER_NEGATIVE_CODE",
-    "INTEGER_ZERO",
-    "INTEGER_POSITIVE_CODE",
     "STRING_CODE",
     "NESTED_CODE",
+    "NEG_INT_START",
+    "INT_ZERO_CODE",
+    "POS_INT_END",
     "DOUBLE_CODE",
-    "VERSIONSTAMP_CODE",
+    "FALSE_CODE",
+    "TRUE_CODE",
     "UUID_CODE",
+    "VERSIONSTAMP_CODE",
 ]
 
 # ---------------------------------------------------------------------------
-# Type codes (lexode-compatible)
+# Type codes — identical to the official FDB Python binding (fdb/tuple.py)
 # ---------------------------------------------------------------------------
 
 NULL_CODE = 0x00
 BYTES_CODE = 0x01
-FALSE_CODE = 0x02
-TRUE_CODE = 0x03
-INTEGER_NEGATIVE_CODE = 0x04
-INTEGER_ZERO = 0x05
-INTEGER_POSITIVE_CODE = 0x06
-STRING_CODE = 0x07
-NESTED_CODE = 0x08
-DOUBLE_CODE = 0x09
-# One above lexode's highest code; used for Versionstamp values.
-VERSIONSTAMP_CODE = 0x0A
-# UUID (16 raw bytes, big-endian / RFC 4122 byte order)
-UUID_CODE = 0x0B
+STRING_CODE = 0x02
+NESTED_CODE = 0x05
+NEG_INT_START = 0x0B  # arbitrary-precision negative integer (length ^ 0xFF prefix)
+INT_ZERO_CODE = 0x14  # integer zero; codes 0x0C–0x13 = negative, 0x15–0x1C = positive
+POS_INT_END = 0x1D    # arbitrary-precision positive integer (length prefix)
+DOUBLE_CODE = 0x21
+FALSE_CODE = 0x26
+TRUE_CODE = 0x27
+UUID_CODE = 0x30
+VERSIONSTAMP_CODE = 0x33
 
-INTEGER_MAX = struct.unpack(">Q", b"\xff" * 8)[0]
-
+# _size_limits[n] = 2^(8n) - 1; used for variable-length integer encoding.
 _size_limits = tuple((1 << (i * 8)) - 1 for i in range(9))
 
 # ---------------------------------------------------------------------------
@@ -120,7 +115,7 @@ class Versionstamp:
 
 
 # ---------------------------------------------------------------------------
-# Helpers (inlined from lexode)
+# Helpers
 # ---------------------------------------------------------------------------
 
 
@@ -146,7 +141,7 @@ def _float_adjust(v, encode):
 
 
 # ---------------------------------------------------------------------------
-# Decoder (inlined from lexode + Versionstamp extension)
+# Decoder
 # ---------------------------------------------------------------------------
 
 
@@ -160,25 +155,40 @@ def _decode(v, pos):
     elif code == STRING_CODE:
         end = _find_terminator(v, pos + 1)
         return v[pos + 1 : end].replace(b"\x00\xFF", b"\x00").decode("utf-8"), end + 1
-    elif code == INTEGER_ZERO:
+    elif code == INT_ZERO_CODE:
         return 0, pos + 1
-    elif code == INTEGER_NEGATIVE_CODE:
-        end = pos + 1 + 8
-        value = struct.unpack(">Q", v[pos + 1 : end])[0] - INTEGER_MAX
-        return value, end
-    elif code == INTEGER_POSITIVE_CODE:
-        end = pos + 1 + 8
-        value = struct.unpack(">Q", v[pos + 1 : end])[0]
-        return value, end
-    elif code == FALSE_CODE:
-        return False, pos + 1
-    elif code == TRUE_CODE:
-        return True, pos + 1
+    elif INT_ZERO_CODE < code < POS_INT_END:  # 0x15–0x1C: positive 1–8 byte int
+        n = code - INT_ZERO_CODE
+        end = pos + 1 + n
+        return int.from_bytes(v[pos + 1 : end], "big"), end
+    elif code == POS_INT_END:  # 0x1D: arbitrary-precision positive int
+        n = v[pos + 1]
+        end = pos + 2 + n
+        return int.from_bytes(v[pos + 2 : end], "big"), end
+    elif NEG_INT_START < code < INT_ZERO_CODE:  # 0x0C–0x13: negative 1–8 byte int
+        n = INT_ZERO_CODE - code
+        end = pos + 1 + n
+        stored = int.from_bytes(v[pos + 1 : end], "big")
+        return stored - _size_limits[n], end
+    elif code == NEG_INT_START:  # 0x0B: arbitrary-precision negative int
+        n = v[pos + 1] ^ 0xFF
+        end = pos + 2 + n
+        stored = int.from_bytes(v[pos + 2 : end], "big")
+        return stored - (1 << (n * 8)) + 1, end
     elif code == DOUBLE_CODE:
         return (
             struct.unpack(">d", _float_adjust(v[pos + 1 : pos + 9], False))[0],
             pos + 9,
         )
+    elif code == FALSE_CODE:
+        return False, pos + 1
+    elif code == TRUE_CODE:
+        return True, pos + 1
+    elif code == UUID_CODE:
+        return _uuid_mod.UUID(bytes=bytes(v[pos + 1 : pos + 17])), pos + 17
+    elif code == VERSIONSTAMP_CODE:
+        vs = Versionstamp.from_bytes(v, pos + 1)
+        return vs, pos + 13  # 1 code + 12 bytes (10 tr_version + 2 user_version)
     elif code == NESTED_CODE:
         ret = []
         end_pos = pos + 1
@@ -193,17 +203,12 @@ def _decode(v, pos):
                 val, end_pos = _decode(v, end_pos)
                 ret.append(val)
         return tuple(ret), end_pos + 1
-    elif code == VERSIONSTAMP_CODE:
-        vs = Versionstamp.from_bytes(v, pos + 1)
-        return vs, pos + 13  # 1 code + 12 bytes (10 tr_version + 2 user_version)
-    elif code == UUID_CODE:
-        return _uuid_mod.UUID(bytes=bytes(v[pos + 1 : pos + 17])), pos + 17
     else:
         raise ValueError("Unknown data type from database: " + repr(v))
 
 
 # ---------------------------------------------------------------------------
-# Encoder (inlined from lexode + Versionstamp extension)
+# Encoder
 # ---------------------------------------------------------------------------
 
 
@@ -211,13 +216,9 @@ def _encode(value, nested=False):
     if value is None:
         if nested:
             return bytes((NULL_CODE, 0xFF))
-        else:
-            return bytes((NULL_CODE,))
+        return bytes((NULL_CODE,))
     elif isinstance(value, bool):
-        if value:
-            return bytes((TRUE_CODE,))
-        else:
-            return bytes((FALSE_CODE,))
+        return bytes((TRUE_CODE,)) if value else bytes((FALSE_CODE,))
     elif isinstance(value, Versionstamp):
         return bytes((VERSIONSTAMP_CODE,)) + value.to_bytes()
     elif isinstance(value, _uuid_mod.UUID):
@@ -230,19 +231,29 @@ def _encode(value, nested=False):
             + value.encode("utf-8").replace(b"\x00", b"\x00\xFF")
             + b"\x00"
         )
-    elif value == 0:
-        return bytes((INTEGER_ZERO,))
     elif isinstance(value, int):
-        if value > 0:
-            return bytes((INTEGER_POSITIVE_CODE,)) + struct.pack(">Q", value)
+        if value == 0:
+            return bytes((INT_ZERO_CODE,))
+        elif value > 0:
+            if value >= _size_limits[-1]:
+                n = (value.bit_length() + 7) // 8
+                return bytes((POS_INT_END, n)) + value.to_bytes(n, "big")
+            n = bisect_left(_size_limits, value)
+            return bytes((INT_ZERO_CODE + n,)) + value.to_bytes(n, "big")
         else:
-            value = INTEGER_MAX + value
-            return bytes((INTEGER_NEGATIVE_CODE,)) + struct.pack(">Q", value)
+            abs_val = -value
+            if abs_val >= _size_limits[-1]:
+                n = (abs_val.bit_length() + 7) // 8
+                stored = value + (1 << (n * 8)) - 1
+                return bytes((NEG_INT_START, n ^ 0xFF)) + stored.to_bytes(n, "big")
+            n = bisect_left(_size_limits, abs_val)
+            stored = _size_limits[n] + value
+            return bytes((INT_ZERO_CODE - n,)) + stored.to_bytes(n, "big")
     elif isinstance(value, float):
         return bytes((DOUBLE_CODE,)) + _float_adjust(struct.pack(">d", value), True)
     elif isinstance(value, (tuple, list)):
-        child_bytes = list(map(lambda x: _encode(x, True), value))
-        return b"".join([bytes((NESTED_CODE,))] + child_bytes + [bytes((0x00,))])
+        child_bytes = [_encode(x, True) for x in value]
+        return b"".join([bytes((NESTED_CODE,))] + child_bytes + [b"\x00"])
     else:
         raise ValueError("Unsupported data type: {}".format(type(value)))
 
@@ -253,7 +264,11 @@ def _encode(value, nested=False):
 
 
 def pack(t):
-    """Pack a tuple of values into a lexicographically ordered byte string."""
+    """Pack a tuple of values into a lexicographically ordered byte string.
+
+    Encoding is byte-for-byte compatible with the official FoundationDB Python
+    binding (``fdb.tuple.pack``).
+    """
     return b"".join(_encode(x) for x in t)
 
 

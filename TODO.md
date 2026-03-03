@@ -9,17 +9,6 @@
 - [ ] **Locality API** — `fdb_get_boundary_keys`, complement to the already-present
   `get_range_split_points`
 
-### Clean-up
-
-- [ ] **`vnstore` server split** — `found/ext/vnstore/__init__.py` (~1050 lines)
-  mixes store logic, ASGI server, and tests in one file. Split into:
-  - `__init__.py` — store logic only (make, add, remove, select, change_*)
-  - `server.py` — ASGI app, routes, templates
-  - Extract a `with_change(send, change_hex, fn)` helper to deduplicate the
-    ~8 route handlers that repeat UUID validation, change lookup, and error
-    handling. Eliminates ~200 lines of copy-paste.
-  - Replace global `CACHE` dict with explicit state passed through lifespan.
-
 ## New extensions
 
 - [ ] **`qstore` — transactional queue** — versionstamp-keyed FIFO with
