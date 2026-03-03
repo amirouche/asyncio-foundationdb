@@ -93,21 +93,6 @@ def _compute_indices(n):
         yield tuple(A + l + B)
 
 
-# helpers
-
-
-def take(iterator, count):
-    for _ in range(count):
-        out = next(iterator)
-        yield out
-
-
-def drop(iterator, count):
-    for _ in range(count):
-        next(iterator)
-    yield from iterator
-
-
 class NStoreException(FoundException):
     pass
 

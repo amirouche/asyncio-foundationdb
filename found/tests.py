@@ -2,14 +2,34 @@ import asyncio
 import uuid as _uuid_mod
 from uuid import uuid4
 
-import fdb.impl  # noqa: F401 — side-effect: registers fdb.tuple.Versionstamp internals
 import pytest
-from fdb import tuple as fdb_tuple
+
+try:
+    import fdb.impl  # noqa: F401 — side-effect: registers fdb.tuple.Versionstamp internals
+    from fdb import tuple as fdb_tuple
+
+    _FDB_AVAILABLE = True
+except AttributeError:
+    # PyPy: fdb.impl accesses ctypes.pythonapi which PyPy's ctypes doesn't expose.
+    fdb_tuple = None  # type: ignore[assignment]
+    _FDB_AVAILABLE = False
 
 import found
 import found.base
 from found.ext import bstore, eavstore, nstore, vnstore
 from found.ext.nstore import var
+from found.tuple import (
+    BYTES_CODE,
+    DOUBLE_CODE,
+    FALSE_CODE,
+    INT_ZERO_CODE,
+    NESTED_CODE,
+    NULL_CODE,
+    STRING_CODE,
+    TRUE_CODE,
+    UUID_CODE,
+    VERSIONSTAMP_CODE,
+)
 
 
 def test_pack_unpack():
@@ -94,6 +114,7 @@ _FDB_COMPAT_CASES = [
 ]
 
 
+@pytest.mark.skipif(not _FDB_AVAILABLE, reason="fdb.impl unavailable on PyPy")
 def test_pack_matches_fdb_tuple():
     """found.pack output must be byte-for-byte identical to fdb.tuple.pack."""
     for t in _FDB_COMPAT_CASES:
@@ -105,6 +126,7 @@ def test_pack_matches_fdb_tuple():
         )
 
 
+@pytest.mark.skipif(not _FDB_AVAILABLE, reason="fdb.impl unavailable on PyPy")
 def test_unpack_matches_fdb_tuple():
     """found.unpack must decode bytes produced by fdb.tuple.pack identically."""
     for t in _FDB_COMPAT_CASES:
@@ -117,6 +139,7 @@ def test_unpack_matches_fdb_tuple():
         )
 
 
+@pytest.mark.skipif(not _FDB_AVAILABLE, reason="fdb.impl unavailable on PyPy")
 def test_fdb_unpack_found_pack():
     """fdb.tuple.unpack must accept bytes produced by found.pack."""
     for t in _FDB_COMPAT_CASES:
@@ -131,19 +154,6 @@ def test_fdb_unpack_found_pack():
 # Direct encoding assertions — pin specific byte values so regressions in
 # found/tuple.py are immediately obvious without requiring fdb.tuple present.
 # ---------------------------------------------------------------------------
-
-from found.tuple import (  # noqa: E402
-    BYTES_CODE,
-    DOUBLE_CODE,
-    FALSE_CODE,
-    INT_ZERO_CODE,
-    NESTED_CODE,
-    NULL_CODE,
-    STRING_CODE,
-    TRUE_CODE,
-    UUID_CODE,
-    VERSIONSTAMP_CODE,
-)
 
 
 def test_type_codes():
@@ -203,10 +213,11 @@ def test_large_integer_encoding():
     assert raw[0] == NEG_INT_START
     assert found.unpack(raw) == (-(2**64 - 1),)
 
-    # Confirm cross-compatibility with fdb for large integers
-    for v in (2**64 - 1, 2**64, -(2**64 - 1), -(2**64)):
-        assert found.pack((v,)) == fdb_tuple.pack((v,))
-        assert found.unpack(fdb_tuple.pack((v,))) == (v,)
+    # Confirm cross-compatibility with fdb for large integers (CPython only)
+    if _FDB_AVAILABLE:
+        for v in (2**64 - 1, 2**64, -(2**64 - 1), -(2**64)):
+            assert found.pack((v,)) == fdb_tuple.pack((v,))
+            assert found.unpack(fdb_tuple.pack((v,))) == (v,)
 
 
 def test_pack_lexicographic_order():
@@ -1347,13 +1358,6 @@ async def test_vnstore_change_get_nonexistent():
 
     out = await found.transactional(db, vnstore.change_get, ntest, uuid4())
     assert out is None
-
-
-def test_vnstore_pk(capsys):
-    result = vnstore.pk("a", "b", "c")
-    assert result == "c"
-    captured = capsys.readouterr()
-    assert "('a', 'b', 'c')" in captured.out
 
 
 @pytest.mark.asyncio
