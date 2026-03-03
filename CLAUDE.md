@@ -3,8 +3,8 @@
 ## Quick Start
 
 ```bash
-make init          # Install deps via Poetry
-make check         # Run tests + bandit security lint
+make init          # Install deps via uv
+make check         # Run tests + ruff lint
 ```
 
 Requires Python 3.9+ and FoundationDB 7.3 (API version 730). Install FDB on Debian with `make debian`.
@@ -13,16 +13,16 @@ Requires Python 3.9+ and FoundationDB 7.3 (API version 730). Install FDB on Debi
 
 | Command | Description |
 |---------|-------------|
-| `make init` | `pip install poetry` + `poetry install` |
-| `make check` | pytest (verbose, fail-fast, capture=no) + bandit |
+| `make init` | `pip install uv` + `uv sync --all-extras --all-groups` |
+| `make check` | pytest (verbose, fail-fast, capture=no) + `ruff check` |
 | `make check-fast` | pytest with `-x` (stop on first failure) |
 | `make check-coverage` | Coverage report (terminal + HTML) |
 | `make check-correctness` | FDB binding tester suite (needs running FDB) |
-| `make lint` | `pylama found` |
-| `make wip` | `black` + `isort` + commit "wip" |
+| `make lint` | `ruff check found` |
+| `make wip` | `_format` + commit "wip" |
 | `make clean` | `git clean -fX` |
 
-Max line length: 100 (see `.flake8`).
+Max line length: 100 (see `ruff` config in `pyproject.toml`).
 
 ## Architecture
 
@@ -30,16 +30,21 @@ Max line length: 100 (see `.flake8`).
 
 ```
 found/
-  __init__.py      # Re-exports public API from base.py + fdb.tuple utilities
+  __init__.py      # Re-exports public API from base.py + found.tuple utilities
   base.py          # Core: CFFI bridge, async event loop integration, all FDB primitives
-  nstore.py        # N-tuple store with pattern matching via Variable
-  eavstore.py      # Entity-Attribute-Value store
-  bstore.py        # Content-addressable blob store (blake2b dedup, chunked)
-  pstore.py        # Inverted index / posting store
-  vnstore.py       # Versioned N-tuple store (versionstamp-ordered history)
-  pool.py          # Thread pool parallel map utility
+  tuple.py         # Native tuple layer (fdb.tuple-compatible encoding)
+  ext/
+    nstore.py      # N-tuple store with pattern matching via Variable
+    eavstore.py    # Entity-Attribute-Value store
+    bstore.py      # Content-addressable blob store (blake2b dedup, chunked)
+    pstore.py      # Inverted index / posting store
+    pool.py        # Thread pool parallel map utility
+    vnstore/
+      __init__.py  # Versioned N-tuple store (store logic only)
+      server.py    # ASGI server for vnstore (requires [server] extras)
   ffibuild.py      # CFFI build config (reads fdb_c.h / fdb_c2.h)
-  tester.py        # FDB binding tester stack machine
+  tester_aio.py    # FDB binding tester (asyncio tasks mode)
+  tester_pthread.py # FDB binding tester (POSIX threads mode)
   tests.py         # All tests live here
 ```
 
@@ -80,6 +85,8 @@ found.pack((prefix, key))      # -> bytes
 found.unpack(raw_bytes)        # -> tuple
 ```
 
+Encoding is byte-for-byte compatible with `fdb.tuple.pack` / `fdb.tuple.unpack`.
+
 ### Key selectors
 
 `found.lt(key)`, `found.lte(key)`, `found.gt(key)`, `found.gte(key)` — return `KeySelector` namedtuples for range queries.
@@ -87,16 +94,16 @@ found.unpack(raw_bytes)        # -> tuple
 ### N-tuple store pattern matching
 
 ```python
-from found import nstore
-from found.nstore import var  # Variable = namedtuple("Variable", ("name",))
+from found.ext import nstore
+from found.ext.nstore import var  # Variable = namedtuple("Variable", ("name",))
 
 store = nstore.make("mystore", [42], 3)  # 3-column store at prefix (42,)
 
 await nstore.add(tx, store, entity, "title", "Hello")
 
-# Query with variables — returns async iterator of immutables.Map bindings
+# Query with variables — returns async iterator of dict bindings
 results = await found.all(nstore.select(tx, store, var("who"), "title", "Hello"))
-# -> [Map({"who": entity})]
+# -> [{"who": entity}]
 
 # Chain queries with where()
 seed = nstore.select(tx, store, var("id"), "tag", "python")
@@ -129,5 +136,5 @@ Pattern: wrap test logic in an `async def` passed to `found.transactional()`.
 
 ## Dependencies
 
-Core: `foundationdb>=7.3,<7.4`, `cffi`, `immutables`, `aiostream`, `loguru`, `uuid7`
-Dev: `pytest`, `pytest-asyncio`, `pytest-cov`, `black`, `isort`, `pylama`, `bandit`
+Core: `cffi`, `aiostream`, `loguru`, `uuid7`
+Dev: `foundationdb>=7.3,<7.4`, `pytest`, `pytest-asyncio`, `pytest-cov`, `ruff`
