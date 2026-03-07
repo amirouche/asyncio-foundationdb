@@ -1,4 +1,5 @@
 import asyncio
+import os
 import uuid as _uuid_mod
 from uuid import uuid4
 
@@ -30,6 +31,29 @@ from found.tuple import (
     UUID_CODE,
     VERSIONSTAMP_CODE,
 )
+
+# ---------------------------------------------------------------------------
+# Session subspace — isolate each test-runner process in its own FDB prefix
+# so that pytest-xdist workers and concurrent test suite runs cannot stomp
+# on each other's keys.
+# ---------------------------------------------------------------------------
+
+_SPFX = (os.getpid(),)
+
+
+def _key(*parts):
+    """Pack a key within this process's session subspace."""
+    return found.pack(_SPFX + parts)
+
+
+def _pfx(*extra):
+    """Return a tuple prefix rooted in the session subspace."""
+    return _SPFX + extra
+
+
+def _unpack(key):
+    """Unpack a key, stripping the leading session-prefix elements."""
+    return found.unpack(key)[len(_SPFX):]
 
 
 def test_pack_unpack():
@@ -246,7 +270,9 @@ async def open():
     db = await found.open()
 
     async def purge(tx):
-        await found.clear(tx, b"", b"\xff")
+        start = found.pack(_SPFX)
+        end = found.next_prefix(start)
+        await found.clear(tx, start, end)
 
     await found.transactional(db, purge)
 
@@ -257,10 +283,10 @@ async def open():
 async def test_transaction_context_manager_commit():
     db = await open()
     async with found.transaction(db) as tx:
-        await found.set(tx, found.pack((b"ctx",)), b"val")
+        await found.set(tx, _key(b"ctx"), b"val")
 
     async def check(tx):
-        return await found.get(tx, found.pack((b"ctx",)))
+        return await found.get(tx, _key(b"ctx"))
 
     assert await found.transactional(db, check) == b"val"
 
@@ -270,13 +296,13 @@ async def test_transaction_context_manager_no_commit_on_exception():
     db = await open()
     try:
         async with found.transaction(db) as tx:
-            await found.set(tx, found.pack((b"ctx2",)), b"val")
+            await found.set(tx, _key(b"ctx2"), b"val")
             raise RuntimeError("abort")
     except RuntimeError:
         pass
 
     async def check(tx):
-        return await found.get(tx, found.pack((b"ctx2",)))
+        return await found.get(tx, _key(b"ctx2"))
 
     assert await found.transactional(db, check) is None
 
@@ -292,7 +318,7 @@ async def test_get():
     db = await open()
 
     async def test0(tx):
-        out = await found.get(tx, b"test")
+        out = await found.get(tx, _key(b"test"))
         # check
         assert out is None
 
@@ -300,8 +326,8 @@ async def test_get():
     await found.transactional(db, test0)
 
     async def test1(tx):
-        await found.set(tx, b"test", b"test")
-        out = await found.get(tx, b"test")
+        await found.set(tx, _key(b"test"), b"test")
+        out = await found.get(tx, _key(b"test"))
         # check
         assert out == b"test"
 
@@ -316,18 +342,18 @@ async def test_query():
 
     async def set(tx):
         for number in range(10):
-            await found.set(tx, found.pack((number,)), found.pack((str(number),)))
+            await found.set(tx, _key(number), found.pack((str(number),)))
 
     await found.transactional(db, set)
 
     async def query(tx):
-        out = found.query(tx, found.pack((1,)), found.pack((8,)))
+        out = found.query(tx, _key(1), _key(8))
         out = await found.all(out)
         return out
 
     out = await found.transactional(db, query)
     for (key, value), index in zip(out, range(10)[1:-1]):
-        assert found.unpack(key)[0] == index
+        assert _unpack(key)[0] == index
         assert found.unpack(value)[0] == str(index)
 
 
@@ -338,17 +364,17 @@ async def test_query_reverse():
 
     async def set(tx):
         for number in range(11):
-            await found.set(tx, found.pack((number,)), found.pack((str(number),)))
+            await found.set(tx, _key(number), found.pack((str(number),)))
 
     await found.transactional(db, set)
 
     async def query(tx):
-        out = found.query(tx, found.pack((8,)), found.pack((4,)))
+        out = found.query(tx, _key(8), _key(4))
         out = await found.all(out)
         return out
 
     out = await found.transactional(db, query)
-    keys = [found.unpack(k)[0] for k, v in out]
+    keys = [_unpack(k)[0] for k, v in out]
     values = [found.unpack(v)[0] for k, v in out]
     assert keys == list(reversed(range(4, 9)))
     assert values == [str(x) for x in list(reversed(range(4, 9)))]
@@ -359,21 +385,23 @@ async def test_next_prefix():
     # prepare
     db = await open()
 
-    prefix_zero = b"\x00"
-    prefix_one = b"\x01"
+    # Use two integer sub-prefixes within the session subspace
+    subpfx0 = found.pack(_SPFX + (0,))
 
     # exec
     async def test(tx):
-        await found.set(tx, prefix_zero + b"\x01", found.pack((1,)))
-        await found.set(tx, prefix_zero + b"\x02", found.pack((2,)))
-        await found.set(tx, prefix_zero + b"\x03", found.pack((3,)))
-        await found.set(tx, prefix_one + b"\x42", found.pack((42,)))
+        await found.set(tx, found.pack(_SPFX + (0, "a")), found.pack((1,)))
+        await found.set(tx, found.pack(_SPFX + (0, "b")), found.pack((2,)))
+        await found.set(tx, found.pack(_SPFX + (0, "c")), found.pack((3,)))
+        await found.set(tx, found.pack(_SPFX + (1, "x")), found.pack((42,)))
 
     await found.transactional(db, test)
 
     # check
     async def query0(tx):
-        everything = found.query(tx, b"", b"\xff")
+        start = found.pack(_SPFX)
+        end = found.next_prefix(start)
+        everything = found.query(tx, start, end)
         everything = await found.all(everything)
         assert len(everything) == 4
 
@@ -381,7 +409,7 @@ async def test_next_prefix():
 
     # check
     async def query1(tx):
-        everything = found.query(tx, prefix_zero, found.next_prefix(prefix_zero))
+        everything = found.query(tx, subpfx0, found.next_prefix(subpfx0))
         everything = await found.all(everything)
         assert len(everything) == 3
 
@@ -406,12 +434,12 @@ async def test_get_range_split_points():
     # prepare
     db = await open()
 
-    begin = found.pack((0,))
-    end = found.pack((100,))
+    begin = _key(0)
+    end = _key(100)
 
     # populate with a small amount of data (keeps DB size below estimation noise)
     for i in range(10):
-        await found.transactional(db, found.set, found.pack((i,)), b"\x00" * 100)
+        await found.transactional(db, found.set, _key(i), b"\x00" * 100)
 
     # chunk_size of 1 byte asks FDB for as many split points as possible
     out = await found.transactional(db, found.get_range_split_points, begin, end, 1)
@@ -428,25 +456,26 @@ async def test_estimated_size_bytes():
     # prepare
     db = await open()
 
-    # initial check
+    _start = found.pack(_SPFX)
+    _end = found.next_prefix(_start)
 
-    out = await found.transactional(db, found.estimated_size_bytes, b"\x00", b"\xff")
+    # initial check
+    out = await found.transactional(db, found.estimated_size_bytes, _start, _end)
     assert out == 0
 
     # populate with a small set of keys and check
-
     for i in range(10):
-        await found.transactional(db, found.set, bytes((i,)), b"\xff" * found.MAX_SIZE_VALUE)
+        await found.transactional(db, found.set, _key(i), b"\xff" * found.MAX_SIZE_VALUE)
 
-    out = await found.transactional(db, found.estimated_size_bytes, b"\x00", b"\xff")
+    out = await found.transactional(db, found.estimated_size_bytes, _start, _end)
     # below 3 MB the estimated size is less accurate, only check it is positive
     assert 0 < out
 
     # populate with a large set of keys and check
     for i in range(100):
-        await found.transactional(db, found.set, bytes((i,)), b"\xff" * found.MAX_SIZE_VALUE)
+        await found.transactional(db, found.set, _key(i), b"\xff" * found.MAX_SIZE_VALUE)
 
-    out = await found.transactional(db, found.estimated_size_bytes, b"\x00", b"\xff")
+    out = await found.transactional(db, found.estimated_size_bytes, _start, _end)
     # estimated size hence approximate check
     assert abs(out - (found.MAX_SIZE_VALUE * 100)) < found.MAX_SIZE_VALUE
 
@@ -463,7 +492,7 @@ async def test_nstore_empty():
 @pytest.mark.asyncio
 async def test_nstore_simple_single_item_db_subject_lookup():
     db = await open()
-    ntest = nstore.make("test-name", [42], 3)
+    ntest = nstore.make("test-name", list(_pfx(42)), 3)
 
     expected = uuid4()
 
@@ -485,7 +514,7 @@ async def test_nstore_simple_single_item_db_subject_lookup():
 @pytest.mark.asyncio
 async def test_nstore_ask_rm_and_ask():
     db = await open()
-    ntest = nstore.make("test-name", [42], 3)
+    ntest = nstore.make("test-name", list(_pfx(42)), 3)
 
     expected = uuid4()
 
@@ -517,7 +546,7 @@ async def test_nstore_ask_rm_and_ask():
 async def test_nstore_simple_multiple_items_db_subject_lookup():
     db = await open()
 
-    ntest = nstore.make("test-name", [42], 3)
+    ntest = nstore.make("test-name", list(_pfx(42)), 3)
 
     expected = uuid4()
 
@@ -539,7 +568,7 @@ async def test_nstore_simple_multiple_items_db_subject_lookup():
 async def test_nstore_complex():
     db = await open()
 
-    ntest = nstore.make("test-name", [42], 3)
+    ntest = nstore.make("test-name", list(_pfx(42)), 3)
 
     async def prepare(tx):
         hyperdev = uuid4()
@@ -566,7 +595,7 @@ async def test_nstore_complex():
 @pytest.mark.asyncio
 async def test_nstore_seed_subject_variable():
     db = await open()
-    ntest = nstore.make("test-name", [42], 3)
+    ntest = nstore.make("test-name", list(_pfx(42)), 3)
 
     hyperdev = uuid4()
     copernic = uuid4()
@@ -599,7 +628,7 @@ async def test_nstore_seed_subject_variable():
 async def test_nstore_seed_subject_lookup():
     db = await open()
 
-    ntest = nstore.make("test-name", [42], 3)
+    ntest = nstore.make("test-name", list(_pfx(42)), 3)
 
     hyperdev = uuid4()
     copernic = uuid4()
@@ -635,7 +664,7 @@ async def test_nstore_seed_subject_lookup():
 @pytest.mark.asyncio
 async def test_nstore_seed_object_variable():
     db = await open()
-    ntest = nstore.make("test-name", [42], 3)
+    ntest = nstore.make("test-name", list(_pfx(42)), 3)
 
     hyperdev = uuid4()
     copernic = uuid4()
@@ -666,7 +695,7 @@ async def test_nstore_seed_object_variable():
 @pytest.mark.asyncio
 async def test_nstore_subject_variable():
     db = await open()
-    ntest = nstore.make("test-name", [42], 3)
+    ntest = nstore.make("test-name", list(_pfx(42)), 3)
     hyperdev = uuid4()
     post1 = uuid4()
     post2 = uuid4()
@@ -699,7 +728,7 @@ async def test_nstore_subject_variable():
 async def test_nstore_query():
     db = await open()
 
-    ntest = nstore.make("test-name", [42], 3)
+    ntest = nstore.make("test-name", list(_pfx(42)), 3)
 
     async def prepare(tx):
         hyperdev = uuid4()
@@ -737,7 +766,7 @@ async def test_nstore_query():
 async def test_bstore_small():
     db = await open()
 
-    store = bstore.make("bstore-test", (42,))
+    store = bstore.make("bstore-test", _pfx(42))
 
     expected = b"\xbe\xef"
 
@@ -751,7 +780,7 @@ async def test_bstore_small():
 async def test_bstore_large():
     db = await open()
 
-    store = bstore.make("bstore-test", (42,))
+    store = bstore.make("bstore-test", _pfx(42))
 
     expected = b"\xbe\xef" * found.MAX_SIZE_VALUE
 
@@ -765,7 +794,7 @@ async def test_bstore_large():
 async def test_bstore_idempotent():
     db = await open()
 
-    store = bstore.make("bstore-test", (42,))
+    store = bstore.make("bstore-test", _pfx(42))
 
     blob = b"\xbe\xef" * found.MAX_SIZE_VALUE
 
@@ -782,7 +811,7 @@ async def test_bstore_idempotent():
 async def test_eavstore_crud():
     db = await open()
 
-    store = eavstore.make("eavstore-test", (42,))
+    store = eavstore.make("eavstore-test", _pfx(42))
 
     expected = dict(hello="world")
 
@@ -804,7 +833,7 @@ async def test_eavstore_crud():
 async def test_eavstore_crud_2():
     db = await open()
 
-    store = eavstore.make("eavstore-test", (42,))
+    store = eavstore.make("eavstore-test", _pfx(42))
 
     expected = set()
     mydict = dict(key=42)
@@ -874,17 +903,17 @@ async def test_query_with_limit():
 
     async def setup(tx):
         for number in range(10):
-            await found.set(tx, found.pack((number,)), found.pack((str(number),)))
+            await found.set(tx, _key(number), found.pack((str(number),)))
 
     await found.transactional(db, setup)
 
     async def do_query(tx):
-        out = found.query(tx, found.pack((0,)), found.pack((9,)), limit=3)
+        out = found.query(tx, _key(0), _key(9), limit=3)
         return await found.all(out)
 
     out = await found.transactional(db, do_query)
     assert len(out) == 3
-    assert found.unpack(out[0][0])[0] == 0
+    assert _unpack(out[0][0])[0] == 0
 
 
 @pytest.mark.asyncio
@@ -900,7 +929,7 @@ async def test_set_read_version():
     # Now use set_read_version on a fresh transaction
     async def do(tx):
         await found.set_read_version(tx, version)
-        out = await found.get(tx, b"nonexistent")
+        out = await found.get(tx, _key(b"nonexistent"))
         assert out is None
 
     await found.transactional(db, do)
@@ -910,7 +939,7 @@ async def test_set_read_version():
 async def test_watch():
     db = await open()
 
-    key = b"watch_test_key"
+    key = _key(b"watch_test_key")
 
     # Set initial value
     await found.transactional(db, found.set, key, b"initial")
@@ -939,18 +968,18 @@ async def test_clear_single_key():
     db = await open()
 
     async def setup(tx):
-        await found.set(tx, b"clearme", b"value")
+        await found.set(tx, _key(b"clearme"), b"value")
 
     await found.transactional(db, setup)
 
     async def verify_exists(tx):
-        return await found.get(tx, b"clearme")
+        return await found.get(tx, _key(b"clearme"))
 
     out = await found.transactional(db, verify_exists)
     assert out == b"value"
 
     async def do_clear(tx):
-        await found.clear(tx, b"clearme")
+        await found.clear(tx, _key(b"clearme"))
 
     await found.transactional(db, do_clear)
 
@@ -963,7 +992,7 @@ async def test_atomic_add():
     db = await open()
     import struct
 
-    key = b"counter"
+    key = _key(b"counter")
 
     async def setup(tx):
         await found.set(tx, key, struct.pack("<q", 0))
@@ -997,7 +1026,7 @@ async def test_peace_search_store():
 
     db = await open()
 
-    store = pstore.make("test-pstore", (42,))
+    store = pstore.make("test-pstore", _pfx(42))
 
     DOC0 = dict(
         foundationdb=1,
@@ -1028,7 +1057,7 @@ async def test_peace_search_store():
 async def test_append_if_fits():
     db = await open()
 
-    key = b"append_test"
+    key = _key(b"append_test")
 
     async def setup(tx):
         await found.set(tx, key, b"hello")
@@ -1051,7 +1080,7 @@ async def test_append_if_fits():
 async def test_compare_and_clear():
     db = await open()
 
-    key = b"cac_test"
+    key = _key(b"cac_test")
 
     # Set key, then compare_and_clear with matching value — key should be gone
     async def setup(tx):
@@ -1094,7 +1123,7 @@ def test_get_client_version():
 async def test_get_addresses_for_key():
     db = await open()
 
-    key = b"addr_test"
+    key = _key(b"addr_test")
 
     # Write a key so storage servers have it
     await found.transactional(db, found.set, key, b"value")
@@ -1130,9 +1159,6 @@ def test_error_predicate():
 # vnstore tests
 
 
-
-
-
 @pytest.mark.asyncio
 async def test_vnstore_empty():
     ntest = vnstore.make("test-name", ["subspace-42"], ["uid", "key", "value"])
@@ -1142,7 +1168,7 @@ async def test_vnstore_empty():
 @pytest.mark.asyncio
 async def test_vnstore_query_zero():
     db = await open()
-    ntest = vnstore.make("test-name", [42], ["uid", "key", "value"])
+    ntest = vnstore.make("test-name", list(_pfx(42)), ["uid", "key", "value"])
 
     for i in range(10):
         expected = uuid4()
@@ -1193,7 +1219,7 @@ async def test_vnstore_query_zero():
 @pytest.mark.asyncio
 async def test_vnstore_query():
     db = await open()
-    ntest = vnstore.make("test-name", [42], ["uid", "key", "value"])
+    ntest = vnstore.make("test-name", list(_pfx(42)), ["uid", "key", "value"])
     euid = uuid4()
 
     for i in range(10):
@@ -1252,7 +1278,7 @@ async def test_vnstore_query():
 @pytest.mark.asyncio
 async def test_vnstore_change_list():
     db = await open()
-    ntest = vnstore.make("test-name", [42], ["uid", "key", "value"])
+    ntest = vnstore.make("test-name", list(_pfx(42)), ["uid", "key", "value"])
 
     c1 = await found.transactional(db, vnstore.change_create, ntest)
     c2 = await found.transactional(db, vnstore.change_create, ntest)
@@ -1266,7 +1292,7 @@ async def test_vnstore_change_list():
 @pytest.mark.asyncio
 async def test_vnstore_change_message():
     db = await open()
-    ntest = vnstore.make("test-name", [42], ["uid", "key", "value"])
+    ntest = vnstore.make("test-name", list(_pfx(42)), ["uid", "key", "value"])
 
     changeid = await found.transactional(db, vnstore.change_create, ntest)
 
@@ -1282,7 +1308,7 @@ async def test_vnstore_change_message():
 @pytest.mark.asyncio
 async def test_vnstore_change_changes():
     db = await open()
-    ntest = vnstore.make("test-name", [42], ["uid", "key", "value"])
+    ntest = vnstore.make("test-name", list(_pfx(42)), ["uid", "key", "value"])
 
     changeid = await found.transactional(db, vnstore.change_create, ntest)
 
@@ -1300,7 +1326,7 @@ async def test_vnstore_change_changes():
 @pytest.mark.asyncio
 async def test_vnstore_where():
     db = await open()
-    ntest = vnstore.make("test-name", [42], ["uid", "key", "value"])
+    ntest = vnstore.make("test-name", list(_pfx(42)), ["uid", "key", "value"])
 
     uid1 = uuid4()
 
@@ -1329,7 +1355,7 @@ async def test_vnstore_where():
 @pytest.mark.asyncio
 async def test_vnstore_change_apply_twice():
     db = await open()
-    ntest = vnstore.make("test-name", [42], ["uid", "key", "value"])
+    ntest = vnstore.make("test-name", list(_pfx(42)), ["uid", "key", "value"])
 
     changeid = await found.transactional(db, vnstore.change_create, ntest)
 
@@ -1354,7 +1380,7 @@ async def test_vnstore_change_apply_twice():
 @pytest.mark.asyncio
 async def test_vnstore_change_get_nonexistent():
     db = await open()
-    ntest = vnstore.make("test-name", [42], ["uid", "key", "value"])
+    ntest = vnstore.make("test-name", list(_pfx(42)), ["uid", "key", "value"])
 
     out = await found.transactional(db, vnstore.change_get, ntest, uuid4())
     assert out is None
@@ -1369,7 +1395,7 @@ async def test_vnstore_get_not_implemented():
 @pytest.mark.asyncio
 async def test_vnstore_remove_nonexistent():
     db = await open()
-    ntest = vnstore.make("test-name", [42], ["uid", "key", "value"])
+    ntest = vnstore.make("test-name", list(_pfx(42)), ["uid", "key", "value"])
 
     changeid = await found.transactional(db, vnstore.change_create, ntest)
 
