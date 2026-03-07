@@ -35,6 +35,22 @@ this.](WHY.md)
 - [FoundationDB Forum](https://forums.foundationdb.org/)
 - [FoundationDB Documentation](https://apple.github.io/foundationdb/)
 
+## Table of Contents
+
+| Section | Summary |
+|---------|---------|
+| [Installation](#installation) | pip install instructions, optional server extras |
+| [Example](#example) | Minimal get/set/query snippet to get started |
+| [ChangeLog](#changelog) | Release history and migration notes |
+| [`import found`](#import-found) | Core API: open, transactional, get, set, query, tuple layer, atomic ops |
+| [`bstore`](#from-foundext-import-bstore) | Content-addressable blob store with blake2b deduplication |
+| [`nstore`](#from-foundext-import-nstore) | N-tuple store with pattern-matching queries and automatic indexing |
+| [`eavstore`](#from-foundext-import-eavstore) | Entity-Attribute-Value store for schema-free dicts |
+| [`pstore`](#from-foundext-import-pstore) | Inverted index for relevance-ranked keyword search |
+| [`vnstore`](#from-foundext-import-vnstore) | Versioned N-tuple store with auditable change-sets |
+| [`vnstore.server`](#from-foundextvnstore-import-server) | ASGI HTTP server exposing a vnstore over a browser UI |
+| [`pool`](#from-foundext-import-pool) | Thread-pool fan-out utility for parallel async/blocking work |
+
 ## Installation
 
 In a minute, install FoundationDB 7.3+, getting the latest stable release
